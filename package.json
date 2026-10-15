@@ -1,0 +1,1 @@
+{"name":"limo-ai-studio-v2","version":"0.2.0","private":true,"scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview --host 0.0.0.0"},"devDependencies":{"vite":"^5.4.11"}}
