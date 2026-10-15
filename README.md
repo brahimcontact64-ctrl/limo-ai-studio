@@ -1,3 +1,4 @@
+# LIMO AI Studio
 # LIMO AI Studio v2 — Safe UI Prototype
 
 A multilingual (Arabic, French, English, German) social content workspace inspired by social media dashboards. Facebook is preview-only; all other platforms are marked Coming Soon. Three selectable presenter concepts, chat-like content brief builder, local draft saving and export.
