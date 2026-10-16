@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useEffect, useRef, useTransition } from 'react';
 import { Logo } from '@/components/brand/Logo';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useI18n } from '@/lib/i18n/client';
+import { fmt } from '@/lib/i18n/config';
 import { setActiveOrgAction } from '@/lib/data/actions';
 
 export interface ShellProps {
@@ -15,6 +16,7 @@ export interface ShellProps {
   role: string | null;
   memberships: Array<{ organization_id: string; name: string }>;
   isPlatformAdmin: boolean;
+  plan: { name: string | null; active: boolean; slotsUsed: number | null; slotsTotal: number | null };
   children: React.ReactNode;
 }
 
@@ -36,54 +38,96 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function WorkspaceSwitcher({ orgId, memberships }: { orgId: string | null; memberships: ShellProps['memberships'] }) {
+function WorkspaceChip({ orgId, orgName, role, memberships }: Pick<ShellProps, 'orgId' | 'orgName' | 'role' | 'memberships'>) {
   const { t } = useI18n();
   const router = useRouter();
   const [pending, start] = useTransition();
-  if (memberships.length < 2) return null;
+  const roleLabel = role && role in t.app.role ? t.app.role[role as keyof typeof t.app.role] : null;
   return (
-    <label>
-      <span className="sr-only">{t.app.switchWorkspace}</span>
-      <select
-        className="select"
-        value={orgId ?? ''}
-        disabled={pending}
-        onChange={(e) => {
-          const id = e.target.value;
-          start(async () => {
-            await setActiveOrgAction(id);
-            router.push('/app');
-            router.refresh();
-          });
-        }}
-      >
-        {memberships.map((m) => (
-          <option key={m.organization_id} value={m.organization_id}>
-            {m.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="workspace-chip">
+      <span className="avatar" aria-hidden="true">
+        {(orgName ?? 'W').trim().charAt(0)}
+      </span>
+      <span style={{ minWidth: 0 }}>
+        {memberships.length > 1 ? (
+          <label>
+            <span className="sr-only">{t.app.switchWorkspace}</span>
+            <select
+              value={orgId ?? ''}
+              disabled={pending}
+              onChange={(e) => {
+                const id = e.target.value;
+                start(async () => {
+                  await setActiveOrgAction(id);
+                  router.push('/app');
+                  router.refresh();
+                });
+              }}
+            >
+              {memberships.map((m) => (
+                <option key={m.organization_id} value={m.organization_id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <b title={orgName ?? undefined}>{orgName ?? '—'}</b>
+        )}
+        {roleLabel && <small>{roleLabel}</small>}
+      </span>
+    </div>
   );
 }
 
-function SignOutButton({ compact = false }: { compact?: boolean }) {
+function UserMenu({ email }: { email: string }) {
   const { t } = useI18n();
+  const ref = useRef<HTMLDetailsElement>(null);
+  const pathname = usePathname();
+  useEffect(() => {
+    if (ref.current) ref.current.open = false;
+  }, [pathname]);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current?.open && !ref.current.contains(e.target as Node)) ref.current.open = false;
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
   return (
-    <form action="/auth/signout" method="post">
-      <button type="submit" className={`btn btn-ghost ${compact ? 'btn-icon' : 'btn-sm'}`} aria-label={t.common.signOut} title={t.common.signOut}>
-        <Icon name="logout" className="flip-rtl" />
-        {!compact && <span>{t.common.signOut}</span>}
-      </button>
-    </form>
+    <details className="menu user-menu" ref={ref}>
+      <summary className="avatar" aria-label={t.app.account} title={email}>
+        {email.charAt(0)}
+      </summary>
+      <div className="menu-list" role="menu">
+        <div className="user-menu-head">
+          <b>{t.app.account}</b>
+          <span className="ltr">{email}</span>
+        </div>
+        <Link className="menu-item" href="/app/settings" role="menuitem">
+          <Icon name="settings" />
+          {t.nav.settings}
+        </Link>
+        <Link className="menu-item" href="/app/billing" role="menuitem">
+          <Icon name="card" />
+          {t.nav.billing}
+        </Link>
+        <form action="/auth/signout" method="post">
+          <button type="submit" className="menu-item danger" role="menuitem">
+            <Icon name="logout" className="flip-rtl" />
+            {t.common.signOut}
+          </button>
+        </form>
+      </div>
+    </details>
   );
 }
 
-export function AppShell({ email, orgId, orgName, role, memberships, isPlatformAdmin, children }: ShellProps) {
+export function AppShell({ email, orgId, orgName, role, memberships, isPlatformAdmin, plan, children }: ShellProps) {
   const { t } = useI18n();
   const pathname = usePathname();
   const nav = useNav(isPlatformAdmin);
-  const roleLabel = role && role in t.app.role ? t.app.role[role as keyof typeof t.app.role] : null;
+  const slotsLeft = plan.slotsTotal !== null && plan.slotsUsed !== null ? Math.max(0, plan.slotsTotal - plan.slotsUsed) : null;
   return (
     <div className="shell">
       <aside className="sidebar" aria-label={t.nav.mainNavigation}>
@@ -103,34 +147,34 @@ export function AppShell({ email, orgId, orgName, role, memberships, isPlatformA
           ))}
         </nav>
         <div className="sidebar-foot">
-          <div className="workspace-card">
-            <span>{t.app.workspace}</span>
-            <b title={orgName ?? undefined}>{orgName ?? '—'}</b>
-            {roleLabel && <span>{roleLabel}</span>}
-            <WorkspaceSwitcher orgId={orgId} memberships={memberships} />
-          </div>
-          <LocaleSwitcher />
-          <div className="user-row">
-            <span title={email}>{email}</span>
-            <SignOutButton compact />
-          </div>
+          <Link href="/app/billing" className="side-card">
+            <span>{plan.name ?? t.dashboard.noPlan}</span>
+            <b>{slotsLeft !== null ? fmt(t.app.slotsLeft, { n: slotsLeft }) : plan.active ? t.billing.status.active : t.app.viewPlans}</b>
+            {slotsLeft !== null && plan.slotsTotal ? (
+              <div className="meter-track" aria-hidden="true">
+                <div className="meter-fill" style={{ width: `${Math.min(100, Math.round(((plan.slotsUsed ?? 0) / plan.slotsTotal) * 100))}%` }} />
+              </div>
+            ) : null}
+          </Link>
         </div>
       </aside>
 
       <div className="content has-mobile-nav">
-        <header className="topbar mobile-only">
-          <Link href="/app" aria-label={t.common.brand}>
+        <header className="topbar">
+          <Link href="/app" className="only-mobile" aria-label={t.common.brand}>
             <Logo compact />
           </Link>
-          <span className="small muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {orgName}
-          </span>
+          <WorkspaceChip orgId={orgId} orgName={orgName} role={role} memberships={memberships} />
           <span className="spacer" />
+          <span className="secure-pill">
+            <Icon name="lock" size={13} />
+            {t.app.protectedWorkspace}
+          </span>
           <LocaleSwitcher compact />
-          <Link href="/app/projects/new" className="btn btn-primary btn-icon btn-sm" aria-label={t.nav.newProject}>
+          <Link href="/app/projects/new" className="btn btn-primary btn-icon only-mobile" aria-label={t.nav.newProject}>
             <Icon name="plus" />
           </Link>
-          <SignOutButton compact />
+          <UserMenu email={email} />
         </header>
         <main id="main">{children}</main>
       </div>

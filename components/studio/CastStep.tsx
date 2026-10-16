@@ -54,7 +54,7 @@ export function CastStep({
         lead={t.studio.cast.lead}
         aside={
           <div className="row">
-            <span className="badge badge-lime plain mono ltr" aria-live="polite">
+            <span className="badge badge-accent plain mono ltr" aria-live="polite">
               {fmt(t.studio.cast.selected, { n: draft.cast.length, max: LIMITS.castMax })}
             </span>
             {draft.cast.length > 0 && (

@@ -59,6 +59,7 @@ test('sign in → create → save → reload → edit → dashboard → delete �
   await expect(page.getByText('Project deleted.')).toBeVisible();
   await expect(page.locator('.project-row', { hasText: title })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Sign out' }).first().click();
+  await page.getByLabel('Account').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await page.waitForURL('**/login');
 });

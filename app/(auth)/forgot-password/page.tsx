@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { getI18n } from '@/lib/i18n/server';
+import { AuthCard } from '@/components/auth/AuthCard';
 import { ForgotPasswordForm } from '@/components/auth/AuthForms';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -11,14 +12,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function Page() {
   const { t } = await getI18n();
   return (
-    <div className="auth-card">
-      <div>
-        <h1>{t.auth.forgotTitle}</h1>
-        <p className="lead">{t.auth.forgotLead}</p>
-      </div>
+    <AuthCard
+      t={t}
+      title={t.auth.forgotTitle}
+      lead={t.auth.forgotLead}
+    >
       <Suspense>
         <ForgotPasswordForm />
       </Suspense>
-    </div>
+    </AuthCard>
   );
 }

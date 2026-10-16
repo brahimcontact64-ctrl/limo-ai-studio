@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Bricolage_Grotesque, Geist, Geist_Mono, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { Inter, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import '../styles/tokens.css';
 import '../styles/base.css';
 import '../styles/components.css';
@@ -9,9 +9,7 @@ import { getI18n } from '@/lib/i18n/server';
 import { I18nProvider } from '@/lib/i18n/client';
 import { ToastProvider } from '@/components/ui/Toast';
 
-const display = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-bricolage', display: 'swap' });
-const ui = Geist({ subsets: ['latin'], variable: '--font-geist', display: 'swap' });
-const mono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono', display: 'swap' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const arabic = IBM_Plex_Sans_Arabic({
   subsets: ['arabic'],
   weight: ['400', '500', '600', '700'],
@@ -31,8 +29,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0c0d0a',
-  colorScheme: 'dark',
+  themeColor: '#f7f7fb',
+  colorScheme: 'light',
   width: 'device-width',
   initialScale: 1,
 };
@@ -40,7 +38,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { locale, dir, t } = await getI18n();
   return (
-    <html lang={locale} dir={dir} className={`${display.variable} ${ui.variable} ${mono.variable} ${arabic.variable}`}>
+    <html lang={locale} dir={dir} className={`${inter.variable} ${arabic.variable}`}>
       <body>
         <a className="skip-link" href="#main">
           {t.common.skipToContent}

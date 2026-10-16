@@ -17,7 +17,7 @@ body {
   color: var(--text);
   font-family: var(--font-ui);
   font-size: var(--fs-md);
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -34,8 +34,8 @@ h3,
 h4 {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: -0.025em;
   line-height: 1.1;
   text-wrap: balance;
 }
@@ -85,8 +85,8 @@ ol {
 }
 
 ::selection {
-  background: var(--lime);
-  color: var(--lime-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 :focus-visible {
@@ -95,9 +95,11 @@ ol {
   border-radius: var(--r-sm);
 }
 
+/* Original design uses Inter throughout; numbers use tabular figures for alignment. */
 .mono,
 .timecode {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   letter-spacing: 0;
 }
@@ -130,8 +132,8 @@ ol {
   top: -100px;
   z-index: 100;
   padding: var(--sp-2) var(--sp-4);
-  background: var(--lime);
-  color: var(--lime-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
   border-radius: var(--r-md);
   font-weight: 600;
 }

@@ -8,7 +8,7 @@ const STATUS_TONE: Record<ProjectStatus, string> = {
   ready: 'badge-info',
   queued: 'badge-warning',
   generating: 'badge-warning',
-  generated: 'badge-lime',
+  generated: 'badge-accent',
   approved: 'badge-success',
   archived: '',
 };

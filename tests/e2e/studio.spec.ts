@@ -116,7 +116,8 @@ test('create, save, reload and edit a studio project', async ({ page }, info) =>
   await expect(page.getByRole('link', { name: title })).toBeVisible();
 
   // Sign out
-  await page.getByRole('button', { name: 'Sign out' }).first().click();
+  await page.getByLabel('Account').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await page.waitForURL('**/login');
   await page.goto('/app');
   await expect(page).toHaveURL(/\/login\?next=/);

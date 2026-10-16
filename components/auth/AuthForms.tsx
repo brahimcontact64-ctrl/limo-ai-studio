@@ -79,7 +79,7 @@ export function SignInForm() {
         {busy ? t.common.loading : t.common.signIn}
       </button>
       <p className="auth-alt">
-        {t.auth.noAccount} <Link href="/signup">{t.common.signUp}</Link>
+        <Link href="/signup">{t.auth.newCustomer}</Link>
       </p>
     </form>
   );
@@ -174,7 +174,7 @@ export function SignUpForm() {
         )}
       </p>
       <p className="auth-alt">
-        {t.auth.haveAccount} <Link href="/login">{t.common.signIn}</Link>
+        <Link href="/login">{t.auth.existingCustomer}</Link>
       </p>
     </form>
   );

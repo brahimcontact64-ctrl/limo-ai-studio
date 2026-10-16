@@ -1,70 +1,83 @@
 /* LIMO AI Studio — design tokens
-   Dark-first. Warm near-black surfaces, warm-white type, a single citrus accent used sparingly,
-   and three family colours reserved for the cast (tomato, strawberry, potato). */
+   Restored from the owner-approved original (limo-ai-studio-fh1bhpfuh, staging v0.8):
+   lavender canvas, white rounded cards with soft violet shadows, purple gradient actions,
+   heavy Inter typography, dark aubergine app sidebar. Family colours stay reserved for the cast. */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Surfaces */
-  --bg: #0c0d0a;
-  --bg-raised: #111210;
-  --surface-1: #161714;
-  --surface-2: #1c1d19;
-  --surface-3: #242520;
-  --surface-hover: #2a2c25;
-  --overlay: rgb(6 7 5 / 0.72);
+  /* Canvas & surfaces */
+  --bg: #f7f7fb;
+  --bg-raised: #ffffff;
+  --surface-1: #ffffff;
+  --surface-2: #f7f5ff;
+  --surface-3: #efecf7;
+  --surface-hover: #f3f0fc;
+  --overlay: rgb(24 20 33 / 0.42);
 
   /* Lines */
-  --line: #272822;
-  --line-strong: #383a32;
-  --line-focus: var(--lime);
+  --line: #eae7ef;
+  --line-strong: #ddd8e6;
+  --line-focus: var(--accent);
 
   /* Type */
-  --text: #f3f0e7;
-  --text-2: #bdb9ac;
-  --text-3: #8b887c;
-  --text-4: #66645b;
+  --text: #211e2b;
+  --text-2: #4d4858;
+  --text-3: #777180;
+  --text-4: #a39dab;
+  --eyebrow: #877f92;
 
-  /* Citrus accent */
-  --lime: #c8f03c;
-  --lime-hover: #d6fa5a;
-  --lime-ink: #151b00;
-  --lime-soft: rgb(200 240 60 / 0.1);
-  --lime-line: rgb(200 240 60 / 0.32);
+  /* Purple accent */
+  --accent: #7157ef;
+  --accent-hover: #5f45e0;
+  --accent-ink: #ffffff;
+  --accent-gradient: linear-gradient(135deg, #7056ed, #927dff);
+  --accent-gradient-hover: linear-gradient(135deg, #6448e6, #8a73fb);
+  --accent-soft: #f7f5ff;
+  --accent-soft-strong: #ece7ff;
+  --accent-line: #c9bdfb;
+  --accent-ring: 0 0 0 3px rgb(113 87 239 / 0.14);
+
+  /* App sidebar (original dark aubergine) */
+  --side-bg: #181421;
+  --side-text: #bbb5c7;
+  --side-active: #2b2539;
+  --side-card: #252033;
+  --side-line: #383146;
 
   /* Cast families */
-  --tomato: #ef5a3c;
-  --tomato-soft: rgb(239 90 60 / 0.14);
-  --strawberry: #ec4f7a;
-  --strawberry-soft: rgb(236 79 122 / 0.14);
-  --potato: #d4a75a;
-  --potato-soft: rgb(212 167 90 / 0.14);
-  --leaf: #5fae55;
+  --tomato: #e8553a;
+  --tomato-soft: #fff0ec;
+  --strawberry: #e5487a;
+  --strawberry-soft: #fff0f5;
+  --potato: #c9973f;
+  --potato-soft: #fbf4e6;
+  --leaf: #4fa548;
 
   /* Status */
-  --success: #7fd394;
-  --success-soft: rgb(127 211 148 / 0.12);
-  --warning: #f2b84b;
-  --warning-soft: rgb(242 184 75 / 0.12);
-  --danger: #ff6f5e;
-  --danger-soft: rgb(255 111 94 / 0.12);
-  --info: #8fb8ff;
-  --info-soft: rgb(143 184 255 / 0.12);
+  --success: #2f7d52;
+  --success-soft: #eaf9f0;
+  --warning: #93620a;
+  --warning-soft: #fff6e2;
+  --danger: #c2412f;
+  --danger-soft: #fdeeeb;
+  --info: #3c5ccf;
+  --info-soft: #edf2ff;
 
   /* Type families (next/font variables) */
-  --font-display: var(--font-bricolage), var(--font-plex-arabic), ui-sans-serif, system-ui, sans-serif;
-  --font-ui: var(--font-geist), var(--font-plex-arabic), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-display: var(--font-inter), var(--font-plex-arabic), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-ui: var(--font-inter), var(--font-plex-arabic), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, monospace;
 
   /* Type scale */
   --fs-xs: 0.75rem;
-  --fs-sm: 0.8125rem;
+  --fs-sm: 0.875rem;
   --fs-md: 0.9375rem;
   --fs-lg: 1.0625rem;
   --fs-xl: 1.25rem;
   --fs-2xl: 1.625rem;
-  --fs-3xl: clamp(2rem, 3.2vw, 2.5rem);
-  --fs-display: clamp(2.6rem, 6.4vw, 5.25rem);
+  --fs-3xl: clamp(1.9rem, 3.2vw, 2.6rem);
+  --fs-display: clamp(2.25rem, 5.2vw, 3.625rem);
 
   /* Spacing (4px grid) */
   --sp-1: 4px;
@@ -79,18 +92,18 @@
   --sp-16: 64px;
   --sp-24: 96px;
 
-  /* Radii */
-  --r-xs: 4px;
-  --r-sm: 6px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-xl: 16px;
+  /* Radii — original uses generous rounding */
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
   --r-pill: 999px;
 
   /* Elevation */
-  --shadow-1: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-2: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 12px 32px -12px rgb(0 0 0 / 0.6);
-  --shadow-pop: 0 24px 64px -16px rgb(0 0 0 / 0.75), 0 0 0 1px var(--line-strong);
+  --shadow-1: 0 1px 2px rgb(37 27 70 / 0.04);
+  --shadow-2: 0 16px 46px rgb(37 27 70 / 0.07);
+  --shadow-pop: 0 24px 64px -12px rgb(37 27 70 / 0.22), 0 0 0 1px var(--line);
 
   /* Motion */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -100,14 +113,14 @@
 
   /* Layout */
   --gutter: 16px;
-  --container: 1200px;
-  --sidebar-w: 248px;
-  --topbar-h: 56px;
+  --container: 1180px;
+  --sidebar-w: 260px;
+  --topbar-h: 64px;
 }
 
 @media (min-width: 768px) {
   :root {
-    --gutter: 24px;
+    --gutter: 22px;
   }
 }
 

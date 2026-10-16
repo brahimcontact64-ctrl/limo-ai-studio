@@ -7,11 +7,11 @@ import type { Dictionary } from '@/lib/i18n/dictionaries/en';
 
 export function SiteHeader({ t, signedIn }: { t: Dictionary; signedIn: boolean }) {
   const links = [
+    { href: '/#safety', label: t.nav.safety },
     { href: '/#how', label: t.nav.howItWorks },
     { href: '/#characters', label: t.nav.characters },
-    { href: '/#use-cases', label: t.nav.useCases },
-    { href: '/pricing', label: t.nav.pricing },
-    { href: '/faq', label: t.nav.faq },
+    { href: '/#pricing', label: t.nav.pricing },
+    { href: signedIn ? '/app' : '/login', label: t.nav.customerLogin },
   ];
   return (
     <header className="site-header">
@@ -30,22 +30,11 @@ export function SiteHeader({ t, signedIn }: { t: Dictionary; signedIn: boolean }
           <span className="hide-sm">
             <LocaleSwitcher compact />
           </span>
-          {signedIn ? (
-            <Link className="btn btn-primary" href="/app">
-              {t.common.openStudio}
-            </Link>
-          ) : (
-            <>
-              <Link className="btn btn-ghost hide-sm" href="/login">
-                {t.common.signIn}
-              </Link>
-              <Link className="btn btn-primary" href="/signup">
-                {t.common.signUp}
-              </Link>
-            </>
-          )}
+          <Link className="btn btn-primary" href={signedIn ? '/app' : '/signup'}>
+            {signedIn ? t.common.openStudio : t.home.navCta}
+          </Link>
           <details className="mobile-menu">
-            <summary className="btn btn-ghost btn-icon" aria-label={t.nav.menu}>
+            <summary className="btn btn-icon" aria-label={t.nav.menu}>
               <Icon name="menu" />
             </summary>
             <div className="mobile-menu-panel">
@@ -54,7 +43,7 @@ export function SiteHeader({ t, signedIn }: { t: Dictionary; signedIn: boolean }
                   {l.label}
                 </Link>
               ))}
-              {!signedIn && <Link href="/login">{t.common.signIn}</Link>}
+              <Link href="/faq">{t.nav.faq}</Link>
               <div style={{ padding: '8px 12px' }}>
                 <LocaleSwitcher />
               </div>
@@ -69,12 +58,7 @@ export function SiteHeader({ t, signedIn }: { t: Dictionary; signedIn: boolean }
 export function SiteFooter({ t }: { t: Dictionary }) {
   return (
     <footer className="site-footer">
-      <div className="container site-footer-inner">
-        <div className="stack" style={{ gap: 12 }}>
-          <Logo />
-          <p>{t.footer.tagline}</p>
-          <p className="xsmall">{fmt(t.footer.rights, { year: new Date().getFullYear() })}</p>
-        </div>
+      <div className="site-footer-inner">
         <nav aria-label={t.nav.product}>
           <Link href="/pricing">{t.nav.pricing}</Link>
           <Link href="/faq">{t.nav.faq}</Link>
@@ -83,6 +67,9 @@ export function SiteFooter({ t }: { t: Dictionary }) {
           <Link href="/legal/privacy">{t.nav.privacy}</Link>
         </nav>
         <LocaleSwitcher />
+        <p className="row" style={{ justifyContent: 'center', gap: 6 }}>
+          <Logo compact /> {fmt(t.footer.rights, { year: new Date().getFullYear() })} · {t.footer.tagline}
+        </p>
       </div>
     </footer>
   );

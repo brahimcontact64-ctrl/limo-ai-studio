@@ -1,18 +1,18 @@
 /**
- * LIMO mark: a citrus cross-section that doubles as a film reel —
- * three segments read as reel windows around a hub.
+ * LIMO mark: the lemon from the original approved site (previously the 🍋 emoji),
+ * drawn as SVG so it renders identically on every platform.
  */
-export function LogoMark({ size = 28, className }: { size?: number; className?: string }) {
+export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
   return (
+    // Solid fills only: a shared gradient id breaks when the defining instance is display:none.
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <circle cx="16" cy="16" r="14.5" fill="var(--lime)" />
-      <circle cx="16" cy="16" r="11.6" fill="var(--bg)" />
-      <g fill="var(--lime)">
-        <path d="M16 6.4a9.6 9.6 0 0 1 8.3 4.8L17.4 15a1.6 1.6 0 0 0-1.4-.8V6.4Z" />
-        <path d="M24.3 20.8A9.6 9.6 0 0 1 16 25.6V17.8a1.6 1.6 0 0 0 1.4-.8l6.9 3.8Z" opacity="0.9" />
-        <path d="M7.7 20.8a9.6 9.6 0 0 1 0-9.6l6.9 3.8a1.6 1.6 0 0 0 0 2l-6.9 3.8Z" opacity="0.8" />
-      </g>
-      <circle cx="16" cy="16" r="1.6" fill="var(--lime)" />
+      <path d="M8.6 9.4C12.4 5.7 19.5 5.9 23.6 10c4.1 4 4.4 11.1.7 14.9-3.8 3.7-11 3.6-15-.5-4.2-4.1-4.5-11.2-.7-15z" fill="#f6b922" />
+      <path d="M9.6 10.3c3.4-3.2 9.4-3 12.9.6 3.3 3.3 3.8 8.9 1.2 12.4-3.4 2.6-9.3 2.2-12.7-1.2-3.4-3.4-4.3-8.6-1.4-11.8z" fill="#ffd43b" />
+      <path d="M24.3 24.9c.9.9 2.1 1.3 2.7 1-.1-.7-.6-1.8-1.4-2.6z" fill="#f2a915" />
+      <path d="M8.6 9.4c-.9-.9-1.3-2.1-1-2.7.7.1 1.8.6 2.6 1.4z" fill="#e8a014" />
+      <path d="M10.2 7.9c1.6-3.6 5.1-5.3 8.6-4.6-1.2 3.3-4.6 5.3-8.6 4.6z" fill="#5db84f" />
+      <path d="M10.2 7.9c2.6-1.4 5.3-2.6 8.6-4.6" stroke="#3f8f37" strokeWidth="0.8" fill="none" strokeLinecap="round" />
+      <ellipse cx="13" cy="12.5" rx="3.2" ry="1.6" transform="rotate(-38 13 12.5)" fill="#fffbd6" opacity="0.7" />
     </svg>
   );
 }
@@ -23,8 +23,7 @@ export function Logo({ compact = false }: { compact?: boolean }) {
       <LogoMark />
       {!compact && (
         <span className="logo-word">
-          <b>LIMO</b>
-          <span>AI Studio</span>
+          <b>LIMO AI</b>
         </span>
       )}
     </span>
