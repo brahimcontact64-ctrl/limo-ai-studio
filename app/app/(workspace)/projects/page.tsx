@@ -27,9 +27,9 @@ export default async function ProjectsPage() {
         </div>
         {ctx.canEdit && (
           <div className="page-actions">
-            <Link className="btn btn-primary" href="/app/projects/new">
+            <Link className="btn btn-primary" href="/app/create">
               <Icon name="plus" />
-              {t.nav.newProject}
+              {t.nav.create}
             </Link>
           </div>
         )}

@@ -1,3 +1,5 @@
+import type { Brief, CreationMode } from '../create/modes.ts';
+
 export type ProjectStatus = 'draft' | 'ready' | 'queued' | 'generating' | 'generated' | 'approved' | 'archived';
 
 export const EDITABLE_STATUSES: ReadonlyArray<ProjectStatus> = ['draft', 'ready'];
@@ -19,13 +21,19 @@ export interface SceneDraft {
   music_prompt: string;
   transition_out: string;
   continuity_notes: string;
+  narration: string;
+  visual_prompt: string;
+  /** Workspace media (media_assets ids) used by this scene. */
+  asset_ids: string[];
 }
 
-export type SceneTextField = Exclude<keyof SceneDraft, 'key' | 'duration_seconds' | 'participants'>;
+export type SceneTextField = Exclude<keyof SceneDraft, 'key' | 'duration_seconds' | 'participants' | 'asset_ids'>;
 
 export interface ProjectDraft {
   id: string | null;
   title: string;
+  creation_mode: CreationMode;
+  creation_brief: Brief;
   content_type: string;
   language_code: string;
   brief: string;
@@ -40,6 +48,8 @@ export interface ProjectDraft {
 export interface SaveProjectRequest {
   project_id: string | null;
   title: string;
+  creation_mode: CreationMode;
+  creation_brief: Brief;
   content_type: string;
   language_code: string;
   brief: string;

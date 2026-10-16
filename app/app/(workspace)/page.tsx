@@ -58,9 +58,9 @@ export default async function DashboardPage() {
           <p>{t.dashboard.lead}</p>
         </div>
         <div className="page-actions">
-          <Link className="btn btn-primary" href="/app/projects/new">
+          <Link className="btn btn-primary" href="/app/create">
             <Icon name="plus" />
-            {t.nav.newProject}
+            {t.nav.create}
           </Link>
         </div>
       </div>
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
               <div className="empty">
                 <h3>{t.dashboard.emptyTitle}</h3>
                 <p>{t.dashboard.emptyBody}</p>
-                <Link className="btn btn-primary" href="/app/projects/new">
+                <Link className="btn btn-primary" href="/app/create">
                   {t.dashboard.createFirst}
                 </Link>
               </div>
@@ -125,6 +125,7 @@ export default async function DashboardPage() {
                       <StatusBadge status={p.status} t={t} />
                     </div>
                     <div className="project-meta">
+                      <span>{t.create.modes[p.creation_mode].name}</span>
                       <span>{plural(p.scene_count, t.projects.scene, t.projects.scenes)}</span>
                       <span className="mono ltr">{formatDuration(t, p.total_duration_seconds)}</span>
                       <RelativeTime iso={p.updated_at} template={t.common.updated} />

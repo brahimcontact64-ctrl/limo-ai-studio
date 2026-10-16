@@ -48,7 +48,8 @@ for (const [name, dict] of Object.entries({ fr, ar, de })) {
 
   test(`${name}: is actually translated (not a copy of en)`, () => {
     const other = leaves(dict);
-    const same = [...base.entries()].filter(([k, v]) => other.get(k) === v && v.length > 12 && !/^[\d{}\s/%·.,()+-]*$/.test(v));
+    // Array-shape markers ("x[]" → "array:nonempty") are structural, not text; their items are compared individually.
+    const same = [...base.entries()].filter(([k, v]) => !k.endsWith('[]') && other.get(k) === v && v.length > 12 && !/^[\d{}\s/%·.,()+-]*$/.test(v));
     // Brand names and technical strings may legitimately match; real copies would be hundreds.
     assert.ok(same.length < 15, `${same.length} untranslated strings, e.g. ${same.slice(0, 5).map(([k]) => k).join(', ')}`);
   });

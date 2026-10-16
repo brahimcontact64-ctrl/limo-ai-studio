@@ -35,6 +35,8 @@ export const SCENE_FIELD_MAX = {
   music_prompt: 1000,
   transition_out: 500,
   continuity_notes: 1500,
+  narration: 4000,
+  visual_prompt: 2500,
 } as const;
 
 export const CHARACTER_FAMILIES = ['limo', 'nova', 'adam'] as const;

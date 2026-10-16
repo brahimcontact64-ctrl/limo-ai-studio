@@ -25,7 +25,9 @@ function useNav(isPlatformAdmin: boolean) {
   const items: Array<{ href: string; label: string; icon: IconName; mobile?: boolean }> = [
     { href: '/app', label: t.nav.dashboard, icon: 'home', mobile: true },
     { href: '/app/projects', label: t.nav.projects, icon: 'film', mobile: true },
+    { href: '/app/create', label: t.nav.create, icon: 'sparkle' },
     { href: '/app/characters', label: t.nav.characterLibrary, icon: 'users', mobile: true },
+    { href: '/app/assets', label: t.nav.assets, icon: 'image' },
     { href: '/app/billing', label: t.nav.billing, icon: 'card' },
     { href: '/app/settings', label: t.nav.settings, icon: 'settings', mobile: true },
   ];
@@ -134,9 +136,9 @@ export function AppShell({ email, orgId, orgName, role, memberships, isPlatformA
         <Link href="/app" className="sidebar-brand" aria-label={t.common.brand}>
           <Logo />
         </Link>
-        <Link href="/app/projects/new" className="btn btn-primary btn-block">
+        <Link href="/app/create" className="btn btn-primary btn-block">
           <Icon name="plus" />
-          {t.nav.newProject}
+          {t.nav.create}
         </Link>
         <nav className="side-nav">
           {nav.map((item) => (
@@ -171,7 +173,7 @@ export function AppShell({ email, orgId, orgName, role, memberships, isPlatformA
             {t.app.protectedWorkspace}
           </span>
           <LocaleSwitcher compact />
-          <Link href="/app/projects/new" className="btn btn-primary btn-icon only-mobile" aria-label={t.nav.newProject}>
+          <Link href="/app/create" className="btn btn-primary btn-icon only-mobile" aria-label={t.nav.create}>
             <Icon name="plus" />
           </Link>
           <UserMenu email={email} />

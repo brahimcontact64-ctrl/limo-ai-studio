@@ -5,12 +5,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 
 const csp = [
   "default-src 'self'",
-  "img-src 'self' data: blob: https:",
+  `img-src 'self' data: blob: https: ${supabaseUrl}`.trim(),
   "style-src 'self' 'unsafe-inline'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co`.trim(),
   "font-src 'self' data:",
-  "media-src 'self' blob: https:",
+  `media-src 'self' blob: https: ${supabaseUrl}`.trim(),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

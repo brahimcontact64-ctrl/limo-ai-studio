@@ -1,5 +1,6 @@
 import { LIMITS, SCENE_FIELD_MAX, isCastVariantId } from './limits.ts';
 import type { ProjectDraft, SaveProjectRequest, SceneDraft } from './types.ts';
+import { isCreationMode, requiresCharacters, sanitizeBrief } from '../create/modes.ts';
 
 export type IssueCode =
   | 'title_required'
@@ -21,6 +22,7 @@ export type IssueCode =
   | 'participant_duplicate'
   | 'scene_field_too_long'
   | 'scene_no_participants'
+  | 'scene_assets_invalid'
   | 'preset_invalid'
   | 'preset_duplicate';
 
@@ -39,7 +41,7 @@ export interface CatalogContext {
   exportPresets?: ReadonlySet<string>;
 }
 
-type DraftLike = Pick<ProjectDraft, 'title' | 'content_type' | 'language_code' | 'brief' | 'goal' | 'visual_style' | 'cast' | 'export_presets'> & {
+type DraftLike = Pick<ProjectDraft, 'creation_mode' | 'title' | 'content_type' | 'language_code' | 'brief' | 'goal' | 'visual_style' | 'cast' | 'export_presets'> & {
   scenes: Array<Omit<SceneDraft, 'key'>>;
 };
 
@@ -68,7 +70,7 @@ export function validateDraft(draft: DraftLike, ctx: CatalogContext = {}): Issue
   }
 
   const cast = draft.cast;
-  if (cast.length < LIMITS.castMin) err({ code: 'cast_min', field: 'cast', params: { min: LIMITS.castMin } });
+  if (requiresCharacters(draft.creation_mode) && cast.length < LIMITS.castMin) err({ code: 'cast_min', field: 'cast', params: { min: LIMITS.castMin } });
   if (cast.length > LIMITS.castMax) err({ code: 'cast_max', field: 'cast', params: { max: LIMITS.castMax } });
   if (new Set(cast).size !== cast.length) err({ code: 'cast_duplicate', field: 'cast' });
   for (const id of cast) if (!isCastVariantId(id)) err({ code: 'cast_invalid_id', field: 'cast', params: { id: String(id) } });
@@ -89,7 +91,10 @@ export function validateDraft(draft: DraftLike, ctx: CatalogContext = {}): Issue
     for (const id of scene.participants) {
       if (!castSet.has(id)) err({ code: 'participant_not_in_cast', scene: index, field: 'participants', params: { id } });
     }
-    if (scene.participants.length === 0) {
+    if (scene.asset_ids.length > 10 || !scene.asset_ids.every(isUuid)) {
+      err({ code: 'scene_assets_invalid', scene: index, field: 'asset_ids' });
+    }
+    if (scene.participants.length === 0 && cast.length > 0) {
       issues.push({ code: 'scene_no_participants', severity: 'warning', scene: index, field: 'participants' });
     }
     for (const [field, max] of Object.entries(SCENE_FIELD_MAX)) {
@@ -143,8 +148,9 @@ export function parseSaveRequest(body: unknown): SaveProjectRequest | null {
     if (!raw || typeof raw !== 'object') return null;
     const s = raw as Record<string, unknown>;
     const participants = strArray(s.participants ?? []);
+    const assetIds = strArray(s.asset_ids ?? []);
     const duration = typeof s.duration_seconds === 'number' ? s.duration_seconds : Number.NaN;
-    if (!participants) return null;
+    if (!participants || !assetIds) return null;
     scenes.push({
       title: str(s.title),
       duration_seconds: duration,
@@ -160,12 +166,19 @@ export function parseSaveRequest(body: unknown): SaveProjectRequest | null {
       music_prompt: str(s.music_prompt),
       transition_out: str(s.transition_out),
       continuity_notes: str(s.continuity_notes),
+      narration: str(s.narration),
+      visual_prompt: str(s.visual_prompt),
+      asset_ids: assetIds,
     });
   }
 
+  const mode = b.creation_mode === undefined ? 'story' : b.creation_mode;
+  if (!isCreationMode(mode)) return null;
   return {
     project_id: projectId as string | null,
     title: str(b.title),
+    creation_mode: mode,
+    creation_brief: sanitizeBrief(mode, b.creation_brief),
     content_type: str(b.content_type),
     language_code: str(b.language_code),
     brief: str(b.brief),
@@ -212,6 +225,31 @@ export function toRpcArgs(organizationId: string, req: SaveProjectRequest) {
   };
 }
 
+/** Arguments for public.save_studio_project_v2 (migration 20261017100000). */
+export function toRpcArgsV2(organizationId: string, req: SaveProjectRequest) {
+  const v1 = toRpcArgs(organizationId, req);
+  return {
+    p_organization_id: v1.p_organization_id,
+    p_project_id: v1.p_project_id,
+    p_title: v1.p_title,
+    p_creation_mode: req.creation_mode,
+    p_content_type: v1.p_content_type,
+    p_language_code: v1.p_language_code,
+    p_brief: v1.p_brief,
+    p_goal: v1.p_goal,
+    p_visual_style: v1.p_visual_style,
+    p_creation_brief: req.creation_brief,
+    p_project_cast: v1.p_project_cast,
+    p_scenes: v1.p_scenes.map((s, i) => ({
+      ...s,
+      narration: req.scenes[i]!.narration,
+      visual_prompt: req.scenes[i]!.visual_prompt,
+      asset_ids: req.scenes[i]!.asset_ids,
+    })),
+    p_export_presets: v1.p_export_presets,
+  };
+}
+
 /** Maps a database exception message from save_studio_project to a stable error code. */
 export type SaveErrorCode =
   | 'subscription_required'
@@ -229,7 +267,8 @@ export function mapSaveError(message: string | undefined | null): SaveErrorCode 
   if (m.includes('active subscription required')) return 'subscription_required';
   if (m.includes('not authorized') || m.includes('authentication required')) return 'not_authorized';
   if (m.includes('no longer editable') || m.includes('project not found')) return 'not_editable';
-  if (m.includes('project_cast_check') || m.includes('between 1 and 18 characters')) return 'cast_limit';
+  if (m.includes('project_cast_check') || m.includes('and 18 characters')) return 'cast_limit';
+  if (m.includes('scene asset')) return 'validation';
   if (m.includes('characters are unavailable') || m.includes('not in the project cast')) return 'character_unavailable';
   if (m.includes('scene must be between') || m.includes('scene duration') || m.includes('limited to 10 minutes')) return 'scene_duration';
   if (m.includes('invalid content type') || m.includes('invalid language') || m.includes('invalid export preset')) return 'invalid_catalog';

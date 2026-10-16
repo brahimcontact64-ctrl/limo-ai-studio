@@ -14,8 +14,8 @@
  * Creates projects titled "E2E …" in user A's workspace and deletes them at the end when possible.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { toRpcArgs } from '../lib/studio/validation.ts';
-import { newScene, projectFromDb, toSaveRequest, type DbSceneRow } from '../lib/studio/draft.ts';
+import { toRpcArgs, toRpcArgsV2 } from '../lib/studio/validation.ts';
+import { emptyProject, newScene, projectFromDb, toSaveRequest, type DbSceneRow } from '../lib/studio/draft.ts';
 import type { ProjectDraft } from '../lib/studio/types.ts';
 import { totp } from './lib/totp.ts';
 
@@ -67,6 +67,8 @@ const comparable = (d: ProjectDraft) => {
 function sampleDraft(): ProjectDraft {
   return {
     id: null,
+    creation_mode: 'story',
+    creation_brief: {},
     title: `E2E market day ${new Date().toISOString()}`,
     content_type: 'storytelling',
     language_code: 'ar',
@@ -196,6 +198,8 @@ async function main() {
     check('user B cannot delete A’s project', !!bDel.error);
   }
 
+  await creationChecks(A, B, draft.content_type);
+
   if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
     const ADMIN = await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD);
     await mfaChecks(ADMIN);
@@ -272,6 +276,72 @@ async function adminHardeningChecks(A: Session, B: Session, ADMIN: Session) {
   const results: unknown[] = [];
   for (let i = 0; i < 4; i++) results.push((await rpcFor(A)('hit_rate_limit', { p_action: `e2e_probe_${Date.now() >> 16}`, p_limit: 3, p_window_seconds: 600 })).data);
   check('rate limit allows 3 calls then refuses the 4th', JSON.stringify(results) === '[true,true,true,false]', results);
+}
+
+/** Universal creation: assets, character-free projects, brand kit (migration 20261017100000). */
+async function creationChecks(A: Session, B: Session, contentType: string) {
+  console.log('\nUniversal creation (migration 20261017100000)');
+  const probe = await rpcFor(B)('delete_media_asset', { p_asset_id: '00000000-0000-4000-8000-000000000000' });
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  universal creation functions not deployed');
+    return;
+  }
+
+  // Upload + register a product photo in A's workspace.
+  const png = new Blob([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))], { type: 'image/png' });
+  const path = `${A.orgId}/${crypto.randomUUID()}.png`;
+  const up = await A.client.storage.from('workspace-assets').upload(path, png, { contentType: 'image/png' });
+  check('owner uploads into its workspace asset folder', !up.error, up.error?.message);
+  const foreign = await A.client.storage.from('workspace-assets').upload(`${B.orgId}/${crypto.randomUUID()}.png`, png, { contentType: 'image/png' });
+  check('cannot upload into another workspace asset folder', !!foreign.error);
+  const bRead = await B.client.storage.from('workspace-assets').download(path);
+  check('another workspace cannot read the asset file', !!bRead.error);
+  const reg = await rpcFor(A)('register_media_asset', { p_organization_id: A.orgId, p_object_path: path, p_kind: 'product', p_mime_type: 'image/png', p_size_bytes: png.size, p_file_name: 'e2e.png' });
+  check('register the uploaded asset', !reg.error && typeof reg.data === 'string', reg.error?.message);
+  const assetId = reg.data as string;
+  const bReg = await rpcFor(B)('register_media_asset', { p_organization_id: B.orgId, p_object_path: path, p_kind: 'product', p_mime_type: 'image/png', p_size_bytes: png.size, p_file_name: 'steal.png' });
+  check('cannot register another workspace’s file', !!bReg.error);
+  const { data: bAssets } = await B.client.from('media_assets').select('id').eq('id', assetId);
+  check('another workspace cannot list the asset', (bAssets ?? []).length === 0);
+
+  // Character-free product ad using the asset.
+  const ad = emptyProject({ content_type: contentType, language_code: 'en', creation_mode: 'product_ad', creation_brief: { productName: 'E2E Serum', price: '2 400 DA', sellingPoints: ['Vitamin C'] }, export_presets: ['vertical_9_16'] });
+  ad.title = 'E2E product ad';
+  ad.scenes = [newScene({ title: 'Hook', duration_seconds: 4, narration: 'Meet E2E Serum.', asset_ids: [assetId] }), newScene({ title: 'Offer', duration_seconds: 5 })];
+  const save = await rpcFor(A)('save_studio_project_v2', toRpcArgsV2(A.orgId, toSaveRequest(ad)));
+  check('product ad saves with no characters', !save.error && typeof save.data === 'string', save.error?.message);
+  const adId = save.data as string;
+  const { data: row } = await A.client.from('studio_projects').select('creation_mode, creation_brief, project_cast').eq('id', adId).single();
+  check('mode, brief and empty cast persist', row?.creation_mode === 'product_ad' && (row?.creation_brief as { productName?: string })?.productName === 'E2E Serum' && JSON.stringify(row?.project_cast) === '[]', row);
+  const { data: sc } = await A.client.from('project_scenes').select('narration, asset_ids').eq('project_id', adId).order('scene_number');
+  check('scene narration and assets persist', sc?.[0]?.narration === 'Meet E2E Serum.' && JSON.stringify(sc?.[0]?.asset_ids) === JSON.stringify([assetId]), sc);
+
+  const story = emptyProject({ content_type: contentType, language_code: 'en', creation_mode: 'story' });
+  story.title = 'E2E story without cast';
+  story.scenes = [newScene({ title: 'Opening', duration_seconds: 5 })];
+  const storySave = await rpcFor(A)('save_studio_project_v2', toRpcArgsV2(A.orgId, toSaveRequest(story)));
+  check('story mode still requires characters', !!storySave.error && /characters/i.test(storySave.error.message), storySave.error?.message ?? 'accepted');
+
+  const bAd = { ...ad, title: 'E2E foreign asset' };
+  const bSave = await rpcFor(B)('save_studio_project_v2', toRpcArgsV2(B.orgId, toSaveRequest(bAd)));
+  check('another workspace cannot use the asset in a scene', !!bSave.error && /does not belong/i.test(bSave.error.message), bSave.error?.message ?? 'accepted');
+
+  const inUse = await rpcFor(A)('delete_media_asset', { p_asset_id: assetId });
+  check('asset used by a scene cannot be deleted', !!inUse.error && /used by a project scene/i.test(inUse.error.message), inUse.error?.message ?? 'accepted');
+  const bDel = await rpcFor(B)('delete_media_asset', { p_asset_id: assetId });
+  check('another workspace cannot delete the asset', !!bDel.error);
+
+  // Brand kit.
+  const kit = await rpcFor(A)('save_brand_kit', { p_organization_id: A.orgId, p_kit: { brand_name: 'E2E Brand', primary_color: '#123456', logo_asset_id: assetId } });
+  check('owner saves a brand kit with its own logo', !kit.error, kit.error?.message);
+  const bKit = await rpcFor(B)('save_brand_kit', { p_organization_id: B.orgId, p_kit: { brand_name: 'X', logo_asset_id: assetId } });
+  check('brand kit refuses another workspace’s logo', !!bKit.error);
+
+  // Cleanup: project first, then the asset can go.
+  await rpcFor(A)('delete_studio_project', { p_project_id: adId });
+  const del = await rpcFor(A)('delete_media_asset', { p_asset_id: assetId });
+  check('unused asset can be deleted', !del.error, del.error?.message);
+  await A.client.storage.from('workspace-assets').remove([path]);
 }
 
 /** Manual-payment activation (migration 20261016150000). User B has no subscription. */

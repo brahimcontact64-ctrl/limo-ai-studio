@@ -1,11 +1,11 @@
 # Implementation status
 
 Verified state only. "Implemented" means working end to end with tests; "Partial" means some of the spec exists; "Blocked" names the external dependency.
-Last updated: 2026-10-16 (Milestone 1 complete locally; production migrations pending approval).
+Last updated: 2026-10-16 (Milestone 2 complete locally; production migrations pending approval).
 
 ## Baseline (verified 2026-10-16)
 - Branch `rebuild/v1` @ `fa406a1`, clean. `design/original-restore` is merged into it. `main` @ `2a3f426` (old static prototype), untouched.
-- Production Supabase `aevqhgksniqahqrntzxv`: 50 migrations applied (49 historical + `20261016120000`). `20261016150000` written, verified locally, **not applied**.
+- Production Supabase `aevqhgksniqahqrntzxv`: 50 migrations applied (49 historical + `20261016120000`). Pending, verified locally, **not applied**: `20261016140000`, `20261016150000`, `20261017090000`, `20261017100000`.
 - Production Auth: email confirmation ON (`mailer_autoconfirm=false`), email provider only.
 - Storage buckets: `payment-receipts`, `generated-media`, `character-library` (all private). No Storage policies in production yet (pending migration adds receipts policies).
 - Characters: 18 active variants + 3 family base records; all `reference_status = pending`; **no reference images, no 3D models exist**.
@@ -24,11 +24,11 @@ Last updated: 2026-10-16 (Milestone 1 complete locally; production migrations pe
 | Expiry & grace period (§15) | Partial | Existing cron + retention functions in DB; no UI. |
 | Platform admin (§14) | Implemented locally / Blocked (prod migration approval) | 404 for non-admins; TOTP two-factor required in UI and in every admin DB function (aal2); workspace overview; audited subscription changes with reason; feature flags (paid/live locked); payment queue; audit log; provider registry admin-only. |
 | Rate limiting (§14) | Implemented locally | Per-user DB-backed limits (project saves, payment submission). |
-| Universal Create Content (§3) | Missing | Studio is story-oriented; characters required. |
-| Character-free projects (§16) | Missing | DB requires ≥1 character. |
-| Product advertising engine (§7) | Missing | |
-| Workspace asset library / brand kit | Missing | `media_assets`, `brands` tables exist (unused). |
-| Script & scene editor (§4) | Partial | Scene fields, reorder/duplicate/delete, durations exist. Missing: narration field, AI drafts/rewrite, versions, approval, autosave. |
+| Universal Create Content (§3) | Implemented locally / Blocked (prod migration approval) | `/app/create`: 8 modes; per-mode brief fields; starter scenes copy only user text; mode + brief editable in the studio. Story opens the cast wizard. |
+| Character-free projects (§16) | Implemented locally / Blocked (prod migration approval) | `save_studio_project_v2`: characters required only for story mode; cast 0–18. |
+| Product advertising engine (§7) | Partial | Product ad brief (name, description, selling points, price/offer flagged as claims, CTA, visual direction), product photos placed in starter scenes. Missing: AI script drafting (M3), image/video generation (M6/M7). |
+| Workspace asset library / brand kit | Implemented locally / Blocked (prod migration approval) | Private `workspace-assets` bucket (org folders, 100 MB, image/video/audio); upload, list (signed URLs), delete (refused while used by a scene); brand kit (name, tagline, colours, logo, CTA, tone); per-scene media picker. |
+| Script & scene editor (§4) | Partial | Scene fields, reorder/duplicate/delete, durations exist. Narration and visual prompt fields added (M2). Missing: AI drafts/rewrite, versions, approval, autosave. |
 | Characters & references (§5) | Partial | Catalog, library UI, appearance specs. Missing: reference assets, review workflow, custom characters. |
 | Story engine (§6) | Partial (DB only) | `content_series`, `content_episodes`, `create_series_episode_draft`, `get_next_episode_context` exist; no UI, no facts/conflicts. |
 | Image Studio (§8) | Missing | |

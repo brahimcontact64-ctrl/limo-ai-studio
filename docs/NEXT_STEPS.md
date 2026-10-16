@@ -1,10 +1,10 @@
 # Next steps
 
 ## Exact next action
-Milestone 2 — Universal creation architecture: `save_studio_project_v2` (character-free projects, creation mode + brief), workspace asset library and brand kit, Create Content entry with eight modes, Product Ad workflow.
+Milestone 3 — Script editor: project versions (snapshot on save, restore), script approval state, mock AI draft/rewrite per scene clearly labelled "Mock AI", behind the paid-generation gate.
 
 ## Blockers (owner)
-1. Approve applying pending migrations to production (`20261016140000`, `20261016150000`, `20261017090000`, and later milestone migrations).
+1. Approve applying pending migrations to production (`20261016140000`, `20261016150000`, `20261017090000`, `20261017100000`, and later milestone migrations).
 2. Supabase Auth settings: site URL, redirect allow-list (production + previews + `/auth/confirm`), templates from `supabase/templates`, custom SMTP provider choice and credentials. TOTP must stay enabled (default on hosted projects).
 3. The existing platform admin must turn on two-factor authentication (Workspace → Two-factor authentication) before using the admin area once the migrations are live.
 4. Real payment destinations (Admin → Payment methods), after the migration.

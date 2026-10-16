@@ -2,7 +2,8 @@ import type { Database } from '@/lib/supabase/database.types';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { loadProject } from '@/lib/data/projects';
 import { canEditOrg, json, requireUser } from '@/lib/api/guard';
-import { mapSaveError, isUuid, toRpcArgs } from '@/lib/studio/validation';
+import { mapSaveError, isUuid, toRpcArgs, toRpcArgsV2 } from '@/lib/studio/validation';
+import { callRpc, isMissingFunction } from '@/lib/supabase/rpc';
 import { toSaveRequest } from '@/lib/studio/draft';
 import { LIMITS } from '@/lib/studio/limits';
 import { fmt } from '@/lib/i18n/config';
@@ -28,7 +29,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const req = toSaveRequest({ ...project.draft, id: null });
   req.title = fmt(t.projects.copyOf, { title: project.draft.title }).slice(0, LIMITS.titleMax);
 
-  const { data, error } = await supabase.rpc('save_studio_project', toRpcArgs(project.organization_id, req) as unknown as SaveRpcArgs);
+  let { data, error } = await callRpc<string>(supabase, 'save_studio_project_v2', toRpcArgsV2(project.organization_id, req));
+  if (isMissingFunction(error)) ({ data, error } = await supabase.rpc('save_studio_project', toRpcArgs(project.organization_id, req) as unknown as SaveRpcArgs));
   if (error || !data) return json({ error: mapSaveError(error?.message) }, 422);
   return json({ project_id: data }, 201);
 }

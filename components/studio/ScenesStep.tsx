@@ -11,13 +11,31 @@ import { FamilyGlyph } from '@/components/characters/FamilyGlyph';
 import { characterLabel } from '@/components/characters/labels';
 import { CastStack } from '@/components/app/ProjectBits';
 import { Icon } from '@/components/ui/Icon';
+import { requiresCharacters } from '@/lib/create/modes';
+import { SceneAssets, useWorkspaceAssets } from './SceneAssets';
 import { TextField, issueMessage } from './fields';
 
 type PromptField = Exclude<SceneTextField, 'title'>;
-const GROUPS: Array<{ id: 'setting' | 'performance' | 'post'; fields: PromptField[]; multiline: PromptField[] }> = [
-  { id: 'setting', fields: ['location_prompt', 'environment_prompt', 'lighting_prompt', 'camera_prompt'], multiline: [] },
-  { id: 'performance', fields: ['action_prompt', 'dialogue', 'on_screen_text'], multiline: ['action_prompt', 'dialogue'] },
-  { id: 'post', fields: ['music_prompt', 'effects_prompt', 'transition_out', 'continuity_notes'], multiline: ['continuity_notes'] },
+const GROUPS: Array<{
+  id: 'setting' | 'performance' | 'post';
+  fields: PromptField[];
+  multiline: PromptField[];
+}> = [
+  {
+    id: 'setting',
+    fields: ['visual_prompt', 'location_prompt', 'environment_prompt', 'lighting_prompt', 'camera_prompt'],
+    multiline: ['visual_prompt'],
+  },
+  {
+    id: 'performance',
+    fields: ['action_prompt', 'dialogue', 'narration', 'on_screen_text'],
+    multiline: ['action_prompt', 'dialogue', 'narration'],
+  },
+  {
+    id: 'post',
+    fields: ['music_prompt', 'effects_prompt', 'transition_out', 'continuity_notes'],
+    multiline: ['continuity_notes'],
+  },
 ];
 
 const tc = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -44,8 +62,12 @@ export function ScenesStep({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const charMap = useMemo(() => new Map(characters.map((c) => [c.id, c])), [characters]);
+  const [library, setLibrary] = useWorkspaceAssets(draft.scenes.some((s) => s.asset_ids.length > 0));
 
-  const index = Math.max(0, draft.scenes.findIndex((s) => s.key === selectedKey));
+  const index = Math.max(
+    0,
+    draft.scenes.findIndex((s) => s.key === selectedKey),
+  );
   const scene = draft.scenes[index];
   useEffect(() => {
     if (!draft.scenes.some((s) => s.key === selectedKey) && draft.scenes[0]) setSelectedKey(draft.scenes[0].key);
@@ -55,7 +77,10 @@ export function ScenesStep({
   const sceneIssues = (i: number) => issues.filter((x) => x.scene === i);
 
   const updateScene = (key: string, patch: Partial<SceneDraft>) =>
-    setDraft((d) => ({ ...d, scenes: d.scenes.map((s) => (s.key === key ? { ...s, ...patch } : s)) }));
+    setDraft((d) => ({
+      ...d,
+      scenes: d.scenes.map((s) => (s.key === key ? { ...s, ...patch } : s)),
+    }));
 
   const addScene = (afterIndex = draft.scenes.length - 1) => {
     if (draft.scenes.length >= LIMITS.scenesMax) return;
@@ -78,7 +103,12 @@ export function ScenesStep({
   const duplicateScene = (i: number) => {
     const src = draft.scenes[i];
     if (!src || draft.scenes.length >= LIMITS.scenesMax) return;
-    const fresh: SceneDraft = { ...src, participants: [...src.participants], key: sceneKey() };
+    const fresh: SceneDraft = {
+      ...src,
+      participants: [...src.participants],
+      asset_ids: [...src.asset_ids],
+      key: sceneKey(),
+    };
     setDraft((d) => {
       const scenes = [...d.scenes];
       scenes.splice(i + 1, 0, fresh);
@@ -92,7 +122,10 @@ export function ScenesStep({
     if (!s || draft.scenes.length <= LIMITS.scenesMin) return;
     if (sceneHasContent(s) && !window.confirm(fmt(t.studio.scenes.removeConfirm, { n: i + 1 }))) return;
     const neighbour = draft.scenes[i + 1] ?? draft.scenes[i - 1];
-    setDraft((d) => ({ ...d, scenes: d.scenes.filter((x) => x.key !== s.key) }));
+    setDraft((d) => ({
+      ...d,
+      scenes: d.scenes.filter((x) => x.key !== s.key),
+    }));
     if (neighbour) setSelectedKey(neighbour.key);
   };
 
@@ -113,7 +146,12 @@ export function ScenesStep({
         {/* Scene rail */}
         <aside className="scene-rail" aria-label={t.studio.scenes.list}>
           <div className="scene-rail-head">
-            <span className="mono xsmall muted ltr">{fmt(t.studio.scenes.limitScenes, { n: draft.scenes.length, max: LIMITS.scenesMax })}</span>
+            <span className="mono xsmall muted ltr">
+              {fmt(t.studio.scenes.limitScenes, {
+                n: draft.scenes.length,
+                max: LIMITS.scenesMax,
+              })}
+            </span>
             <span className="mono xsmall ltr">{tc(total)}</span>
           </div>
           <ol className="scene-list">
@@ -247,7 +285,11 @@ export function ScenesStep({
                         max={LIMITS.sceneDurationMax}
                         step={1}
                         value={scene.duration_seconds}
-                        onChange={(e) => updateScene(scene.key, { duration_seconds: Number(e.target.value) })}
+                        onChange={(e) =>
+                          updateScene(scene.key, {
+                            duration_seconds: Number(e.target.value),
+                          })
+                        }
                         aria-describedby={`dur-hint-${scene.key}`}
                       />
                       <input
@@ -259,7 +301,11 @@ export function ScenesStep({
                         step={1}
                         value={scene.duration_seconds}
                         aria-label={t.studio.scenes.fields.duration}
-                        onChange={(e) => updateScene(scene.key, { duration_seconds: Math.round(Number(e.target.value)) })}
+                        onChange={(e) =>
+                          updateScene(scene.key, {
+                            duration_seconds: Math.round(Number(e.target.value)),
+                          })
+                        }
                       />
                     </div>
                     <span id={`dur-hint-${scene.key}`} className="field-hint">
@@ -268,40 +314,42 @@ export function ScenesStep({
                   </div>
                 </div>
 
-                <fieldset className="field plain-fieldset">
-                  <legend className="field-label">{t.studio.scenes.fields.participants}</legend>
-                  {draft.cast.length === 0 ? (
-                    <div className="callout">
-                      <Icon name="info" />
-                      <div>
-                        {t.studio.scenes.emptyCast}
-                        <div style={{ marginTop: 8 }}>
-                          <button type="button" className="btn btn-sm" onClick={goToCast}>
-                            {t.studio.scenes.goToCast}
-                          </button>
+                <SceneAssets ids={scene.asset_ids} library={library} onLibrary={setLibrary} onChange={(asset_ids) => updateScene(scene.key, { asset_ids })} />
+
+                {(draft.cast.length > 0 || requiresCharacters(draft.creation_mode)) && (
+                  <fieldset className="field plain-fieldset">
+                    <legend className="field-label">{t.studio.scenes.fields.participants}</legend>
+                    {draft.cast.length === 0 ? (
+                      <div className="callout">
+                        <Icon name="info" />
+                        <div>
+                          {t.studio.scenes.emptyCast}
+                          <div style={{ marginTop: 8 }}>
+                            <button type="button" className="btn btn-sm" onClick={goToCast}>
+                              {t.studio.scenes.goToCast}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="participant-grid">
-                        {draft.cast.map((id) => {
-                          const p = parseCharacterId(id);
-                          const on = scene.participants.includes(id);
-                          return (
-                            <button key={id} type="button" className="chip participant" aria-pressed={on} onClick={() => toggleParticipant(id)}>
-                              {p && <FamilyGlyph family={p.family} variant={p.variant} size={22} />}
-                              {characterLabel(t, id, charMap.get(id)?.name)}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <span className="field-hint">
-                        {scene.participants.length === 0 ? t.studio.scenes.noParticipantsWarning : t.studio.scenes.fields.participantsHint}
-                      </span>
-                    </>
-                  )}
-                </fieldset>
+                    ) : (
+                      <>
+                        <div className="participant-grid">
+                          {draft.cast.map((id) => {
+                            const p = parseCharacterId(id);
+                            const on = scene.participants.includes(id);
+                            return (
+                              <button key={id} type="button" className="chip participant" aria-pressed={on} onClick={() => toggleParticipant(id)}>
+                                {p && <FamilyGlyph family={p.family} variant={p.variant} size={22} />}
+                                {characterLabel(t, id, charMap.get(id)?.name)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <span className="field-hint">{scene.participants.length === 0 ? t.studio.scenes.noParticipantsWarning : t.studio.scenes.fields.participantsHint}</span>
+                      </>
+                    )}
+                  </fieldset>
+                )}
               </div>
             </details>
 
@@ -320,7 +368,11 @@ export function ScenesStep({
                       key={f}
                       label={t.studio.scenes.fields[f]}
                       value={scene[f]}
-                      onChange={(v) => updateScene(scene.key, { [f]: v } as Partial<SceneDraft>)}
+                      onChange={(v) =>
+                        updateScene(scene.key, {
+                          [f]: v,
+                        } as Partial<SceneDraft>)
+                      }
                       max={SCENE_FIELD_MAX[f]}
                       placeholder={t.studio.scenes.fields[`${f}Placeholder` as const]}
                       multiline={g.multiline.includes(f) || f === 'continuity_notes'}
@@ -360,9 +412,7 @@ export function ScenesStep({
       <div className="timeline" aria-label={t.studio.scenes.timeline}>
         <div className="timeline-head">
           <span className="eyebrow">{t.studio.scenes.timeline}</span>
-          <span className="mono xsmall ltr">
-            {fmt(t.studio.scenes.total, { duration: formatDuration(t, total) })}
-          </span>
+          <span className="mono xsmall ltr">{fmt(t.studio.scenes.total, { duration: formatDuration(t, total) })}</span>
         </div>
         <div className="timeline-track">
           {draft.scenes.map((s, i) => (

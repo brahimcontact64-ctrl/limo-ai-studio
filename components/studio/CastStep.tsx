@@ -10,6 +10,7 @@ import { CharacterCard } from '@/components/characters/CharacterCard';
 import { characterLabel } from '@/components/characters/labels';
 import { FamilyGlyph } from '@/components/characters/FamilyGlyph';
 import { Icon } from '@/components/ui/Icon';
+import { requiresCharacters } from '@/lib/create/modes';
 import { StepHeader, issueMessage } from './fields';
 
 export function CastStep({
@@ -73,6 +74,11 @@ export function CastStep({
           </div>
         }
       />
+      {!requiresCharacters(draft.creation_mode) && (
+        <p className="callout" style={{ marginBottom: 16 }}>
+          {t.studio.cast.optional}
+        </p>
+      )}
       {castIssue && (
         <p className="field-error" role="alert" style={{ marginBottom: 16 }}>
           {issueMessage(t, castIssue)}

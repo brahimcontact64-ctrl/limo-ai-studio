@@ -3,7 +3,8 @@ import { getSupabaseServer } from '@/lib/supabase/server';
 import { getCatalogs } from '@/lib/data/catalog';
 import { canEditOrg, json, readJson, requireUser } from '@/lib/api/guard';
 import { allowRequest } from '@/lib/api/rateLimit';
-import { hasErrors, mapSaveError, parseSaveRequest, toRpcArgs, validateDraft } from '@/lib/studio/validation';
+import { hasErrors, mapSaveError, parseSaveRequest, toRpcArgs, toRpcArgsV2, validateDraft } from '@/lib/studio/validation';
+import { callRpc, isMissingFunction } from '@/lib/supabase/rpc';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,13 @@ export async function POST(request: Request) {
   }
   if (!canEditOrg(ctx, organizationId)) return json({ error: 'not_authorized' }, 403);
 
-  const { data, error } = await supabase.rpc('save_studio_project', toRpcArgs(organizationId, req) as unknown as SaveRpcArgs);
+  // v2 (migration 20261017100000) supports creation modes, character-free projects and scene media.
+  let { data, error } = await callRpc<string>(supabase, 'save_studio_project_v2', toRpcArgsV2(organizationId, req));
+  if (isMissingFunction(error)) {
+    const usesV2 = req.creation_mode !== 'story' || req.scenes.some((s) => s.narration || s.visual_prompt || s.asset_ids.length > 0);
+    if (usesV2) return json({ error: 'unavailable' }, 501);
+    ({ data, error } = await supabase.rpc('save_studio_project', toRpcArgs(organizationId, req) as unknown as SaveRpcArgs));
+  }
   if (error || !data) {
     const code = mapSaveError(error?.message);
     const status = code === 'subscription_required' || code === 'not_authorized' ? 403 : code === 'not_editable' ? 409 : 422;

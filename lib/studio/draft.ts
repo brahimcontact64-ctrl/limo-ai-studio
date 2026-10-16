@@ -1,4 +1,5 @@
 import type { ProjectDraft, SaveProjectRequest, SceneDraft } from './types.ts';
+import { isCreationMode, sanitizeBrief, type Brief, type CreationMode } from '../create/modes.ts';
 
 let keySeq = 0;
 export function sceneKey(): string {
@@ -25,14 +26,25 @@ export function newScene(partial: Partial<SceneDraft> = {}): SceneDraft {
     music_prompt: '',
     transition_out: '',
     continuity_notes: '',
+    narration: '',
+    visual_prompt: '',
+    asset_ids: [],
     ...partial,
   };
 }
 
-export function emptyProject(defaults: { content_type: string; language_code: string; export_presets?: string[] }): ProjectDraft {
+export function emptyProject(defaults: {
+  content_type: string;
+  language_code: string;
+  export_presets?: string[];
+  creation_mode?: CreationMode;
+  creation_brief?: Brief;
+}): ProjectDraft {
   return {
     id: null,
     title: '',
+    creation_mode: defaults.creation_mode ?? 'story',
+    creation_brief: defaults.creation_brief ?? {},
     content_type: defaults.content_type,
     language_code: defaults.language_code,
     brief: '',
@@ -53,6 +65,9 @@ export interface DbProjectRow {
   goal: string | null;
   visual_style: string | null;
   project_cast: unknown;
+  /** Absent before migration 20261017100000. */
+  creation_mode?: string | null;
+  creation_brief?: unknown;
 }
 
 export interface DbSceneRow {
@@ -71,6 +86,9 @@ export interface DbSceneRow {
   music_prompt: string | null;
   transition_out: string | null;
   continuity_notes: string | null;
+  narration?: string | null;
+  visual_prompt?: string | null;
+  asset_ids?: string[] | null;
 }
 
 /** Reads project_cast in the shape written by save_studio_project: [{ "id": "limo_boy" }]. */
@@ -87,9 +105,12 @@ export function castFromDb(projectCast: unknown): string[] {
 
 export function projectFromDb(row: DbProjectRow, scenes: DbSceneRow[], presets: string[]): ProjectDraft {
   const ordered = [...scenes].sort((a, b) => a.scene_number - b.scene_number);
+  const mode: CreationMode = isCreationMode(row.creation_mode) ? row.creation_mode : 'story';
   return {
     id: row.id,
     title: row.title,
+    creation_mode: mode,
+    creation_brief: sanitizeBrief(mode, row.creation_brief),
     content_type: row.content_type,
     language_code: row.language_code,
     brief: row.brief ?? '',
@@ -112,6 +133,9 @@ export function projectFromDb(row: DbProjectRow, scenes: DbSceneRow[], presets: 
         music_prompt: s.music_prompt ?? '',
         transition_out: s.transition_out ?? '',
         continuity_notes: s.continuity_notes ?? '',
+        narration: s.narration ?? '',
+        visual_prompt: s.visual_prompt ?? '',
+        asset_ids: s.asset_ids ?? [],
       }),
     ),
     export_presets: presets,
@@ -122,6 +146,8 @@ export function toSaveRequest(draft: ProjectDraft): SaveProjectRequest {
   return {
     project_id: draft.id,
     title: draft.title,
+    creation_mode: draft.creation_mode,
+    creation_brief: draft.creation_brief,
     content_type: draft.content_type,
     language_code: draft.language_code,
     brief: draft.brief,

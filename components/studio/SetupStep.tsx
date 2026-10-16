@@ -5,6 +5,8 @@ import { LIMITS } from '@/lib/studio/limits';
 import type { Issue } from '@/lib/studio/validation';
 import type { ProjectDraft } from '@/lib/studio/types';
 import type { StudioCatalogs } from './StudioEditor';
+import { CREATION_MODES, type CreationMode } from '@/lib/create/modes';
+import { BriefFields } from '@/components/create/BriefFields';
 import { StepHeader, TextField, issueMessage } from './fields';
 
 export function SetupStep({
@@ -45,6 +47,12 @@ export function SetupStep({
             error={err('brief')}
             dir="auto"
           />
+          <section className="panel panel-pad stack" aria-labelledby="brief-details-h">
+            <h3 id="brief-details-h" className="section-title">
+              {t.studio.setup.briefDetails}
+            </h3>
+            <BriefFields mode={draft.creation_mode} brief={draft.creation_brief} onChange={(b) => setDraft((d) => ({ ...d, creation_brief: b }))} />
+          </section>
           <TextField label={t.studio.setup.goal} value={draft.goal} onChange={set('goal')} max={LIMITS.goalMax} placeholder={t.studio.setup.goalPlaceholder} multiline rows={2} optional error={err('goal')} dir="auto" />
           <TextField
             label={t.studio.setup.visualStyle}
@@ -61,6 +69,18 @@ export function SetupStep({
         </div>
 
         <aside className="stack-lg setup-side">
+          <div className="field">
+            <label className="field-label" htmlFor="creation-mode">
+              {t.studio.setup.mode}
+            </label>
+            <select id="creation-mode" className="select" value={draft.creation_mode} onChange={(e) => set('creation_mode')(e.target.value as CreationMode)}>
+              {CREATION_MODES.map((m) => (
+                <option key={m} value={m}>
+                  {t.create.modes[m].name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="field">
             <label className="field-label" htmlFor="content-type">
               {t.studio.setup.contentType}

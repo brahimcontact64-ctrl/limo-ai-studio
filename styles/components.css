@@ -792,6 +792,11 @@
   display: grid;
   gap: var(--sp-6);
 }
+/* Grid items default to min-width:auto; without this a wide table widens the whole page on phones. */
+.stack > *,
+.stack-lg > * {
+  min-width: 0;
+}
 .row {
   display: flex;
   align-items: center;

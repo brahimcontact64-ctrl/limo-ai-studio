@@ -133,9 +133,6 @@ export function WorkspacesTable({ rows, plans }: { rows: WorkspaceRow[]; plans: 
               <th scope="col">{w.usage}</th>
               <th scope="col">{w.projects}</th>
               <th scope="col">{w.pending}</th>
-              <th scope="col">
-                <span className="sr-only">{w.manage}</span>
-              </th>
             </tr>
           </thead>
           <tbody>
@@ -146,6 +143,10 @@ export function WorkspacesTable({ rows, plans }: { rows: WorkspaceRow[]; plans: 
                   <div className="xsmall muted">
                     {r.members} · <span className="ltr">{r.id.slice(0, 8)}</span>
                   </div>
+                  {/* First column so the action stays reachable without scrolling the table on phones. */}
+                  <button type="button" className="btn btn-sm" style={{ marginTop: 6 }} onClick={() => setEditing(r)}>
+                    {w.manage}
+                  </button>
                 </td>
                 <td className="small ltr">{r.owner_email ?? '—'}</td>
                 <td>
@@ -158,11 +159,6 @@ export function WorkspacesTable({ rows, plans }: { rows: WorkspaceRow[]; plans: 
                 <td className="small ltr">{r.video_slots_total !== null ? `${r.video_slots_used}/${r.video_slots_total}` : '—'}</td>
                 <td className="small ltr">{r.projects}</td>
                 <td className="small ltr">{r.pending_payments || '—'}</td>
-                <td>
-                  <button type="button" className="btn btn-sm" onClick={() => setEditing(r)}>
-                    {w.manage}
-                  </button>
-                </td>
               </tr>
             ))}
           </tbody>
