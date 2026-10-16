@@ -32,5 +32,6 @@ test('database errors map to stable codes', () => {
   assert.equal(mapPaymentError('Unknown plan or add-on'), 'invalid_item');
   assert.equal(mapPaymentError('Invalid receipt path'), 'receipt_invalid');
   assert.equal(mapPaymentError('Add-ons require an active billing cycle'), 'needs_active_cycle');
+  assert.equal(mapPaymentError('Too many requests; try again later'), 'rate_limited');
   assert.equal(mapPaymentError('boom'), 'unknown');
 });

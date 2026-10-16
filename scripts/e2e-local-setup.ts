@@ -7,6 +7,8 @@
  * Env: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, E2E_A_EMAIL, E2E_A_PASSWORD, E2E_B_EMAIL, E2E_B_PASSWORD
  */
 import { createClient } from '@supabase/supabase-js';
+import { writeFileSync } from 'node:fs';
+import { totp } from './lib/totp.ts';
 
 const e = (k: string) => process.env[k] ?? (console.error(`Missing ${k}`), process.exit(2));
 const url = e('SUPABASE_URL');
@@ -72,4 +74,19 @@ if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
   ]);
   if (pmErr) throw pmErr;
   console.log(`${process.env.E2E_ADMIN_EMAIL}: platform admin; ccp payment method enabled with test details`);
+
+  // Fresh TOTP factor for the local admin; the secret goes to a local file for the test runs.
+  if (process.env.E2E_ADMIN_TOTP_FILE) {
+    const { data: factors } = await admin.auth.admin.mfa.listFactors({ userId: adminUser!.id });
+    for (const f of factors?.factors ?? []) await admin.auth.admin.mfa.deleteFactor({ userId: adminUser!.id, id: f.id });
+    const c = createClient(url, e('SUPABASE_ANON_KEY'), { auth: { persistSession: false } });
+    const { error: sErr } = await c.auth.signInWithPassword({ email: process.env.E2E_ADMIN_EMAIL, password: process.env.E2E_ADMIN_PASSWORD });
+    if (sErr) throw sErr;
+    const { data: enrolled, error: enErr } = await c.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'e2e' });
+    if (enErr || !enrolled) throw enErr ?? new Error('enroll failed');
+    const { error: vErr } = await c.auth.mfa.challengeAndVerify({ factorId: enrolled.id, code: totp(enrolled.totp.secret) });
+    if (vErr) throw vErr;
+    writeFileSync(process.env.E2E_ADMIN_TOTP_FILE, enrolled.totp.secret);
+    console.log(`${process.env.E2E_ADMIN_EMAIL}: TOTP factor enrolled (secret written to E2E_ADMIN_TOTP_FILE)`);
+  }
 }

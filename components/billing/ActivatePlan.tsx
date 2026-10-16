@@ -126,7 +126,7 @@ export function ActivatePlan({
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         const key = (body.error ?? 'unknown') as keyof typeof a.errors;
-        setError(a.errors[key] ?? a.errors.unknown);
+        setError(body.error === 'rate_limited' ? t.rateLimited : (a.errors[key] ?? a.errors.unknown));
         return;
       }
       toast(a.submitted);

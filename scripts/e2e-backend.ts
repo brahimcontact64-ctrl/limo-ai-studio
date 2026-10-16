@@ -17,6 +17,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { toRpcArgs } from '../lib/studio/validation.ts';
 import { newScene, projectFromDb, toSaveRequest, type DbSceneRow } from '../lib/studio/draft.ts';
 import type { ProjectDraft } from '../lib/studio/types.ts';
+import { totp } from './lib/totp.ts';
 
 const env = (k: string) => {
   const v = process.env[k];
@@ -196,7 +197,10 @@ async function main() {
   }
 
   if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
-    await paymentChecks(A, B, await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD));
+    const ADMIN = await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD);
+    await mfaChecks(ADMIN);
+    await paymentChecks(A, B, ADMIN);
+    await adminHardeningChecks(A, B, ADMIN);
   } else {
     console.log('\nPayments\n  SKIP  set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (local stack only)');
   }
@@ -205,15 +209,78 @@ async function main() {
 }
 
 type Session = Awaited<ReturnType<typeof signIn>>;
+type Rpc = (fn: string, a: object) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
+const rpcFor = (s: Session) => s.client.rpc.bind(s.client) as unknown as Rpc;
+
+/** Admin functions must refuse a single-factor session and accept it after TOTP verification. */
+async function mfaChecks(ADMIN: Session) {
+  console.log('\nAdmin two-factor (migration 20261016150000)');
+  const secret = process.env.E2E_ADMIN_TOTP_SECRET;
+  const before = await rpcFor(ADMIN)('admin_list_payment_submissions', { p_status: null });
+  if (before.error && /could not find the function/i.test(before.error.message)) {
+    console.log('  SKIP  admin functions not deployed');
+    return;
+  }
+  check('admin functions refuse a session without the second factor', !!before.error && /two-factor/i.test(before.error.message), before.error?.message ?? 'accepted');
+  if (!secret) {
+    console.log('  SKIP  E2E_ADMIN_TOTP_SECRET not set; cannot reach aal2');
+    return;
+  }
+  const { data: factors } = await ADMIN.client.auth.mfa.listFactors();
+  const factor = factors?.totp.find((f) => f.status === 'verified');
+  const bad = factor ? await ADMIN.client.auth.mfa.challengeAndVerify({ factorId: factor.id, code: '000000' }) : { error: new Error('no factor') };
+  check('a wrong TOTP code is rejected', !!bad.error);
+  const ok = factor ? await ADMIN.client.auth.mfa.challengeAndVerify({ factorId: factor.id, code: totp(secret) }) : { error: new Error('no factor') };
+  check('a valid TOTP code upgrades the session to aal2', !ok.error, ok.error?.message);
+  const after = await rpcFor(ADMIN)('admin_list_payment_submissions', { p_status: null });
+  check('admin functions work with the second factor', !after.error, after.error?.message);
+}
+
+/** Workspace administration, feature flags and rate limiting (migrations 20261016140000, 20261017090000). */
+async function adminHardeningChecks(A: Session, B: Session, ADMIN: Session) {
+  console.log('\nAdmin hardening (migration 20261017090000)');
+  const probe = await rpcFor(ADMIN)('admin_list_workspaces', {});
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  admin hardening functions not deployed');
+    return;
+  }
+  const rows = (probe.data as Array<{ id: string; owner_email: string | null; plan_code: string | null }> | null) ?? [];
+  check('admin lists workspaces with owner emails', !probe.error && rows.some((r) => r.id === A.orgId && !!r.owner_email), probe.error?.message);
+  const custList = await rpcFor(B)('admin_list_workspaces', {});
+  check('customers cannot list workspaces', !!custList.error);
+
+  const noReason = await rpcFor(ADMIN)('admin_set_subscription', { p_organization_id: B.orgId, p_plan_code: 'creator', p_status: 'active', p_days: 30, p_reason: 'x' });
+  check('subscription changes require a reason', !!noReason.error);
+  const custSet = await rpcFor(B)('admin_set_subscription', { p_organization_id: B.orgId, p_plan_code: 'business', p_status: 'active', p_days: 366, p_reason: 'self upgrade attempt' });
+  check('customers cannot change their own subscription', !!custSet.error && /not authorized/i.test(custSet.error.message), custSet.error?.message ?? 'accepted');
+  const set = await rpcFor(ADMIN)('admin_set_subscription', { p_organization_id: B.orgId, p_plan_code: 'creator', p_status: 'active', p_days: 30, p_reason: 'E2E: support extension' });
+  check('admin changes a subscription', !set.error, set.error?.message);
+  const { data: sub } = await B.client.from('organization_subscriptions').select('plan_code, status').eq('organization_id', B.orgId).maybeSingle();
+  check('the workspace sees the new plan', sub?.plan_code === 'creator' && sub.status === 'active', sub);
+  const { count: audited } = await ADMIN.client.from('platform_audit_events').select('id', { count: 'exact', head: true }).eq('event_type', 'subscription.admin_set').eq('organization_id', B.orgId);
+  check('the subscription change is audited', (audited ?? 0) >= 1, audited);
+
+  const flagCust = await rpcFor(B)('admin_set_feature_flag', { p_key: 'custom_characters', p_enabled: false });
+  check('customers cannot change feature flags', !!flagCust.error);
+  const flagAdmin = await rpcFor(ADMIN)('admin_set_feature_flag', { p_key: 'custom_characters', p_enabled: true });
+  check('admin changes a feature flag', !flagAdmin.error, flagAdmin.error?.message);
+  const { data: flags } = await (B.client.from as unknown as (t: string) => ReturnType<typeof B.client.from>)('feature_flags').select('key');
+  check('signed-in users can read feature flags', (flags ?? []).length >= 4, (flags ?? []).length);
+  const { data: providers } = await B.client.from('ai_provider_registry').select('code');
+  check('customers cannot read the provider registry', (providers ?? []).length === 0);
+
+  const results: unknown[] = [];
+  for (let i = 0; i < 4; i++) results.push((await rpcFor(A)('hit_rate_limit', { p_action: `e2e_probe_${Date.now() >> 16}`, p_limit: 3, p_window_seconds: 600 })).data);
+  check('rate limit allows 3 calls then refuses the 4th', JSON.stringify(results) === '[true,true,true,false]', results);
+}
 
 /** Manual-payment activation (migration 20261016150000). User B has no subscription. */
 async function paymentChecks(A: Session, B: Session, ADMIN: Session) {
   console.log('\nPayments (migration 20261016150000)');
-  const rpcOf = (s: Session) => s.client.rpc.bind(s.client) as unknown as (fn: string, a: object) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
   const submit = (s: Session, org: string, extra: object = {}) =>
-    rpcOf(s)('submit_payment', { p_organization_id: org, p_purchase_type: 'subscription', p_item_code: 'starter', p_method: 'ccp', p_transaction_ref: `E2E-${Date.now()}`, p_receipt_path: null, ...extra });
+    rpcFor(s)('submit_payment', { p_organization_id: org, p_purchase_type: 'subscription', p_item_code: 'starter', p_method: 'ccp', p_transaction_ref: `E2E-${Date.now()}`, p_receipt_path: null, ...extra });
 
-  const probe = await rpcOf(B)('admin_review_payment', { p_payment_id: '00000000-0000-4000-8000-000000000000', p_approve: true });
+  const probe = await rpcFor(B)('admin_review_payment', { p_payment_id: '00000000-0000-4000-8000-000000000000', p_approve: true });
   if (probe.error && /could not find the function/i.test(probe.error.message)) {
     console.log('  SKIP  payment functions not deployed');
     return;
@@ -250,28 +317,28 @@ async function paymentChecks(A: Session, B: Session, ADMIN: Session) {
   check('other workspaces cannot see the claim', (peek ?? []).length === 0);
 
   // Review: admin only, reason required to reject, single decision.
-  const notAdmin = await rpcOf(B)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: null });
+  const notAdmin = await rpcFor(B)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: null });
   check('a customer cannot approve its own payment', !!notAdmin.error && /not authorized/i.test(notAdmin.error.message), notAdmin.error?.message ?? 'accepted');
-  const noReason = await rpcOf(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: false, p_note: '' });
+  const noReason = await rpcFor(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: false, p_note: '' });
   check('rejecting requires a reason', !!noReason.error);
-  const { data: list, error: listErr } = await rpcOf(ADMIN)('admin_list_payment_submissions', { p_status: 'pending' });
+  const { data: list, error: listErr } = await rpcFor(ADMIN)('admin_list_payment_submissions', { p_status: 'pending' });
   const listed = (list as Array<{ id: string; organization_name: string; submitter_email: string }> | null)?.find((p) => p.id === payId);
   check('admin queue shows workspace name and submitter email', !listErr && !!listed?.organization_name && !!listed?.submitter_email, listErr?.message);
-  const custList = await rpcOf(B)('admin_list_payment_submissions', { p_status: null });
+  const custList = await rpcFor(B)('admin_list_payment_submissions', { p_status: null });
   check('customers cannot list the admin queue', !!custList.error);
-  const approve = await rpcOf(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: 'E2E verified' });
+  const approve = await rpcFor(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: 'E2E verified' });
   check('admin approves', !approve.error && approve.data === 'approved', approve.error?.message);
   const { data: sub } = await B.client.from('organization_subscriptions').select('plan_code, status, renews_at').eq('organization_id', B.orgId).maybeSingle();
   check('approval activates the plan for ~30 days', sub?.status === 'active' && sub.plan_code === 'starter' && new Date(sub.renews_at!).getTime() > Date.now() + 29 * 864e5, sub);
   const { data: usage } = await B.client.from('usage_balances').select('base_video_slots, used_video_slots').eq('organization_id', B.orgId).maybeSingle();
   check('approval sets the plan usage allowance (6 video slots)', usage?.base_video_slots === 6 && usage.used_video_slots === 0, usage);
-  const again = await rpcOf(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: null });
+  const again = await rpcFor(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: null });
   check('a payment cannot be reviewed twice', !!again.error && /already reviewed/i.test(again.error.message), again.error?.message ?? 'accepted');
   const { count: audits } = await ADMIN.client.from('platform_audit_events').select('id', { count: 'exact', head: true }).eq('entity_id', payId as string);
   check('submission and approval are audited', (audits ?? 0) >= 2, audits);
 
   // Payment method administration.
-  const custMethod = await rpcOf(B)('admin_update_payment_method', { p_method: 'ccp', p_enabled: false, p_display_name: 'x', p_account_holder: '', p_account_number: '', p_ccp_key: '', p_redotpay_uid: '', p_instructions: '' });
+  const custMethod = await rpcFor(B)('admin_update_payment_method', { p_method: 'ccp', p_enabled: false, p_display_name: 'x', p_account_holder: '', p_account_number: '', p_ccp_key: '', p_redotpay_uid: '', p_instructions: '' });
   check('customers cannot edit payment methods', !!custMethod.error);
   const disabled = await submit(B, B.orgId, { p_method: 'redotpay' });
   check('disabled payment methods are refused', !!disabled.error && /unavailable/i.test(disabled.error.message), disabled.error?.message ?? 'accepted');

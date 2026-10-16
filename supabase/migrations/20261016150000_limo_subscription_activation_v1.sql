@@ -7,6 +7,7 @@
 --    at most 3 pending claims per workspace; the receipt must live in the workspace's own folder.
 -- 2. The direct INSERT policy on payment_submissions is replaced by submit_payment(), so clients
 --    can no longer write arbitrary amounts or statuses.
+-- 0. is_platform_admin_mfa(): admin functions require a two-factor (aal2) session.
 -- 3. admin_review_payment(): platform admins approve (delegates to approve_payment_submission,
 --    which activates the plan for 30 days and resets usage) or reject with a note. Audited.
 -- 4. admin_list_payment_submissions(): admin queue with workspace name and submitter email.
@@ -14,6 +15,19 @@
 -- 6. Storage policies for the private payment-receipts bucket:
 --    upload by workspace owner/admin into "<organization_id>/…", read by members and platform admins.
 -- Nothing is deleted; no existing row changes.
+
+-- Platform admin AND a second authentication factor in this session (Supabase MFA, aal2).
+create or replace function public.is_platform_admin_mfa()
+returns boolean
+language sql
+stable
+security definer
+set search_path to ''
+as $function$
+  select public.is_platform_admin() and coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2';
+$function$;
+revoke all on function public.is_platform_admin_mfa() from public, anon;
+grant execute on function public.is_platform_admin_mfa() to authenticated;
 
 drop policy if exists payment_member_insert on public.payment_submissions;
 
@@ -38,6 +52,7 @@ declare
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not public.is_org_admin(p_organization_id) then raise exception 'Not authorized'; end if;
+  if not public.hit_rate_limit('submit_payment', 10, 3600) then raise exception 'Too many requests; try again later'; end if;
   if char_length(v_ref) not between 3 and 200 then raise exception 'Transaction reference must be 3 to 200 characters'; end if;
 
   if not exists (select 1 from public.payment_method_settings where method = p_method and enabled = true) then
@@ -94,7 +109,7 @@ declare
   v_result text;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  if not public.is_platform_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_platform_admin_mfa() then raise exception 'Not authorized: platform admin with two-factor authentication required'; end if;
 
   select * into v_payment from public.payment_submissions where id = p_payment_id for update;
   if not found then raise exception 'Payment not found'; end if;
@@ -132,7 +147,7 @@ security definer
 set search_path to ''
 as $function$
 begin
-  if not public.is_platform_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_platform_admin_mfa() then raise exception 'Not authorized: platform admin with two-factor authentication required'; end if;
   return query
     select p.id, p.organization_id, o.name, u.email::text,
            p.purchase_type, p.item_code, p.method, p.amount_dzd, p.amount_usdt,
@@ -156,7 +171,7 @@ security definer
 set search_path to ''
 as $function$
 begin
-  if not public.is_platform_admin() then raise exception 'Not authorized'; end if;
+  if not public.is_platform_admin_mfa() then raise exception 'Not authorized: platform admin with two-factor authentication required'; end if;
   update public.payment_method_settings set
     enabled = coalesce(p_enabled, false),
     display_name = left(btrim(coalesce(p_display_name, display_name)), 80),
@@ -198,7 +213,7 @@ create policy payment_receipts_read on storage.objects for select to authenticat
   using (
     bucket_id = 'payment-receipts'
     and (
-      public.is_platform_admin()
+      public.is_platform_admin_mfa()
       or ((storage.foldername(name))[1] ~ '^[0-9a-f-]{36}$' and public.is_org_member(((storage.foldername(name))[1])::uuid))
     )
   );

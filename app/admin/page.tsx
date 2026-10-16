@@ -4,6 +4,7 @@ import { getSupabaseServer } from '@/lib/supabase/server';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate } from '@/lib/i18n/format';
 import { AdminTabs } from '@/components/admin/AdminTabs';
+import { FlagsPanel, type FlagRow } from '@/components/admin/FlagsPanel';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -15,10 +16,12 @@ export const dynamic = 'force-dynamic';
 export default async function AdminPage() {
   const { t, intl } = await getI18n();
   const supabase = await getSupabaseServer();
-  const [pending, audit, methods] = await Promise.all([
+  const [pending, audit, methods, flags] = await Promise.all([
     supabase.from('payment_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('platform_audit_events').select('id, event_type, entity_type, organization_id, created_at').order('created_at', { ascending: false }).limit(50),
     supabase.from('payment_method_settings').select('method, enabled'),
+    // feature_flags arrives with migration 20261017090000; absent tables simply hide the panel.
+    (supabase.from as unknown as (t: string) => ReturnType<typeof supabase.from>)('feature_flags').select('key, enabled, description').order('key'),
   ]);
   const enabledMethods = (methods.data ?? []).filter((m) => m.enabled).length;
   const dt: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
@@ -56,6 +59,18 @@ export default async function AdminPage() {
           {t.admin.providersNote}
         </div>
       </div>
+
+      {!flags.error && (flags.data ?? []).length > 0 && (
+        <section className="panel" aria-labelledby="adm-flags">
+          <div className="panel-head">
+            <h2 id="adm-flags">{t.flags.title}</h2>
+          </div>
+          <div className="panel-body stack">
+            <p className="small muted">{t.flags.lead}</p>
+            <FlagsPanel flags={(flags.data ?? []) as unknown as FlagRow[]} />
+          </div>
+        </section>
+      )}
 
       <section className="panel" aria-labelledby="adm-audit">
         <div className="panel-head">

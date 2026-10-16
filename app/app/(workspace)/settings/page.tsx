@@ -5,6 +5,7 @@ import { getI18n } from '@/lib/i18n/server';
 import { formatDate } from '@/lib/i18n/format';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
 import { RenameWorkspace } from '@/components/app/RenameWorkspace';
+import { SecurityPanel } from '@/components/app/SecurityPanel';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -105,6 +106,14 @@ export default async function SettingsPage() {
                 </>
               )}
             </dl>
+          </div>
+        </section>
+        <section className="panel" aria-labelledby="security-h" id="security">
+          <div className="panel-head">
+            <h2 id="security-h">{t.security.title}</h2>
+          </div>
+          <div className="panel-body">
+            <SecurityPanel />
           </div>
         </section>
         <section className="panel" aria-labelledby="pref-h">

@@ -1,5 +1,6 @@
 import { test, expect, type Browser, type Page } from '@playwright/test';
 import { MAILPIT, linkFrom, waitForMail } from './mail';
+import { passAdminGate } from './admin-gate';
 
 /**
  * Manual subscription activation, customer + platform admin, through the UI.
@@ -59,6 +60,7 @@ async function adminReview(browser: Browser, baseURL: string, reference: string,
   await admin.getByRole('button', { name: 'Sign in' }).click();
   await admin.waitForURL(/\/app/);
   await admin.goto('/admin/payments');
+  await passAdminGate(admin);
   const item = admin.locator('.queue-item', { hasText: reference });
   await expect(item).toBeVisible();
   await expect(item).toContainText('12900 DZD');

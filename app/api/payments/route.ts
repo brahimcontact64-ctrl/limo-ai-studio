@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   if (error) {
     if (isMissingFunction(error)) return json({ error: 'unavailable' }, 501);
     const code = mapPaymentError(error.message);
-    return json({ error: code }, code === 'not_authorized' ? 403 : code === 'too_many_pending' ? 429 : 422);
+    return json({ error: code }, code === 'not_authorized' ? 403 : code === 'too_many_pending' || code === 'rate_limited' ? 429 : 422);
   }
   return json({ payment_id: data }, 201);
 }

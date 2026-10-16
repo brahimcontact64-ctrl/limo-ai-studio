@@ -114,7 +114,7 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
       const body = (await res.json().catch(() => ({}))) as { project_id?: string; updated_at?: string; error?: string };
       if (!res.ok || !body.project_id) {
         const key = (body.error ?? 'unknown') as keyof typeof t.studio.saveErrors;
-        const message = t.studio.saveErrors[key] ?? t.studio.saveErrors.unknown;
+        const message = body.error === 'rate_limited' ? t.rateLimited : (t.studio.saveErrors[key] ?? t.studio.saveErrors.unknown);
         setSaveError(message);
         toast(message, 'error');
         return;

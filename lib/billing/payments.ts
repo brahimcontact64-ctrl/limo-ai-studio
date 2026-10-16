@@ -18,6 +18,7 @@ export type PaymentErrorCode =
   | 'invalid_item'
   | 'receipt_invalid'
   | 'needs_active_cycle'
+  | 'rate_limited'
   | 'unavailable'
   | 'unknown';
 
@@ -33,6 +34,7 @@ export function isValidReceiptPath(path: string, organizationId: string): boolea
 
 export function mapPaymentError(message: string | undefined | null): PaymentErrorCode {
   const m = (message ?? '').toLowerCase();
+  if (m.includes('too many requests')) return 'rate_limited';
   if (m.includes('payment method unavailable')) return 'method_unavailable';
   if (m.includes('too many pending')) return 'too_many_pending';
   if (m.includes('not authorized') || m.includes('authentication required')) return 'not_authorized';

@@ -8,6 +8,7 @@ export function AdminTabs() {
   const pathname = usePathname();
   const tabs = [
     { href: '/admin', label: t.admin.tabs.overview },
+    { href: '/admin/workspaces', label: t.adminWs.tab },
     { href: '/admin/payments', label: t.admin.tabs.payments },
     { href: '/admin/payment-methods', label: t.admin.tabs.methods },
   ];

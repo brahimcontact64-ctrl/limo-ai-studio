@@ -2,6 +2,7 @@ import type { Database } from '@/lib/supabase/database.types';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { getCatalogs } from '@/lib/data/catalog';
 import { canEditOrg, json, readJson, requireUser } from '@/lib/api/guard';
+import { allowRequest } from '@/lib/api/rateLimit';
 import { hasErrors, mapSaveError, parseSaveRequest, toRpcArgs, validateDraft } from '@/lib/studio/validation';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
   if (hasErrors(issues)) return json({ error: 'validation', issues: issues.filter((i) => i.severity === 'error') }, 400);
 
   const supabase = await getSupabaseServer();
+  if (!(await allowRequest(supabase, 'save_project', 60, 60))) return json({ error: 'rate_limited' }, 429);
   let organizationId: string;
   if (req.project_id) {
     const { data: existing } = await supabase.from('studio_projects').select('organization_id').eq('id', req.project_id).maybeSingle();
