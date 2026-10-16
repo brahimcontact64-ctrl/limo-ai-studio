@@ -71,22 +71,22 @@ Note: the production migration history is not self-contained — the base tables
 ## Email confirmation and password recovery
 
 Production has email confirmation ON. The app:
-- sends sign-up and reset links to  and stores the UI language in ;
-- handles  links (any device) and PKCE  links (same browser; cross-device failures fall back to a neutral sign-in message);
+- sends sign-up and reset links to `/auth/confirm?next=…` and stores the UI language in `user_metadata.locale`;
+- handles `token_hash` links (any device) and PKCE `code` links (same browser; cross-device failures fall back to a neutral sign-in message);
 - shows a check-your-inbox state with a Resend button (60 s cooldown, matching Supabase);
 - only shows the new-password form when a recovery session exists.
 
- and  are branded, four-language templates whose links use .
-**Pending owner action in Supabase Auth settings:** site URL, redirect allow-list (production + preview domains + ), the two templates, and a custom SMTP sender (Supabase's built-in sender only delivers to project team members and is heavily rate-limited).
+`supabase/templates/confirmation.html` and `supabase/templates/recovery.html` are branded, four-language templates whose links use `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=…`.
+**Pending owner action in Supabase Auth settings:** site URL, redirect allow-list (production + preview domains + `/auth/confirm`), the two templates, and a custom SMTP sender (Supabase's built-in sender only delivers to project team members and is heavily rate-limited).
 
 ## Subscription activation (manual payments)
 
-Migration  (**pending owner approval for production**):
-- : owner/admin submits a claim; amount priced in the database; method must be enabled; max 3 pending; receipt must be in the workspace folder. Replaces the direct INSERT policy.
-- : platform admin approves (activates the plan for 30 days via ) or rejects with a reason; audited.
-- , ; storage policies for the private  bucket.
+Migration `20261016150000_limo_subscription_activation_v1.sql` (**pending owner approval for production**):
+- `submit_payment`: owner/admin submits a claim; amount priced in the database; method must be enabled; max 3 pending; receipt must be in the workspace folder. Replaces the direct INSERT policy.
+- `admin_review_payment`: platform admin approves (activates the plan for 30 days via `approve_payment_submission`) or rejects with a reason; audited.
+- `admin_list_payment_submissions`, `admin_update_payment_method`; storage policies for the private `payment-receipts` bucket.
 
-UI:  (choose plan → method → pay → reference + receipt),  (queue with signed receipt links), .
+UI: `/app/billing` (choose plan → method → pay → reference + receipt), `/admin/payments` (queue with signed receipt links), `/admin/payment-methods`.
 All payment methods are disabled in production until an admin enters real destination details.
 
 ## End-to-end tests
