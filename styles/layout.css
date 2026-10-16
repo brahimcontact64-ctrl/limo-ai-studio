@@ -1087,3 +1087,171 @@ button.char-card:hover {
     background: linear-gradient(to left, var(--side-bg) var(--sidebar-w), var(--bg) var(--sidebar-w));
   }
 }
+
+/* ---------- Billing activation ---------- */
+.activate {
+  display: grid;
+  gap: 24px;
+}
+.activate-step {
+  display: grid;
+  gap: 14px;
+}
+.activate-step legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-weight: 800;
+}
+.activate-plans {
+  display: grid;
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .activate-plans {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.activate-plan {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: #fff;
+  text-align: start;
+  transition:
+    border-color var(--dur-1) var(--ease),
+    box-shadow var(--dur-1) var(--ease);
+}
+.activate-plan:hover {
+  border-color: var(--line-strong);
+}
+.activate-plan[aria-checked='true'] {
+  border-color: #8d77f6;
+  box-shadow: var(--accent-ring);
+}
+.activate-plan b {
+  font-size: var(--fs-md);
+}
+.activate-plan span {
+  font-size: var(--fs-lg);
+  font-weight: 800;
+}
+.activate-plan small {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.pay-details {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1px solid #e7e1ff;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+}
+.pay-field {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding-block: 6px;
+}
+.pay-field + .pay-field,
+.pay-instructions {
+  border-top: 1px solid #ebe6fb;
+}
+.pay-field-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-3);
+}
+.pay-field-value {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.pay-instructions {
+  display: grid;
+  gap: 4px;
+  padding-block: 10px 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  white-space: pre-line;
+}
+@media (max-width: 479px) {
+  .pay-field {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .pay-field-label {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- Admin ---------- */
+.admin-tabs {
+  border-bottom: 1px solid var(--line);
+}
+.seg-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+}
+.seg-link[aria-selected='true'] {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgb(37 27 70 / 0.12);
+}
+a.stat:hover {
+  border-color: var(--accent-line);
+}
+.queue {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+}
+.queue-item {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+}
+@media (min-width: 900px) {
+  .queue-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+}
+.queue-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.queue-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 18px;
+  margin: 0;
+}
+.queue-facts dt {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.queue-facts dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

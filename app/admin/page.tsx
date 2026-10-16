@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { getI18n } from '@/lib/i18n/server';
 import { formatDate } from '@/lib/i18n/format';
+import { AdminTabs } from '@/components/admin/AdminTabs';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -13,14 +15,12 @@ export const dynamic = 'force-dynamic';
 export default async function AdminPage() {
   const { t, intl } = await getI18n();
   const supabase = await getSupabaseServer();
-  const [payments, audit] = await Promise.all([
-    supabase
-      .from('payment_submissions')
-      .select('id, organization_id, purchase_type, item_code, method, amount_dzd, amount_usdt, status, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50),
+  const [pending, audit, methods] = await Promise.all([
+    supabase.from('payment_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('platform_audit_events').select('id, event_type, entity_type, organization_id, created_at').order('created_at', { ascending: false }).limit(50),
+    supabase.from('payment_method_settings').select('method, enabled'),
   ]);
+  const enabledMethods = (methods.data ?? []).filter((m) => m.enabled).length;
   const dt: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
 
   return (
@@ -32,6 +32,20 @@ export default async function AdminPage() {
           <p>{t.admin.lead}</p>
         </div>
       </div>
+      <AdminTabs />
+
+      <dl className="stat-row">
+        <Link href="/admin/payments" className="stat">
+          <dt>{t.admin.queueTitle}</dt>
+          <dd className="ltr">{pending.count ?? 0}</dd>
+        </Link>
+        <Link href="/admin/payment-methods" className="stat">
+          <dt>{t.admin.methodsTitle}</dt>
+          <dd className="ltr">
+            {enabledMethods}/{(methods.data ?? []).length}
+          </dd>
+        </Link>
+      </dl>
 
       <div className="callout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -39,40 +53,9 @@ export default async function AdminPage() {
         </svg>
         <div>
           <strong>{t.admin.providers}</strong>
-          {t.admin.providersNote} {t.admin.limitedVisibility}
+          {t.admin.providersNote}
         </div>
       </div>
-
-      <section className="panel" aria-labelledby="adm-pay">
-        <div className="panel-head">
-          <h2 id="adm-pay">{t.admin.payments}</h2>
-          <span className="badge plain mono ltr">{payments.data?.length ?? 0}</span>
-        </div>
-        {(payments.data ?? []).length === 0 ? (
-          <div className="panel-body">
-            <p className="small muted">{t.billing.noPayments}</p>
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <tbody>
-                {(payments.data ?? []).map((p) => (
-                  <tr key={p.id}>
-                    <td>{formatDate(intl, p.created_at, dt)}</td>
-                    <td className="mono xsmall ltr">{p.organization_id.slice(0, 8)}…</td>
-                    <td className="mono">{p.item_code}</td>
-                    <td>{p.method}</td>
-                    <td className="mono ltr">{p.amount_dzd ?? p.amount_usdt ?? '—'}</td>
-                    <td>
-                      <span className="badge">{p.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       <section className="panel" aria-labelledby="adm-audit">
         <div className="panel-head">
@@ -89,9 +72,9 @@ export default async function AdminPage() {
                 {(audit.data ?? []).map((e) => (
                   <tr key={e.id}>
                     <td>{formatDate(intl, e.created_at, dt)}</td>
-                    <td className="mono">{e.event_type}</td>
+                    <td className="ltr">{e.event_type}</td>
                     <td>{e.entity_type}</td>
-                    <td className="mono xsmall ltr">{e.organization_id ? `${e.organization_id.slice(0, 8)}…` : '—'}</td>
+                    <td className="xsmall muted ltr">{e.organization_id ? `${e.organization_id.slice(0, 8)}…` : '—'}</td>
                   </tr>
                 ))}
               </tbody>

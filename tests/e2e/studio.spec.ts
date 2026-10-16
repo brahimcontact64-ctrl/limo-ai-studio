@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { linkFrom, waitForMail } from './mail';
 
 /**
  * Milestone flow: sign up → onboarding → create project → cast → scenes → save → reload → edit → save
@@ -30,8 +31,16 @@ async function signUpAndOnboard(page: Page, email: string) {
   await page.goto('/signup');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password', { exact: true }).fill('Limo-e2e-Passw0rd!');
+  const started = Date.now();
   await page.getByRole('button', { name: 'Create account' }).click();
-  await page.waitForURL('**/app/onboarding');
+  // With email confirmation on (production behaviour), confirm through the email link.
+  const inbox = page.getByText('Check your inbox');
+  await Promise.race([page.waitForURL('**/app/onboarding'), inbox.waitFor()]);
+  if (await inbox.isVisible()) {
+    const mail = await waitForMail(email, /confirm/i, started);
+    await page.goto(linkFrom(mail.html));
+    await page.waitForURL('**/app/onboarding');
+  }
 
   await page.getByLabel('First name').fill('Test');
   await page.getByLabel('Last name').fill('Creator');

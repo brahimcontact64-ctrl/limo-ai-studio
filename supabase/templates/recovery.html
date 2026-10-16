@@ -1,0 +1,30 @@
+<!-- LIMO AI — "Reset password" email. Supabase Go template.
+     The app sends redirectTo = <origin>/auth/confirm?next=/reset-password; token_hash works on any device. -->
+{{ $lang := .Data.locale }}
+<!doctype html>
+<html lang="{{ if $lang }}{{ $lang }}{{ else }}en{{ end }}" dir="{{ if eq $lang "ar" }}rtl{{ else }}ltr{{ end }}">
+<body style="margin:0;padding:0;background:#f7f7fb;font-family:Inter,-apple-system,'Segoe UI',Arial,sans-serif;color:#211e2b">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7fb;padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #eae7ef;border-radius:20px;padding:32px">
+        <tr><td style="font-size:18px;font-weight:800;padding-bottom:20px">🍋 LIMO AI</td></tr>
+        <tr><td style="font-size:26px;font-weight:800;letter-spacing:-0.02em;padding-bottom:12px">
+          {{ if eq $lang "fr" }}Réinitialiser votre mot de passe{{ else if eq $lang "ar" }}إعادة تعيين كلمة المرور{{ else if eq $lang "de" }}Passwort zurücksetzen{{ else }}Reset your password{{ end }}
+        </td></tr>
+        <tr><td style="font-size:15px;line-height:1.6;color:#777180;padding-bottom:24px">
+          {{ if eq $lang "fr" }}Utilisez ce lien pour choisir un nouveau mot de passe. Il expire dans une heure.{{ else if eq $lang "ar" }}استخدم هذا الرابط لاختيار كلمة مرور جديدة. تنتهي صلاحيته خلال ساعة.{{ else if eq $lang "de" }}Mit diesem Link legst du ein neues Passwort fest. Er läuft in einer Stunde ab.{{ else }}Use this link to choose a new password. It expires in one hour.{{ end }}
+        </td></tr>
+        <tr><td style="padding-bottom:24px">
+          <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery"
+             style="display:inline-block;background:#7157ef;background-image:linear-gradient(135deg,#7056ed,#927dff);color:#ffffff;text-decoration:none;font-weight:800;font-size:15px;padding:13px 22px;border-radius:12px">
+            {{ if eq $lang "fr" }}Choisir un nouveau mot de passe{{ else if eq $lang "ar" }}اختيار كلمة مرور جديدة{{ else if eq $lang "de" }}Neues Passwort festlegen{{ else }}Choose a new password{{ end }}
+          </a>
+        </td></tr>
+        <tr><td style="font-size:13px;line-height:1.6;color:#928b99;border-top:1px solid #eae7ef;padding-top:16px">
+          {{ if eq $lang "fr" }}Si vous n’avez rien demandé, ignorez cet e-mail ; votre mot de passe ne change pas.{{ else if eq $lang "ar" }}إذا لم تطلب ذلك، تجاهل هذه الرسالة؛ لن تتغير كلمة مرورك.{{ else if eq $lang "de" }}Wenn du das nicht angefordert hast, ignoriere diese E-Mail; dein Passwort bleibt unverändert.{{ else }}If you didn’t ask for this, ignore this email; your password stays the same.{{ end }}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

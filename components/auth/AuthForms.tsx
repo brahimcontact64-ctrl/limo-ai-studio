@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
@@ -26,6 +26,40 @@ function Message({ status }: { status: Status }) {
   );
 }
 
+const confirmRedirect = () => `${window.location.origin}/auth/confirm?next=/app/onboarding`;
+
+/**
+ * Re-sends the sign-up confirmation email. Supabase allows one email per address every 60 s,
+ * so the button starts in cooldown when an email was just sent.
+ */
+function ResendConfirmation({ email, justSent = false }: { email: string; justSent?: boolean }) {
+  const { t } = useI18n();
+  const toMessage = useAuthError();
+  const [wait, setWait] = useState(justSent ? 60 : 0);
+  const [status, setStatus] = useState<Status>(null);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const id = window.setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [wait]);
+
+  async function resend() {
+    setStatus(null);
+    const { error } = await getSupabaseBrowser().auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect() } });
+    setStatus(error ? { kind: 'error', text: toMessage(error) } : { kind: 'success', text: fmt(t.auth.resent, { email }) });
+    setWait(60);
+  }
+
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      <Message status={status} />
+      <button type="button" className="btn btn-block" onClick={() => void resend()} disabled={wait > 0 || !email}>
+        {wait > 0 ? fmt(t.auth.resendWait, { s: wait }) : t.auth.resend}
+      </button>
+    </div>
+  );
+}
+
 export function SignInForm() {
   const { t } = useI18n();
   const router = useRouter();
@@ -34,12 +68,20 @@ export function SignInForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<Status>(params.get('error') === 'link' ? { kind: 'error', text: t.auth.linkInvalid } : null);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [status, setStatus] = useState<Status>(() =>
+    params.get('error') === 'link'
+      ? { kind: 'error', text: t.auth.linkInvalid }
+      : params.get('confirmed') === 'maybe'
+        ? { kind: 'success', text: t.auth.maybeConfirmed }
+        : null,
+  );
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setStatus(null);
+    setUnconfirmed(false);
     try {
       const { error } = await getSupabaseBrowser().auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
@@ -47,6 +89,7 @@ export function SignInForm() {
       router.refresh();
     } catch (err) {
       setStatus({ kind: 'error', text: toMessage(err) });
+      setUnconfirmed(authErrorKey(err as { code?: string; message?: string }) === 'emailNotConfirmed');
       setBusy(false);
     }
   }
@@ -54,6 +97,7 @@ export function SignInForm() {
   return (
     <form className="stack" onSubmit={submit} noValidate={false}>
       <Message status={status} />
+      {unconfirmed && <ResendConfirmation email={email.trim()} />}
       <label className="field">
         <span className="field-label">{t.common.email}</span>
         <input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -86,13 +130,14 @@ export function SignInForm() {
 }
 
 export function SignUpForm() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const toMessage = useAuthError();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<Status>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -106,7 +151,8 @@ export function SignUpForm() {
       const { data, error } = await getSupabaseBrowser().auth.signUp({
         email: email.trim(),
         password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/app/onboarding` },
+        // locale lets the confirmation email (supabase/templates) use the customer's language.
+        options: { emailRedirectTo: confirmRedirect(), data: { locale } },
       });
       if (error) throw error;
       // Supabase returns a user with no identities when the email is already registered.
@@ -120,12 +166,27 @@ export function SignUpForm() {
         router.refresh();
         return;
       }
-      setStatus({ kind: 'success', text: fmt(t.auth.confirmEmail, { email: email.trim() }) });
+      setSentTo(email.trim());
       setBusy(false);
     } catch (err) {
       setStatus({ kind: 'error', text: toMessage(err) });
       setBusy(false);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <div className="stack" style={{ marginTop: 20 }} role="status">
+        <div className="policy-box">
+          <strong>{t.auth.checkInboxTitle}</strong>
+          <span className="small muted">{fmt(t.auth.confirmEmail, { email: sentTo })}</span>
+        </div>
+        <ResendConfirmation email={sentTo} justSent />
+        <p className="auth-alt">
+          <Link href="/login">{t.auth.existingCustomer}</Link>
+        </p>
+      </div>
+    );
   }
 
   const terms = t.auth.termsAgree.split(/(\{terms\}|\{privacy\})/);
@@ -182,17 +243,18 @@ export function SignUpForm() {
 
 export function ForgotPasswordForm() {
   const { t } = useI18n();
+  const params = useSearchParams();
   const toMessage = useAuthError();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState<Status>(null);
+  const [status, setStatus] = useState<Status>(params.get('error') === 'link' ? { kind: 'error', text: t.auth.linkInvalid } : null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setStatus(null);
     const { error } = await getSupabaseBrowser().auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
     });
     setBusy(false);
     // Do not reveal whether the account exists; only surface rate limiting.

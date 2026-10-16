@@ -1,0 +1,32 @@
+<!-- LIMO AI — "Confirm signup" email. Supabase Go template.
+     Link uses token_hash (works on any device), appended to the app's validated redirect URL.
+     The app sends emailRedirectTo = <origin>/auth/confirm?next=/app/onboarding at sign-up and stores
+     the UI language in user_metadata.locale (available here as .Data.locale). -->
+{{ $lang := .Data.locale }}
+<!doctype html>
+<html lang="{{ if $lang }}{{ $lang }}{{ else }}en{{ end }}" dir="{{ if eq $lang "ar" }}rtl{{ else }}ltr{{ end }}">
+<body style="margin:0;padding:0;background:#f7f7fb;font-family:Inter,-apple-system,'Segoe UI',Arial,sans-serif;color:#211e2b">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7fb;padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #eae7ef;border-radius:20px;padding:32px">
+        <tr><td style="font-size:18px;font-weight:800;padding-bottom:20px">🍋 LIMO AI</td></tr>
+        <tr><td style="font-size:26px;font-weight:800;letter-spacing:-0.02em;padding-bottom:12px">
+          {{ if eq $lang "fr" }}Confirmez votre adresse e-mail{{ else if eq $lang "ar" }}أكّد بريدك الإلكتروني{{ else if eq $lang "de" }}Bestätige deine E-Mail-Adresse{{ else }}Confirm your email address{{ end }}
+        </td></tr>
+        <tr><td style="font-size:15px;line-height:1.6;color:#777180;padding-bottom:24px">
+          {{ if eq $lang "fr" }}Plus qu’une étape avant d’ouvrir votre espace LIMO AI Studio.{{ else if eq $lang "ar" }}خطوة واحدة قبل فتح مساحة عملك في LIMO AI Studio.{{ else if eq $lang "de" }}Nur noch ein Schritt bis zu deinem LIMO-AI-Studio-Arbeitsbereich.{{ else }}One step left before you can open your LIMO AI Studio workspace.{{ end }}
+        </td></tr>
+        <tr><td style="padding-bottom:24px">
+          <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+             style="display:inline-block;background:#7157ef;background-image:linear-gradient(135deg,#7056ed,#927dff);color:#ffffff;text-decoration:none;font-weight:800;font-size:15px;padding:13px 22px;border-radius:12px">
+            {{ if eq $lang "fr" }}Confirmer mon e-mail{{ else if eq $lang "ar" }}تأكيد البريد الإلكتروني{{ else if eq $lang "de" }}E-Mail bestätigen{{ else }}Confirm my email{{ end }}
+          </a>
+        </td></tr>
+        <tr><td style="font-size:13px;line-height:1.6;color:#928b99;border-top:1px solid #eae7ef;padding-top:16px">
+          {{ if eq $lang "fr" }}Si vous n’avez pas créé de compte, ignorez cet e-mail.{{ else if eq $lang "ar" }}إذا لم تُنشئ حسابًا، تجاهل هذه الرسالة.{{ else if eq $lang "de" }}Wenn du kein Konto erstellt hast, ignoriere diese E-Mail.{{ else }}If you didn’t create an account, you can ignore this email.{{ end }}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>

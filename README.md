@@ -68,6 +68,27 @@ legacy-v1/          recovered earlier code, excluded from the build
 
 Note: the production migration history is not self-contained — the base tables were created outside it. To reproduce the schema locally, use a schema-only dump (`supabase db dump --linked`) as the baseline.
 
+## Email confirmation and password recovery
+
+Production has email confirmation ON. The app:
+- sends sign-up and reset links to  and stores the UI language in ;
+- handles  links (any device) and PKCE  links (same browser; cross-device failures fall back to a neutral sign-in message);
+- shows a check-your-inbox state with a Resend button (60 s cooldown, matching Supabase);
+- only shows the new-password form when a recovery session exists.
+
+ and  are branded, four-language templates whose links use .
+**Pending owner action in Supabase Auth settings:** site URL, redirect allow-list (production + preview domains + ), the two templates, and a custom SMTP sender (Supabase's built-in sender only delivers to project team members and is heavily rate-limited).
+
+## Subscription activation (manual payments)
+
+Migration  (**pending owner approval for production**):
+- : owner/admin submits a claim; amount priced in the database; method must be enabled; max 3 pending; receipt must be in the workspace folder. Replaces the direct INSERT policy.
+- : platform admin approves (activates the plan for 30 days via ) or rejects with a reason; audited.
+- , ; storage policies for the private  bucket.
+
+UI:  (choose plan → method → pay → reference + receipt),  (queue with signed receipt links), .
+All payment methods are disabled in production until an admin enters real destination details.
+
 ## End-to-end tests
 
 Backend (`scripts/e2e-backend.ts`) needs two users in different workspaces; user A needs a completed profile and an active subscription:
@@ -80,6 +101,8 @@ E2E_A_EMAIL=… E2E_A_PASSWORD=… E2E_B_EMAIL=… E2E_B_PASSWORD=… npm run te
 For a local stack, `scripts/e2e-local-setup.ts` creates those users (it refuses non-localhost URLs).
 
 UI (`tests/e2e/signed-in-smoke.spec.ts`) works against any environment with an existing subscribed account (`E2E_EMAIL`, `E2E_PASSWORD`) and deletes the project it creates.
+
+Local-stack suites: `email-flows.spec.ts` and `payments.spec.ts` need `E2E_MAILPIT_URL` (and admin credentials for payments); `scripts/e2e-local-setup.ts` with `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` creates a local platform admin and a test CCP destination.
 
 Full journey (`tests/e2e/studio.spec.ts`) signs up a fresh user, so it needs a Supabase project without email confirmation (local stack) and `E2E_SUPABASE_URL` + `E2E_SERVICE_ROLE_KEY` to activate a test subscription. Run the app with that project's public env, then `E2E_BASE_URL=http://localhost:3200 npx playwright test`.
 

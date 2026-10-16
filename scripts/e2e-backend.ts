@@ -195,7 +195,86 @@ async function main() {
     check('user B cannot delete A’s project', !!bDel.error);
   }
 
+  if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
+    await paymentChecks(A, B, await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD));
+  } else {
+    console.log('\nPayments\n  SKIP  set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (local stack only)');
+  }
+
   return finish(A.client, created, rpc);
+}
+
+type Session = Awaited<ReturnType<typeof signIn>>;
+
+/** Manual-payment activation (migration 20261016150000). User B has no subscription. */
+async function paymentChecks(A: Session, B: Session, ADMIN: Session) {
+  console.log('\nPayments (migration 20261016150000)');
+  const rpcOf = (s: Session) => s.client.rpc.bind(s.client) as unknown as (fn: string, a: object) => Promise<{ data: unknown; error: { code?: string; message: string } | null }>;
+  const submit = (s: Session, org: string, extra: object = {}) =>
+    rpcOf(s)('submit_payment', { p_organization_id: org, p_purchase_type: 'subscription', p_item_code: 'starter', p_method: 'ccp', p_transaction_ref: `E2E-${Date.now()}`, p_receipt_path: null, ...extra });
+
+  const probe = await rpcOf(B)('admin_review_payment', { p_payment_id: '00000000-0000-4000-8000-000000000000', p_approve: true });
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  payment functions not deployed');
+    return;
+  }
+
+  // Direct inserts with a client-chosen amount are no longer possible.
+  const { error: directErr } = await B.client.from('payment_submissions').insert({
+    organization_id: B.orgId, submitted_by: B.userId, purchase_type: 'subscription', item_code: 'starter', method: 'ccp', amount_dzd: 1, transaction_ref: 'cheap',
+  });
+  check('direct insert into payment_submissions is blocked', !!directErr, 'accepted');
+
+  // Receipt storage isolation.
+  const pdf = new Blob(['%PDF-1.4 e2e'], { type: 'application/pdf' });
+  const ownPath = `${B.orgId}/${crypto.randomUUID()}.pdf`;
+  const up = await B.client.storage.from('payment-receipts').upload(ownPath, pdf, { contentType: 'application/pdf' });
+  check('owner uploads a receipt into its own workspace folder', !up.error, up.error?.message);
+  const foreign = await B.client.storage.from('payment-receipts').upload(`${A.orgId}/${crypto.randomUUID()}.pdf`, pdf, { contentType: 'application/pdf' });
+  check('cannot upload into another workspace folder', !!foreign.error);
+  const aRead = await A.client.storage.from('payment-receipts').download(ownPath);
+  check('another workspace cannot read the receipt', !!aRead.error);
+  const adminRead = await ADMIN.client.storage.from('payment-receipts').download(ownPath);
+  check('platform admin can read the receipt', !adminRead.error, adminRead.error?.message);
+
+  // Submission: server-side pricing and authorization.
+  const crossOrg = await submit(B, A.orgId);
+  check('cannot submit a payment for another workspace', !!crossOrg.error && /not authorized/i.test(crossOrg.error.message), crossOrg.error?.message ?? 'accepted');
+  const badPath = await submit(B, B.orgId, { p_receipt_path: `${A.orgId}/x.pdf` });
+  check('receipt path must be in the submitting workspace', !!badPath.error, 'accepted');
+  const { data: payId, error: subErr } = await submit(B, B.orgId, { p_receipt_path: ownPath });
+  check('owner submits a payment claim', !subErr && typeof payId === 'string', subErr?.message);
+  const { data: row } = await B.client.from('payment_submissions').select('amount_dzd, amount_usdt, status').eq('id', payId as string).single();
+  check('amount is priced by the server (Starter = 5900 DZD)', row?.amount_dzd === 5900 && row?.amount_usdt === null && row?.status === 'pending', row);
+  const { data: peek } = await A.client.from('payment_submissions').select('id').eq('id', payId as string);
+  check('other workspaces cannot see the claim', (peek ?? []).length === 0);
+
+  // Review: admin only, reason required to reject, single decision.
+  const notAdmin = await rpcOf(B)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: null });
+  check('a customer cannot approve its own payment', !!notAdmin.error && /not authorized/i.test(notAdmin.error.message), notAdmin.error?.message ?? 'accepted');
+  const noReason = await rpcOf(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: false, p_note: '' });
+  check('rejecting requires a reason', !!noReason.error);
+  const { data: list, error: listErr } = await rpcOf(ADMIN)('admin_list_payment_submissions', { p_status: 'pending' });
+  const listed = (list as Array<{ id: string; organization_name: string; submitter_email: string }> | null)?.find((p) => p.id === payId);
+  check('admin queue shows workspace name and submitter email', !listErr && !!listed?.organization_name && !!listed?.submitter_email, listErr?.message);
+  const custList = await rpcOf(B)('admin_list_payment_submissions', { p_status: null });
+  check('customers cannot list the admin queue', !!custList.error);
+  const approve = await rpcOf(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: 'E2E verified' });
+  check('admin approves', !approve.error && approve.data === 'approved', approve.error?.message);
+  const { data: sub } = await B.client.from('organization_subscriptions').select('plan_code, status, renews_at').eq('organization_id', B.orgId).maybeSingle();
+  check('approval activates the plan for ~30 days', sub?.status === 'active' && sub.plan_code === 'starter' && new Date(sub.renews_at!).getTime() > Date.now() + 29 * 864e5, sub);
+  const { data: usage } = await B.client.from('usage_balances').select('base_video_slots, used_video_slots').eq('organization_id', B.orgId).maybeSingle();
+  check('approval sets the plan usage allowance (6 video slots)', usage?.base_video_slots === 6 && usage.used_video_slots === 0, usage);
+  const again = await rpcOf(ADMIN)('admin_review_payment', { p_payment_id: payId, p_approve: true, p_note: null });
+  check('a payment cannot be reviewed twice', !!again.error && /already reviewed/i.test(again.error.message), again.error?.message ?? 'accepted');
+  const { count: audits } = await ADMIN.client.from('platform_audit_events').select('id', { count: 'exact', head: true }).eq('entity_id', payId as string);
+  check('submission and approval are audited', (audits ?? 0) >= 2, audits);
+
+  // Payment method administration.
+  const custMethod = await rpcOf(B)('admin_update_payment_method', { p_method: 'ccp', p_enabled: false, p_display_name: 'x', p_account_holder: '', p_account_number: '', p_ccp_key: '', p_redotpay_uid: '', p_instructions: '' });
+  check('customers cannot edit payment methods', !!custMethod.error);
+  const disabled = await submit(B, B.orgId, { p_method: 'redotpay' });
+  check('disabled payment methods are refused', !!disabled.error && /unavailable/i.test(disabled.error.message), disabled.error?.message ?? 'accepted');
 }
 
 async function finish(client?: SupabaseClient, created: string[] = [], rpc?: (fn: string, a: object) => Promise<{ error: unknown }>) {
