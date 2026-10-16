@@ -1,0 +1,11 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const route=readFileSync(new URL('../app/api/projects/character-draft/route.ts',import.meta.url),'utf8');
+const picker=readFileSync(new URL('../components/CharacterPicker.tsx',import.meta.url),'utf8');
+test('save RPC uses active content code and character id shape',()=>{assert.match(route,/p_content_type:contentType/);assert.match(route,/cast\.map\(\(id:string\)=>\(\{id\}\)\)/)});
+test('save is authenticated and organization scoped',()=>{assert.match(route,/auth\.getUser\(\)/);assert.match(route,/organization_members/);assert.match(route,/save_studio_project/)});
+test('generation and publishing not triggered by save route',()=>{assert.doesNotMatch(route,/generation_runs|publish_to|start_generation|queue_video/)});
+test('UI supports 18 characters and 25 scenes',()=>{assert.match(picker,/current\.length<18/);assert.match(picker,/scenes\.length>=25/)});
+test('selecting a new character does not remove it from scenes',()=>{assert.match(picker,/if\(selected\.includes\(id\)\) setScenes/)});
+test('request size bounded',()=>{assert.match(route,/TextEncoder\(\)/);assert.match(route,/30000/)});

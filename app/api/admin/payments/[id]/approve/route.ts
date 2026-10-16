@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {getSupabaseServer} from '../../../../../../lib/supabase/server';
+export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){const {id}=await params;const s=await getSupabaseServer();const {data:{user}}=await s.auth.getUser();if(!user)return NextResponse.json({error:'unauthorized'},{status:401});const {data,error}=await s.rpc('approve_payment_submission',{p_payment_id:id});if(error)return NextResponse.json({error:error.message},{status:400});return NextResponse.json({ok:true,result:data})}

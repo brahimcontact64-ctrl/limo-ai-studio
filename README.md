@@ -1,12 +1,18 @@
-# LIMO AI Studio
-# LIMO AI Studio v2 — Safe UI Prototype
+# LIMO AI Studio v0.4
 
-A multilingual (Arabic, French, English, German) social content workspace inspired by social media dashboards. Facebook is preview-only; all other platforms are marked Coming Soon. Three selectable presenter concepts, chat-like content brief builder, local draft saving and export.
+Backend-staging milestone for a Facebook-first AI content SaaS.
 
-## Run
-Open `index.html` directly, or run `npm install && npm run dev`.
+## Included
+- Supabase auth shell and tenant-aware dashboard
+- API routes for catalog, feedback, usage, payments, job enqueueing
+- SQL migration for plans, add-ons, characters, languages, subscriptions, usage, payments, feedback, social accounts and durable content jobs
+- Idempotent usage reservation through `enqueue_content_job`
+- Manual payment approval RPC that activates plans or add-ons
+- RLS for tenant isolation and server-side security headers
+- Facebook OAuth, provider APIs and worker execution intentionally remain disabled until secrets and review gates are configured
 
-## Security and limitations
-This is a frontend prototype, **not a production multi-tenant SaaS**. It does not call any AI model, generate video, authenticate users, connect to Supabase, publish to Facebook, or enforce a real approval workflow. The content briefing chat is template-driven and local only. Drafts are stored in browser localStorage and not shared between devices. Do not use this prototype to store confidential client content. Do not add service_role or provider keys to frontend code.
+## Required next step
+Run `supabase/migrations/20261015_limo_backend_v1.sql` in the LIMO Supabase project. Do not run it on an unrelated project.
 
-Before production: Next.js server auth, tenant-scoped RLS, cost reservation/settlement, idempotency, concurrency tests, manual publishing approval, and provider-enforced spending limits.
+## Secrets
+Never commit service-role, Meta, AI provider or payment secrets. Use Vercel encrypted environment variables.
