@@ -8,7 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/unit/**/*.test.ts\"",
-    "test:e2e": "node scripts/e2e-backend.mjs",
+    "test:e2e": "node scripts/e2e-backend.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "db:types": "supabase gen types typescript --project-id aevqhgksniqahqrntzxv --schema public > lib/supabase/database.types.ts"
   },
@@ -21,6 +21,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^22.20.5",
     "@types/react": "19.1",
     "@types/react-dom": "19.1",

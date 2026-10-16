@@ -19,7 +19,7 @@ export function LogoMark({ size = 28, className }: { size?: number; className?: 
 
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="logo">
+    <span className="logo" dir="ltr">
       <LogoMark />
       {!compact && (
         <span className="logo-word">
