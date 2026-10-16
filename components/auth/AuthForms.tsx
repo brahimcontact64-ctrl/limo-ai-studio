@@ -58,15 +58,23 @@ export function SignInForm() {
         <span className="field-label">{t.common.email}</span>
         <input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
-      <label className="field">
-        <span className="field-label">
-          {t.common.password}
+      <div className="field">
+        <div className="field-label">
+          <label htmlFor="signin-password">{t.common.password}</label>
           <Link className="link xsmall" href="/forgot-password">
             {t.auth.forgotLink}
           </Link>
-        </span>
-        <input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-      </label>
+        </div>
+        <input
+          id="signin-password"
+          className="input"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
       <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>
         {busy ? t.common.loading : t.common.signIn}
       </button>

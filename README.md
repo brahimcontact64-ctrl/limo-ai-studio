@@ -58,15 +58,15 @@ legacy-v1/          recovered earlier code, excluded from the build
 - Saving requires an active subscription (`organization_subscriptions.status = 'active' and renews_at > now()`).
 - Character references are all `pending`; the storyboard flags this and generation stays blocked.
 
-## Pending database migration
+## Database migration 20261016120000 (applied 2026-10-16)
 
-`supabase/migrations/20261016120000_limo_studio_project_lifecycle_v1.sql` (not applied to production yet):
+`supabase/migrations/20261016120000_limo_studio_project_lifecycle_v1.sql` was applied to production with owner approval and recorded in `supabase_migrations.schema_migrations`:
 
-1. fixes `studio_projects_project_cast_check1`, which still limits the cast to **3** characters;
+1. fixes `studio_projects_project_cast_check1` (was 1–3 characters, now 1–18);
 2. adds `archive_studio_project`, `restore_studio_project`, `delete_studio_project` (refuses projects with generation history);
-3. adds `rename_organization`.
+3. adds `rename_organization` (owner/admin).
 
-Until it is applied, projects with more than 3 characters cannot be saved, and archive/delete/rename show "available after the next database update".
+Note: the production migration history is not self-contained — the base tables were created outside it. To reproduce the schema locally, use a schema-only dump (`supabase db dump --linked`) as the baseline.
 
 ## End-to-end tests
 
@@ -79,7 +79,9 @@ E2E_A_EMAIL=… E2E_A_PASSWORD=… E2E_B_EMAIL=… E2E_B_PASSWORD=… npm run te
 
 For a local stack, `scripts/e2e-local-setup.ts` creates those users (it refuses non-localhost URLs).
 
-UI (`tests/e2e/studio.spec.ts`) signs up a fresh user, so it needs a Supabase project without email confirmation (local stack) and `E2E_SUPABASE_URL` + `E2E_SERVICE_ROLE_KEY` to activate a test subscription. Run the app with that project's public env, then `E2E_BASE_URL=http://localhost:3200 npx playwright test`.
+UI (`tests/e2e/signed-in-smoke.spec.ts`) works against any environment with an existing subscribed account (`E2E_EMAIL`, `E2E_PASSWORD`) and deletes the project it creates.
+
+Full journey (`tests/e2e/studio.spec.ts`) signs up a fresh user, so it needs a Supabase project without email confirmation (local stack) and `E2E_SUPABASE_URL` + `E2E_SERVICE_ROLE_KEY` to activate a test subscription. Run the app with that project's public env, then `E2E_BASE_URL=http://localhost:3200 npx playwright test`.
 
 ## Deployment
 
