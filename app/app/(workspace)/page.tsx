@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireAppContext } from '@/lib/data/context';
 import { listProjects } from '@/lib/data/projects';
+import { getPlans } from '@/lib/data/catalog';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { getI18n } from '@/lib/i18n/server';
 import { fmt } from '@/lib/i18n/config';
-import { formatDate, formatDuration, formatRelative, plural } from '@/lib/i18n/format';
+import { formatDate, formatDuration, plural } from '@/lib/i18n/format';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Icon } from '@/components/ui/Icon';
 import { CastStack, Meter, StatusBadge } from '@/components/app/ProjectBits';
 import { SubscriptionNotice } from '@/components/app/SubscriptionNotice';
@@ -43,6 +45,7 @@ export default async function DashboardPage() {
   ]);
 
   const sub = ctx.subscription;
+  const planName = sub ? ((await getPlans())?.find((p) => p.code === sub.plan_code)?.name ?? sub.plan_code) : null;
   const usage = ctx.usage;
   const recentActive = (recent ?? []).filter((p) => p.status !== 'archived');
 
@@ -124,7 +127,7 @@ export default async function DashboardPage() {
                     <div className="project-meta">
                       <span>{plural(p.scene_count, t.projects.scene, t.projects.scenes)}</span>
                       <span className="mono ltr">{formatDuration(t, p.total_duration_seconds)}</span>
-                      <span>{fmt(t.common.updated, { when: formatRelative(intl, p.updated_at) })}</span>
+                      <RelativeTime iso={p.updated_at} template={t.common.updated} />
                     </div>
                   </div>
                   <CastStack ids={p.cast} />
@@ -143,7 +146,7 @@ export default async function DashboardPage() {
               </span>
             </div>
             <div className="panel-body stack">
-              <p style={{ fontWeight: 600 }}>{sub ? sub.plan_code : t.dashboard.noPlan}</p>
+              <p style={{ fontWeight: 600 }}>{planName ?? t.dashboard.noPlan}</p>
               {sub?.renews_at && (
                 <p className="small muted">
                   {fmt(ctx.subscriptionActive ? t.dashboard.renews : t.dashboard.expired, { date: formatDate(intl, sub.renews_at) })}

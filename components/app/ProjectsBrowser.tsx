@@ -2,8 +2,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n/client';
-import { fmt } from '@/lib/i18n/config';
-import { formatDuration, formatRelative, plural } from '@/lib/i18n/format';
+import { formatDuration, plural } from '@/lib/i18n/format';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 import type { ProjectStatus } from '@/lib/studio/types';
 import { Icon } from '@/components/ui/Icon';
 import { ProjectMenu } from '@/components/studio/ProjectMenu';
@@ -114,7 +114,7 @@ export function ProjectsBrowser({ projects, canEdit }: { projects: ProjectListIt
                   <span className="mono">{p.language_code.toUpperCase()}</span>
                   <span>{plural(p.scene_count, t.projects.scene, t.projects.scenes)}</span>
                   <span className="mono ltr">{formatDuration(t, p.total_duration_seconds)}</span>
-                  <span>{fmt(t.common.updated, { when: formatRelative(intl, p.updated_at) })}</span>
+                  <RelativeTime iso={p.updated_at} template={t.common.updated} />
                 </div>
               </div>
               <div className="row" style={{ flexWrap: 'nowrap' }}>

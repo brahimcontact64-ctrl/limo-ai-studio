@@ -128,9 +128,12 @@ export function SignUpForm() {
         <span className="field-label">{t.common.email}</span>
         <input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
-      <label className="field">
-        <span className="field-label">{t.common.password}</span>
+      <div className="field">
+        <label className="field-label" htmlFor="signup-password">
+          {t.common.password}
+        </label>
         <input
+          id="signup-password"
           className="input"
           type="password"
           autoComplete="new-password"
@@ -143,7 +146,7 @@ export function SignUpForm() {
         <span id="pw-hint" className="field-hint">
           {t.auth.passwordHint}
         </span>
-      </label>
+      </div>
       <button className="btn btn-primary btn-lg btn-block" type="submit" disabled={busy}>
         {busy ? t.common.loading : t.common.signUp}
       </button>

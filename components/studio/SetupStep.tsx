@@ -28,7 +28,7 @@ export function SetupStep({
     setDraft((d) => ({ ...d, export_presets: d.export_presets.includes(code) ? d.export_presets.filter((p) => p !== code) : [...d.export_presets, code] }));
 
   return (
-    <div className="step">
+    <div className="studio-step">
       <StepHeader title={t.studio.setup.title} lead={t.studio.setup.lead} />
       <div className="setup-grid">
         <div className="stack-lg">

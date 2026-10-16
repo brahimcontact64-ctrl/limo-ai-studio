@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
-import { formatRelative } from '@/lib/i18n/format';
+import { RelativeTime } from '@/components/ui/RelativeTime';
 import { draftFingerprint, toSaveRequest } from '@/lib/studio/draft';
 import { hasErrors, validateDraft, type Issue } from '@/lib/studio/validation';
 import { EDITABLE_STATUSES, type CatalogOption, type CharacterRecord, type ExportPresetOption, type ProjectDraft, type ProjectStatus } from '@/lib/studio/types';
@@ -42,7 +42,7 @@ export interface StudioEditorProps {
 }
 
 export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdit, subscriptionActive }: StudioEditorProps) {
-  const { t, intl } = useI18n();
+  const { t } = useI18n();
   const toast = useToast();
   const [draft, setDraft] = useState<ProjectDraft>(initialDraft);
   const [savedFingerprint, setSavedFingerprint] = useState(() => (initialDraft.id ? draftFingerprint(initialDraft) : ''));
@@ -51,7 +51,6 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [, forceTick] = useState(0);
 
   const editable = canEdit && EDITABLE_STATUSES.includes(status);
   const ctx = useMemo(
@@ -67,12 +66,6 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
   const dirty = fingerprint !== savedFingerprint;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty && editable;
-
-  // Refresh relative "saved x ago" label.
-  useEffect(() => {
-    const id = window.setInterval(() => forceTick((n) => n + 1), 30_000);
-    return () => window.clearInterval(id);
-  }, []);
 
   // Warn before leaving with unsaved changes (tab close + in-app links).
   useEffect(() => {
@@ -168,7 +161,7 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
         ? t.studio.unsaved
         : t.studio.neverSaved
       : savedAt
-        ? fmt(t.studio.savedAt, { when: formatRelative(intl, savedAt) })
+        ? <RelativeTime iso={savedAt} template={t.studio.savedAt} />
         : t.studio.saved;
 
   return (

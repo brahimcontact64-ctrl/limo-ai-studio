@@ -48,7 +48,7 @@ export function CastStep({
   };
 
   return (
-    <div className="step">
+    <div className="studio-step">
       <StepHeader
         title={t.studio.cast.title}
         lead={t.studio.cast.lead}

@@ -36,7 +36,7 @@ export function ReviewStep({ draft, issues, catalogs }: { draft: ProjectDraft; i
   };
 
   return (
-    <div className="step">
+    <div className="studio-step">
       <StepHeader
         title={t.studio.review.title}
         lead={t.studio.review.lead}

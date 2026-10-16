@@ -108,7 +108,7 @@ export function ScenesStep({
   let elapsed = 0;
 
   return (
-    <div className="step scenes-step">
+    <div className="studio-step scenes-step">
       <div className="scenes-layout">
         {/* Scene rail */}
         <aside className="scene-rail" aria-label={t.studio.scenes.list}>
