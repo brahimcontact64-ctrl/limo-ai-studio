@@ -5,6 +5,8 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 ## Owner decisions
 | Date | Decision |
 |---|---|
+| 2026-10-17 | Milestone 2 accepted for continued local development only (not production, not production migrations, not payment activation). Milestone 3 requested: full script/dialogue/scene editing with revisions, approval and labelled Mock AI. |
+| 2026-10-17 | Pending production migrations stay unapplied; a separate migration review is required first (`MIGRATION_REVIEW.md`). |
 | 2026-10-16 | Master product specification (`PRODUCT_SPEC.md`) approved as canonical scope. |
 | 2026-10-16 | Restored original lavender/white/purple LIMO design approved; merged into `rebuild/v1`. Metricool-inspired organisation for the app. |
 | 2026-10-16 | Pricing cards must not mention Facebook posting or social publishing until implemented and tested. |
@@ -22,6 +24,10 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - Paid AI providers, real Facebook/Meta integration, production promotion.
 
 ## Technical decisions
+- **Approved scripts are enforced in the database** (triggers), not only in the UI, so older clients (v1/v2 saves) cannot overwrite them. Removing approval is an explicit, audited action.
+- **Optimistic concurrency** on saves (`base_updated_at`) instead of locks: the second writer gets a conflict and reloads; every saved version is in the history.
+- **Restore never rewrites history**: it saves the old snapshot as a new revision.
+- **Mock AI is a proposal engine**: it cannot change content without a field-by-field review, never invents facts, and marks fake translations as "[Mock translation → XX]".
 - **Stack:** Next.js 15 App Router, strict TypeScript, Supabase (Auth, Postgres, Storage), plain CSS tokens. No extra UI framework.
 - **Security boundary is the database:** every query runs as the signed-in user under RLS; writes go through `SECURITY DEFINER` functions that re-check membership/roles; API routes never accept an organisation id from the browser.
 - **Additive migrations only.** New behaviour gets new functions (e.g. `save_studio_project_v2`) instead of changing signatures in place; existing functions stay for compatibility.
