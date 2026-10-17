@@ -7,6 +7,9 @@ DB="${1:?local database container name}"
 DIR="$(cd "$(dirname "$0")/../../supabase/rollback" && pwd)"
 {
   echo "begin;"
+  # Simulates the owner resolving projects that cast workspace characters before the character rollback.
+  echo "delete from public.studio_projects p where exists (select 1 from jsonb_array_elements(p.project_cast) e where e->>'id' like 'custom:%');"
+  cat "$DIR/20261017140000_down.sql"
   cat "$DIR/20261017120000_down.sql"
   # Simulates the owner resolving character-free projects before the universal-creation rollback.
   echo "delete from public.studio_projects where jsonb_array_length(project_cast) = 0;"
@@ -17,6 +20,8 @@ select 'ROLLBACK-CHECK ' || string_agg(name || '=' || present::text, ' ' order b
   union all select 'brand_kits', to_regclass('public.brand_kits') is not null
   union all select 'feature_flags', to_regclass('public.feature_flags') is not null
   union all select 'rate_limit_hits', to_regclass('public.rate_limit_hits') is not null
+  union all select 'character_design_specs', to_regclass('public.character_design_specs') is not null
+  union all select 'character_reference_assets', to_regclass('public.character_reference_assets') is not null
   union all select 'save_studio_project_v2', to_regprocedure('public.save_studio_project_v2(uuid,uuid,text,text,text,text,text,text,text,jsonb,jsonb,jsonb,text[])') is not null
   union all select 'submit_payment', to_regprocedure('public.submit_payment(uuid,text,text,text,text,text)') is not null
   union all select 'creation_mode_column', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'studio_projects' and column_name = 'creation_mode')
