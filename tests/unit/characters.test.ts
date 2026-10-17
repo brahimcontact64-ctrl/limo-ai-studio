@@ -108,3 +108,10 @@ test('prompts use the canonical identity text and flag missing references', () =
   assert.ok(!prompt.text.includes('short catalog text'));
   assert.deepEqual(prompt.missingReferences, ['limo_boy']);
 });
+
+test('the character reference guide is generated from the canon (no drift)', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const generated = execFileSync(process.execPath, ['scripts/gen-character-guide.ts'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const file = readFileSync(new URL('../../docs/CHARACTER_REFERENCE_GUIDE.md', import.meta.url), 'utf8');
+  assert.equal(file.replace(/\r\n/g, '\n').trim(), generated.replace(/\r\n/g, '\n').trim());
+});

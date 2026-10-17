@@ -18,6 +18,9 @@ import { toRpcArgs, toRpcArgsV2 } from '../lib/studio/validation.ts';
 import { emptyProject, newScene, projectFromDb, toSaveRequest, type DbSceneRow } from '../lib/studio/draft.ts';
 import type { ProjectDraft } from '../lib/studio/types.ts';
 import { totp } from './lib/totp.ts';
+import { normalizeBible, normalizeCheckpoint } from '../lib/story/bible.ts';
+import { buildContinueDraft } from '../lib/story/continue.ts';
+import { EMPTY_CHECKPOINT, type CharacterState, type EpisodeCheckpoint, type StoryBible } from '../lib/story/types.ts';
 
 const env = (k: string) => {
   const v = process.env[k];
@@ -201,6 +204,7 @@ async function main() {
   await creationChecks(A, B, draft.content_type);
   await scriptChecks(A, B, draft.content_type);
   await customCharacterChecks(A, B, draft.content_type);
+  await storyChecks(A, B, draft.content_type);
 
   if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
     const ADMIN = await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD);
@@ -544,6 +548,209 @@ async function canonicalReferenceChecks(A: Session, ADMIN: Session) {
   check('the test fixture is retired again', !retire.error, retire.error?.message);
   const { data: after } = await A.client.from('character_reference_assets' as never).select('id').eq('id', refId);
   check('a retired reference is no longer visible to customers', ((after ?? []) as unknown[]).length === 0);
+}
+
+/** Story Engine (migration 20261017160000): three episodes, continuation, revision, review, isolation. */
+async function storyChecks(A: Session, B: Session, contentType: string) {
+  console.log('\nStory Engine (migration 20261017160000)');
+  const probe = await rpcFor(B)('resolve_episode_review', { p_episode_id: '00000000-0000-4000-8000-000000000000', p_note: 'probe' });
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  story functions not deployed');
+    return;
+  }
+  const db = (s: Session) => s.client as unknown as { from: (t: string) => any };
+  const bible: StoryBible = normalizeBible({
+    premise: 'E2E market mystery', genre: 'Comedy', tone: 'warm',
+    characters: [
+      { ref: 'limo_boy', name: 'Limo', role: 'kid' },
+      { ref: 'nova_elder_woman', name: 'Grandma Nova', role: 'stall owner' },
+      { ref: 'adam_man', name: 'Adam', role: 'neighbour' },
+    ],
+    relationships: [{ a: 'limo_boy', b: 'nova_elder_woman', kind: 'grandson' }],
+    locations: [{ key: 'market', name: 'Market' }, { key: 'kitchen', name: 'Kitchen' }],
+    world_rules: [{ id: 'no-magic', text: 'magic', kind: 'forbidden' }],
+    arcs: [{ id: 'lost-key', title: 'The lost key', status: 'open', opened_in: 1 }],
+  });
+
+  // Series + isolation.
+  const anon = createClient(URL_, KEY, { auth: { persistSession: false } });
+  const anonCreate = await (anon.rpc.bind(anon) as unknown as Rpc)('create_story_series', { p_organization_id: A.orgId, p_title: 'x', p_language_code: 'en', p_continuity_mode: 'strict', p_bible: bible });
+  check('anonymous users cannot create a series', !!anonCreate.error);
+  const bCreate = await rpcFor(B)('create_story_series', { p_organization_id: A.orgId, p_title: 'Intruder', p_language_code: 'en', p_continuity_mode: 'strict', p_bible: bible });
+  check('another workspace cannot create a series here', !!bCreate.error);
+  const badRef = await rpcFor(A)('create_story_series', { p_organization_id: A.orgId, p_title: 'Bad', p_language_code: 'en', p_continuity_mode: 'strict', p_bible: { ...bible, characters: [{ ref: 'not_real', name: 'x' }] } });
+  check('a series cannot use unknown characters', !!badRef.error && /unknown character/i.test(badRef.error.message), badRef.error?.message ?? 'accepted');
+  const created = await rpcFor(A)('create_story_series', { p_organization_id: A.orgId, p_title: 'E2E Market Mystery', p_language_code: 'en', p_continuity_mode: 'strict', p_bible: bible });
+  check('owner creates a series with Story Bible v1', !created.error && typeof created.data === 'string', created.error?.message);
+  const seriesId = created.data as string;
+  const { data: bSeries } = await db(B).from('content_series').select('id').eq('id', seriesId);
+  check('another workspace cannot read the series', (bSeries ?? []).length === 0);
+  const { data: bBible } = await db(B).from('story_bible_versions').select('version').eq('series_id', seriesId);
+  check('another workspace cannot read the Story Bible', (bBible ?? []).length === 0);
+  const direct = await db(A).from('content_series').update({ title: 'direct write' }).eq('id', seriesId).select('id');
+  check('series cannot be written directly (functions only)', !!direct.error || (direct.data ?? []).length === 0);
+
+  const stale = await rpcFor(A)('save_story_bible', { p_series_id: seriesId, p_base_version: 0, p_bible: bible, p_note: null });
+  check('a Story Bible save based on an old version is refused', !!stale.error && /changed since/i.test(stale.error.message), stale.error?.message ?? 'accepted');
+  const v2 = await rpcFor(A)('save_story_bible', { p_series_id: seriesId, p_base_version: 1, p_bible: { ...bible, tone: 'warm and funny' }, p_note: 'tone' });
+  check('a canon change creates version 2', !v2.error && v2.data === 2, v2.error?.message ?? v2.data);
+  let bibleVersion = 2;
+
+  type Ep = { episode_id: string; project_id: string; episode_number: number };
+  const create = (basedOn: string | null, fp: string | null, draft: ReturnType<typeof buildContinueDraft>, who: Session = A) => {
+    const p = emptyProject({ content_type: contentType, language_code: 'en', creation_mode: 'story', export_presets: ['vertical_9_16'] });
+    p.title = draft.title;
+    p.cast = draft.cast;
+    p.scenes = draft.scenes;
+    const args = toRpcArgsV2(A.orgId, toSaveRequest(p));
+    return rpcFor(who)('create_story_episode', {
+      p_series_id: seriesId, p_season_id: null, p_based_on_episode_id: basedOn, p_based_on_fingerprint: fp, p_title: draft.title,
+      p_content_type: contentType, p_project_cast: args.p_project_cast, p_scenes: args.p_scenes, p_export_presets: args.p_export_presets,
+    });
+  };
+  const epRow = async (id: string) => (await db(A).from('content_episodes').select('*').eq('id', id).single()).data as Record<string, any>;
+  const approveScript = async (projectId: string) => {
+    const { data: p } = await A.client.from('studio_projects').select('updated_at').eq('id', projectId).single();
+    return rpcFor(A)('approve_project_script', { p_project_id: projectId, p_base_updated_at: p?.updated_at });
+  };
+  const saveEnding = async (episodeId: string, cp: EpisodeCheckpoint) => {
+    const row = await epRow(episodeId);
+    return rpcFor(A)('save_episode_checkpoint', { p_episode_id: episodeId, p_checkpoint: cp, p_base_updated_at: row.checkpoint_updated_at });
+  };
+  const state = (ref: string, present: boolean, loc: string, emo = '', phys = '', goal = ''): CharacterState => ({ ref, present, location_key: loc, emotional_state: emo, physical_state: phys, current_goal: goal });
+
+  // Episode 1.
+  const d1 = buildContinueDraft(bible, null, 1);
+  const e1r = await create(null, null, d1);
+  check('episode 1 is created from the Story Bible', !e1r.error && (e1r.data as Ep)?.episode_number === 1, e1r.error?.message);
+  const e1 = e1r.data as Ep;
+  const bEp = await create(null, null, d1, B);
+  check('another workspace cannot add episodes', !!bEp.error);
+  const again = await create(null, null, d1);
+  check('a second "episode 1" is refused (continue from the latest)', !!again.error && /latest episode/i.test(again.error.message), again.error?.message ?? 'accepted');
+  const early = await create(e1.episode_id, null, buildContinueDraft(bible, null, 2));
+  check('continuing before episode 1 is approved is refused', !!early.error && /approve episode 1 first/i.test(early.error.message), early.error?.message ?? 'accepted');
+  const noEnding = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('an episode without an ending cannot be approved', !!noEnding.error && /ending first/i.test(noEnding.error.message), noEnding.error?.message ?? 'accepted');
+
+  const cp1: EpisodeCheckpoint = {
+    ...EMPTY_CHECKPOINT, summary: 'Limo and Grandma search the market; a map turns up.', ending_hook: 'Grandma finds a map in the kitchen.', location_key: 'kitchen', time_label: 'Monday evening',
+    characters: [state('limo_boy', true, 'kitchen', 'excited', 'scraped knee', 'read the map'), state('nova_elder_woman', true, 'kitchen', 'worried'), state('adam_man', false, 'market', 'annoyed')],
+    events: [{ text: 'The stall key goes missing', characters: ['nova_elder_woman'], scenes: [1] }, { text: 'Grandma finds a map', characters: ['nova_elder_woman', 'limo_boy'], scenes: [d1.scenes.length] }],
+    arcs_progressed: ['lost-key'], arcs_opened: [{ id: 'the-map', title: 'The map', description: 'Who drew it?' }],
+  };
+  const staleEnding = await rpcFor(A)('save_episode_checkpoint', { p_episode_id: e1.episode_id, p_checkpoint: cp1, p_base_updated_at: '2000-01-01T00:00:00Z' });
+  check('an ending save based on an old version is refused', !!staleEnding.error && /changed since/i.test(staleEnding.error.message), staleEnding.error?.message ?? 'accepted');
+  check('the owner saves the ending of episode 1', !(await saveEnding(e1.episode_id, { ...cp1, characters: [...cp1.characters, state('nova_boy', true, 'kitchen')] })).error);
+  const noScript = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('an episode cannot be approved before its script', !!noScript.error && /script first/i.test(noScript.error.message), noScript.error?.message ?? 'accepted');
+  check('the episode script is approved (Milestone 3)', !(await approveScript(e1.project_id)).error);
+  const outsider = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('an ending with a character outside the canon is refused', !!outsider.error && /outside the canon/i.test(outsider.error.message), outsider.error?.message ?? 'accepted');
+  await saveEnding(e1.episode_id, { ...cp1, events: [...cp1.events, { text: 'Invented earlier event', characters: [], scenes: [99] }] });
+  const invented = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('an event that is not in this episode’s scenes is refused', !!invented.error && /scene of this episode/i.test(invented.error.message), invented.error?.message ?? 'accepted');
+  await saveEnding(e1.episode_id, cp1);
+  const bApprove = await rpcFor(B)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('another workspace cannot approve an episode', !!bApprove.error);
+  const a1 = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('episode 1 is approved', !a1.error, a1.error?.message);
+  bibleVersion = (a1.data as { bible_version: number }).bible_version;
+  check('the new thread from episode 1 becomes canon (new bible version)', bibleVersion === 3);
+  const { data: ev1 } = await db(A).from('story_events').select('text').eq('episode_id', e1.episode_id);
+  check('the timeline holds exactly the approved events of episode 1', (ev1 ?? []).length === 2);
+  const { data: bEv } = await db(B).from('story_events').select('id').eq('series_id', seriesId);
+  check('another workspace cannot read the timeline', (bEv ?? []).length === 0);
+
+  // Episode 2: continues from the exact approved ending.
+  const r1 = await epRow(e1.episode_id);
+  const bibleV3 = normalizeBible((await db(A).from('story_bible_versions').select('bible').eq('series_id', seriesId).eq('version', 3).single()).data.bible);
+  const d2 = buildContinueDraft(bibleV3, { number: 1, checkpoint: normalizeCheckpoint(r1.approved_checkpoint) }, 2);
+  const wrongFp = await create(e1.episode_id, 'not-the-fingerprint', d2);
+  check('continuing from a different ending fingerprint is refused', !!wrongFp.error && /previous ending changed/i.test(wrongFp.error.message), wrongFp.error?.message ?? 'accepted');
+  const e2r = await create(e1.episode_id, r1.checkpoint_fingerprint, d2);
+  check('episode 2 continues from the approved ending of episode 1', !e2r.error && (e2r.data as Ep)?.episode_number === 2, e2r.error?.message);
+  const e2 = e2r.data as Ep;
+  const { data: s2 } = await A.client.from('project_scenes').select('narration, location_prompt, participants, continuity_notes').eq('project_id', e2.project_id).order('scene_number');
+  const first2 = (s2 ?? [])[0] as { narration: string; location_prompt: string; participants: string[]; continuity_notes: string } | undefined;
+  check('episode 2 opens with episode 1’s ending hook, place and present characters', first2?.narration === cp1.ending_hook && (first2.location_prompt ?? '').startsWith('Kitchen') && JSON.stringify(first2.participants) === '["limo_boy","nova_elder_woman"]', first2);
+  check('episode 2 carries the character states forward', !!first2?.continuity_notes?.includes('scraped knee'));
+  const { data: p2 } = await A.client.from('studio_projects').select('project_cast, series_id').eq('id', e2.project_id).single();
+  check('episode 2 casts only characters present at the approved ending', JSON.stringify(p2?.project_cast) === '[{"id":"limo_boy"},{"id":"nova_elder_woman"}]' && p2?.series_id === seriesId, p2);
+  check('every open thread gets a scene in episode 2', (s2 ?? []).filter((s: { continuity_notes: string | null }) => (s.continuity_notes ?? '').startsWith('Open thread')).length === 2);
+  const r2 = await epRow(e2.episode_id);
+  check('episode 2 records which ending it started from', r2.based_on_episode_id === e1.episode_id && r2.based_on_fingerprint === r1.checkpoint_fingerprint);
+
+  const cp2: EpisodeCheckpoint = { ...EMPTY_CHECKPOINT, summary: 'The key is found in the map case.', ending_hook: 'Adam knocks on the door.', location_key: 'kitchen',
+    characters: [state('limo_boy', true, 'kitchen', 'proud', 'scraped knee'), state('nova_elder_woman', true, 'kitchen', 'relieved')],
+    events: [{ text: 'Limo finds the key', characters: ['limo_boy'], scenes: [2] }], arcs_resolved: ['lost-key'], arcs_progressed: ['the-map'] };
+  await saveEnding(e2.episode_id, cp2);
+  await approveScript(e2.project_id);
+  const a2 = await rpcFor(A)('approve_story_episode', { p_episode_id: e2.episode_id, p_bible_version: bibleVersion });
+  check('episode 2 is approved and resolves "the lost key"', !a2.error, a2.error?.message);
+  bibleVersion = (a2.data as { bible_version: number }).bible_version;
+  const bibleV4 = normalizeBible((await db(A).from('story_bible_versions').select('bible').eq('series_id', seriesId).eq('version', bibleVersion).single()).data.bible);
+  check('the resolved thread is recorded in the canon with its episode', bibleV4.arcs.find((a) => a.id === 'lost-key')?.status === 'resolved' && bibleV4.arcs.find((a) => a.id === 'lost-key')?.resolved_in === 2);
+
+  // Episode 3.
+  const r2b = await epRow(e2.episode_id);
+  const d3 = buildContinueDraft(bibleV4, { number: 2, checkpoint: normalizeCheckpoint(r2b.approved_checkpoint) }, 3);
+  check('resolved threads are not reopened; open ones are kept', d3.scenes.filter((s) => s.title.startsWith('Thread:')).map((s) => s.title).join('|') === 'Thread: The map');
+  const e3r = await create(e2.episode_id, r2b.checkpoint_fingerprint, d3);
+  const e3 = e3r.data as Ep;
+  check('episode 3 continues from episode 2', !e3r.error && e3?.episode_number === 3, e3r.error?.message);
+  await saveEnding(e3.episode_id, { ...EMPTY_CHECKPOINT, summary: 'Adam joins the search for the mapmaker.', location_key: 'market', characters: [state('limo_boy', true, 'market'), state('nova_elder_woman', true, 'market')], events: [{ text: 'They return to the market', characters: ['limo_boy'], scenes: [1] }], arcs_progressed: ['the-map'] });
+  await approveScript(e3.project_id);
+  check('episode 3 is approved', !(await rpcFor(A)('approve_story_episode', { p_episode_id: e3.episode_id, p_bible_version: bibleVersion })).error);
+
+  // Canon protection.
+  const removeUsed = await rpcFor(A)('save_story_bible', { p_series_id: seriesId, p_base_version: bibleVersion, p_bible: { ...bibleV4, characters: bibleV4.characters.filter((c) => c.ref !== 'limo_boy') }, p_note: 'remove' });
+  check('a character used by approved episodes cannot be removed from the canon', !!removeUsed.error && /appears in approved episodes/i.test(removeUsed.error.message), removeUsed.error?.message ?? 'accepted');
+
+  // Revise episode 1: removing its script approval reopens it and flags episodes 2 and 3.
+  const { data: rm } = await rpcFor(A)('remove_script_approval', { p_project_id: e1.project_id });
+  check('removing episode 1’s script approval works', !!rm);
+  const f1 = await epRow(e1.episode_id);
+  const f2 = await epRow(e2.episode_id);
+  const f3 = await epRow(e3.episode_id);
+  check('episode 1 is reopened automatically', f1.checkpoint_status === 'draft');
+  check('episodes 2 and 3 are flagged for review (not rewritten)', f2.review_status === 'needs_review' && f3.review_status === 'needs_review' && f2.checkpoint_status === 'approved' && f3.checkpoint_status === 'approved');
+  check('episode 2 is directly affected', f2.review_reasons?.[0]?.impact === 'direct' && f2.review_reasons?.[0]?.episode_number === 1);
+  const { data: ev1b } = await db(A).from('story_events').select('id').eq('episode_id', e1.episode_id);
+  check('the reopened episode’s events leave the timeline', (ev1b ?? []).length === 0);
+  const blocked = await create(e3.episode_id, f3.checkpoint_fingerprint, d3);
+  check('the story cannot continue while episode 3 needs review', !!blocked.error && /needs review first/i.test(blocked.error.message), blocked.error?.message ?? 'accepted');
+
+  // Change episode 1's ending: Adam is now present and scared → later episodes get a "changed" reason.
+  await saveEnding(e1.episode_id, { ...cp1, characters: [cp1.characters[0]!, cp1.characters[1]!, state('adam_man', true, 'kitchen', 'scared')] });
+  await approveScript(e1.project_id);
+  const a1b = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
+  check('the revised episode 1 is approved again', !a1b.error, a1b.error?.message);
+  const g3 = await epRow(e3.episode_id);
+  const changed = (g3.review_reasons as Array<{ kind: string; characters: string[]; impact: string }>).find((r) => r.kind === 'earlier_episode_changed');
+  check('episode 3 lists exactly the changed characters', JSON.stringify(changed?.characters) === '["adam_man"]', changed);
+  check('episode 3 is marked downstream (it does not cast the changed character)', changed?.impact === 'downstream', changed);
+  const order = await rpcFor(A)('resolve_episode_review', { p_episode_id: e3.episode_id, p_note: 'checked episode 3' });
+  check('episode 3 cannot be marked reviewed before episode 2', !!order.error && /earlier episodes first/i.test(order.error.message), order.error?.message ?? 'accepted');
+  const shortNote = await rpcFor(A)('resolve_episode_review', { p_episode_id: e2.episode_id, p_note: 'ok' });
+  check('a review needs a description of what was checked', !!shortNote.error);
+  const bResolve = await rpcFor(B)('resolve_episode_review', { p_episode_id: e2.episode_id, p_note: 'not mine at all' });
+  check('another workspace cannot resolve reviews', !!bResolve.error);
+  check('episode 2 is reviewed', !(await rpcFor(A)('resolve_episode_review', { p_episode_id: e2.episode_id, p_note: 'Adam’s new presence fits episode 2' })).error);
+  check('episode 3 is reviewed', !(await rpcFor(A)('resolve_episode_review', { p_episode_id: e3.episode_id, p_note: 'Episode 3 still fits' })).error);
+  const g3b = await epRow(e3.episode_id);
+  check('the review is kept in the episode history', g3b.review_status === 'ok' && (g3b.review_history ?? []).length === 1);
+
+  // Concurrency: two "continue" requests from the same state; only the first succeeds.
+  const d4 = buildContinueDraft(bibleV4, { number: 3, checkpoint: normalizeCheckpoint(g3b.approved_checkpoint) }, 4);
+  const c1 = await create(e3.episode_id, g3b.checkpoint_fingerprint, d4);
+  const c2 = await create(e3.episode_id, g3b.checkpoint_fingerprint, d4);
+  check('two concurrent continuations: the second is refused', !c1.error && !!c2.error && /latest episode/i.test(c2.error.message), c2.error?.message ?? 'accepted');
+
+  // Restore an earlier canon version (new version, nothing deleted).
+  const { data: cur } = await db(A).from('content_series').select('current_bible_version').eq('id', seriesId).single();
+  const restored = await rpcFor(A)('restore_story_bible', { p_series_id: seriesId, p_version: 2, p_base_version: cur?.current_bible_version });
+  check('an earlier Story Bible version is restored as a new version', !restored.error && restored.data === (cur?.current_bible_version ?? 0) + 1, restored.error?.message);
 }
 
 /** Manual-payment activation (migration 20261016150000). User B has no subscription. */

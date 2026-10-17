@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
   // Serialized stories: edits must not contradict the series (full Story Engine in Milestone 5).
   if (seriesId) {
-    const series = await loadSeriesContext(supabase, seriesId);
+    const series = await loadSeriesContext(supabase, seriesId, req.project_id);
     const continuity = series ? checkContinuity(draftFromSnapshot(req.project_id ?? '', { ...req, project_cast: req.cast.map((id) => ({ id })), scenes: req.scenes.map((sc, i) => ({ ...sc, scene_number: i + 1 })) }), series) : [];
     const blocking = continuity.filter((i) => i.severity === 'error');
     if (blocking.length) return json({ error: 'continuity', issues: blocking }, 400);

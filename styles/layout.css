@@ -1754,3 +1754,76 @@ a.stat:hover {
   padding-block: 4px;
   max-width: 220px;
 }
+
+
+/* ---------- Milestone 5: Story Engine ---------- */
+.clamp-1,
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.clamp-1 {
+  -webkit-line-clamp: 1;
+}
+.clamp-2 {
+  -webkit-line-clamp: 2;
+}
+.pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: 6px 12px;
+  max-height: 240px;
+  overflow: auto;
+}
+.bible-row {
+  display: grid;
+  gap: 8px;
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.bible-inline {
+  align-items: end;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+@media (min-width: 640px) {
+  .form-grid.cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.story-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-4);
+}
+.story-timeline-episode {
+  padding: var(--sp-4) var(--sp-5);
+  border-inline-start: 3px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-1);
+}
+.story-timeline-episode .plain-list li + li {
+  margin-top: 4px;
+}
+.checkpoint-table td {
+  padding: 6px 8px;
+}
+.checkpoint-table .input-sm,
+.checkpoint-table .select-sm {
+  max-width: none;
+  min-width: 120px;
+}
+.event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.episode-list .project-row {
+  align-items: center;
+}

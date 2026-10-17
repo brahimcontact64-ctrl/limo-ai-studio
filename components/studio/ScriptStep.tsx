@@ -24,6 +24,7 @@ export function ScriptStep({
   languages,
   continuity,
   onAiApplied,
+  applyDraft,
 }: {
   draft: ProjectDraft;
   setDraft: Dispatch<SetStateAction<ProjectDraft>>;
@@ -31,6 +32,8 @@ export function ScriptStep({
   languages: Array<{ code: string; native_name: string }>;
   continuity: ContinuityIssue[];
   onAiApplied: (label: string) => void;
+  /** Records the change as its own undo step. */
+  applyDraft: (fn: (d: ProjectDraft) => ProjectDraft) => void;
 }) {
   const { t } = useI18n();
   const s = t.studio.script;
@@ -66,7 +69,7 @@ export function ScriptStep({
   }
 
   function apply(changes: AppliedChange[]) {
-    setDraft((d) => ({
+    applyDraft((d) => ({
       ...d,
       scenes: d.scenes.map((sc, i) => {
         const mine = changes.filter((c) => c.index === i);

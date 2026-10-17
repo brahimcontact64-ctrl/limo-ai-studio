@@ -5,6 +5,7 @@ import { compareDrafts, diffWords } from '../../lib/studio/diff.ts';
 import { draftFromSnapshot, emptyProject, newScene, type RevisionSnapshot } from '../../lib/studio/draft.ts';
 import { ASSIST_ACTIONS, mockTranslate, runMockAssist, shortenText, toneText, type AssistInput } from '../../lib/ai/script.ts';
 import { checkContinuity, type SeriesContext } from '../../lib/story/continuity.ts';
+import { EMPTY_BIBLE, EMPTY_CHECKPOINT } from '../../lib/story/types.ts';
 import { CREATION_MODES, type Brief } from '../../lib/create/modes.ts';
 import { buildStarterScenes } from '../../lib/create/templates.ts';
 import en from '../../lib/i18n/dictionaries/en.ts';
@@ -115,18 +116,37 @@ test('text transforms', () => {
   assert.equal(ar.scenes[0]!.fields[0]!.after, 'باختصار: مرحبا');
 });
 
-test('continuity: series cast, forbidden terms, opening location and recap', () => {
+test('continuity: canon cast, forbidden terms, opening location, recap, presence and open threads', () => {
   const d = emptyProject({ content_type: 'storytelling', language_code: 'en', creation_mode: 'story' });
   d.cast = ['limo_boy', 'nova_girl'];
-  d.scenes = [newScene({ title: 'Open', location_prompt: 'Beach', narration: 'A storm comes' })];
+  d.scenes = [newScene({ title: 'Open', location_prompt: 'Beach', narration: 'A storm comes', participants: ['limo_boy'] })];
   const series: SeriesContext = {
-    series_id: 's', title: 'S', continuity_mode: 'strict',
-    cast_bible: { characters: ['limo_boy'] }, story_rules: { forbidden: ['storm'] },
-    previous: { episode_number: 1, ending_hook: 'The door opens.', last_scene_state: { location: 'Market' } },
+    series_id: 's', title: 'S', continuity_mode: 'strict', bible_version: 1, episode_number: 2,
+    bible: {
+      ...EMPTY_BIBLE,
+      characters: [{ ref: 'limo_boy', name: 'Limo', role: '', traits: [], goals: [], motivations: [] }],
+      locations: [{ key: 'market', name: 'Market', description: '' }],
+      world_rules: [{ id: 'r1', text: 'storm', kind: 'forbidden' }],
+      arcs: [{ id: 'lost-key', title: 'The lost key', description: '', status: 'open', opened_in: 1, resolved_in: null }],
+    },
+    previous: { episode_number: 1, checkpoint: { ...EMPTY_CHECKPOINT, summary: 'x', ending_hook: 'The door opens.', location_key: 'market', characters: [{ ref: 'nova_girl', present: true, location_key: 'market', emotional_state: '', physical_state: '', current_goal: '' }] } },
   };
   const codes = checkContinuity(d, series).map((i) => i.code).sort();
-  assert.deepEqual(codes, ['character_not_in_series', 'forbidden_term', 'missing_recap', 'opening_location_changed']);
-  d.scenes[0]!.continuity_notes = 'Picks up right after episode 1.';
+  assert.deepEqual(codes, ['absent_at_previous_ending', 'character_not_in_series', 'forbidden_term', 'missing_recap', 'open_threads_unaddressed', 'opening_location_changed']);
+  d.cast = ['limo_boy'];
+  d.scenes[0]!.continuity_notes = 'Picks up right after episode 1 at the Market; the lost key is still missing.';
   d.scenes[0]!.narration = 'Calm day';
-  assert.deepEqual(checkContinuity(d, { ...series, cast_bible: {} }).map((i) => i.code), []);
+  assert.deepEqual(checkContinuity(d, series).map((i) => i.code), []);
+});
+
+test('history: a discrete action is its own undo step, even right after typing', () => {
+  let h = createHistory('');
+  h = pushHistory(h, 'typed', 1000);
+  h = pushHistory(h, 'typed + AI', 1100, false); // applied 100 ms after typing
+  h = pushHistory(h, 'typed + AI + more', 1200); // typing right after the action starts a new step
+  assert.equal(h.past.length, 3);
+  h = undo(h);
+  assert.equal(h.present, 'typed + AI');
+  h = undo(h);
+  assert.equal(h.present, 'typed');
 });

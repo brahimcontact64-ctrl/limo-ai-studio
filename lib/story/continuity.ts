@@ -1,25 +1,29 @@
 import type { ProjectDraft } from '../studio/types.ts';
+import type { EpisodeCheckpoint, StoryBible } from './types.ts';
 
 /**
- * Edit-time continuity checks for projects that belong to a series (studio_projects.series_id).
- * Milestone 3 scope: validate edits against data that already exists. The full Story Engine
- * (facts, conflicts, episode generation) is Milestone 5.
- *
- * Accepted shapes (all optional):
- *   content_series.cast_bible  = { characters: ["limo_boy", ...] | [{ id: "limo_boy" }, ...] }
- *   content_series.story_rules = { forbidden: ["word", ...] }
- *   content_episodes.last_scene_state = { location: "...", characters: ["limo_boy", ...] }
+ * Edit-time continuity checks for a studio project that is an episode of a series.
+ * The context is the current Story Bible and the APPROVED ending of the previous episode.
+ * Errors block saving; warnings are shown in the editor.
  */
 export interface SeriesContext {
   series_id: string;
   title: string;
   continuity_mode: 'strict' | 'flexible';
-  cast_bible: unknown;
-  story_rules: unknown;
-  previous: { episode_number: number; ending_hook: string | null; last_scene_state: unknown } | null;
+  bible: StoryBible;
+  bible_version: number;
+  episode_number: number | null;
+  previous: { episode_number: number; checkpoint: EpisodeCheckpoint } | null;
 }
 
-export type ContinuityCode = 'character_not_in_series' | 'forbidden_term' | 'opening_location_changed' | 'missing_recap';
+export type ContinuityCode =
+  | 'character_not_in_series'
+  | 'forbidden_term'
+  | 'opening_location_changed'
+  | 'missing_recap'
+  | 'absent_at_previous_ending'
+  | 'open_threads_unaddressed';
+
 export interface ContinuityIssue {
   code: ContinuityCode;
   severity: 'error' | 'warning';
@@ -27,36 +31,40 @@ export interface ContinuityIssue {
   params?: Record<string, string | number>;
 }
 
-const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-const ids = (v: unknown): string[] =>
-  Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x : typeof obj(x).id === 'string' ? (obj(x).id as string) : '')).filter(Boolean) : [];
-const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : []);
-
-export function checkContinuity(draft: ProjectDraft, series: SeriesContext): ContinuityIssue[] {
+export function checkContinuity(draft: ProjectDraft, ctx: SeriesContext): ContinuityIssue[] {
   const out: ContinuityIssue[] = [];
-  const established = ids(obj(series.cast_bible).characters);
-  if (established.length > 0) {
-    for (const id of draft.cast) if (!established.includes(id)) out.push({ code: 'character_not_in_series', severity: 'warning', params: { id } });
-  }
+  const bible = ctx.bible;
+  const known = new Set(bible.characters.map((c) => c.ref));
+  const nameOf = (ref: string) => bible.characters.find((c) => c.ref === ref)?.name ?? ref;
 
-  const forbidden = strings(obj(series.story_rules).forbidden).map((w) => w.toLowerCase());
-  if (forbidden.length) {
-    draft.scenes.forEach((s, i) => {
-      const text = [s.title, s.narration, s.dialogue, s.on_screen_text, s.action_prompt, s.visual_prompt].join('\n').toLowerCase();
-      const hit = forbidden.find((w) => text.includes(w));
-      if (hit) out.push({ code: 'forbidden_term', severity: 'error', scene: i, params: { term: hit } });
-    });
-  }
+  // Identity: only canon characters can appear. Adding one is a deliberate Story Bible change.
+  for (const id of draft.cast) if (!known.has(id)) out.push({ code: 'character_not_in_series', severity: 'error', params: { id } });
 
-  const prev = series.previous;
+  const forbidden = bible.world_rules.filter((r) => r.kind === 'forbidden' && r.text.trim()).map((r) => r.text.trim().toLowerCase());
+  draft.scenes.forEach((s, i) => {
+    const text = [s.title, s.narration, s.dialogue, s.on_screen_text, s.action_prompt, s.visual_prompt].join('\n').toLowerCase();
+    const hit = forbidden.find((w) => text.includes(w));
+    if (hit) out.push({ code: 'forbidden_term', severity: 'error', scene: i, params: { term: hit } });
+  });
+
+  const prev = ctx.previous;
   const first = draft.scenes[0];
   if (prev && first) {
-    const state = obj(prev.last_scene_state);
-    const location = typeof state.location === 'string' ? state.location.trim() : '';
-    if (series.continuity_mode === 'strict' && location && first.location_prompt.trim() && !first.location_prompt.toLowerCase().includes(location.toLowerCase()) && !first.continuity_notes.trim()) {
-      out.push({ code: 'opening_location_changed', severity: 'warning', scene: 0, params: { location, episode: prev.episode_number } });
+    const cp = prev.checkpoint;
+    const loc = bible.locations.find((l) => l.key === cp.location_key);
+    const noted = first.continuity_notes.trim().length > 0;
+    if (ctx.continuity_mode === 'strict' && loc && first.location_prompt.trim() && !first.location_prompt.toLowerCase().includes(loc.name.toLowerCase()) && !noted) {
+      out.push({ code: 'opening_location_changed', severity: 'warning', scene: 0, params: { location: loc.name, episode: prev.episode_number } });
     }
-    if (prev.ending_hook && !first.continuity_notes.trim()) out.push({ code: 'missing_recap', severity: 'warning', scene: 0, params: { episode: prev.episode_number } });
+    if (cp.ending_hook && !noted) out.push({ code: 'missing_recap', severity: 'warning', scene: 0, params: { episode: prev.episode_number } });
+    const presentAtEnd = new Set(cp.characters.filter((c) => c.present).map((c) => c.ref));
+    for (const ref of first.participants) {
+      if (cp.characters.length && !presentAtEnd.has(ref) && !noted) out.push({ code: 'absent_at_previous_ending', severity: 'warning', scene: 0, params: { id: nameOf(ref), episode: prev.episode_number } });
+    }
   }
+
+  const text = draft.scenes.map((s) => [s.title, s.narration, s.dialogue, s.action_prompt, s.continuity_notes].join(' ')).join(' ').toLowerCase();
+  const untouched = bible.arcs.filter((a) => a.status === 'open' && !text.includes(a.title.toLowerCase()));
+  if (ctx.episode_number && untouched.length) out.push({ code: 'open_threads_unaddressed', severity: 'warning', params: { threads: untouched.map((a) => a.title).join(', ') } });
   return out;
 }

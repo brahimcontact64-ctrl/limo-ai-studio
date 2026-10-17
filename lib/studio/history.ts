@@ -17,11 +17,16 @@ export function createHistory<T>(present: T): History<T> {
   return { past: [], present, future: [], at: 0 };
 }
 
+/**
+ * Records a change. Typing bursts (merge = true) within MERGE_WINDOW_MS share one undo step. A discrete
+ * action (merge = false, e.g. applying Mock AI suggestions) always gets its own step and is never merged
+ * with the typing before or after it.
+ */
 export function pushHistory<T>(h: History<T>, next: T, now: number, merge = true): History<T> {
   if (Object.is(next, h.present)) return h;
-  const burst = merge && h.past.length > 0 && now - h.at < MERGE_WINDOW_MS;
+  const burst = merge && h.past.length > 0 && h.at > 0 && now - h.at < MERGE_WINDOW_MS;
   const past = burst ? h.past : [...h.past, h.present].slice(-HISTORY_LIMIT);
-  return { past, present: next, future: [], at: now };
+  return { past, present: next, future: [], at: merge ? now : 0 };
 }
 
 export function undo<T>(h: History<T>): History<T> {

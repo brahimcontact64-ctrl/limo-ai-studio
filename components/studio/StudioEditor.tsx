@@ -70,6 +70,8 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
     (action) => setHist((h) => pushHistory(h, typeof action === 'function' ? (action as (d: ProjectDraft) => ProjectDraft)(h.present) : action, Date.now())),
     [],
   );
+  // Discrete edits (e.g. applying Mock AI suggestions): always a separate undo step.
+  const applyDraft = useCallback((fn: (d: ProjectDraft) => ProjectDraft) => setHist((h) => pushHistory(h, fn(h.present), Date.now(), false)), []);
   const [savedFingerprint, setSavedFingerprint] = useState(() => (initialDraft.id ? draftFingerprint(initialDraft) : ''));
   const [savedAt, setSavedAt] = useState<string | null>(updatedAt);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState<string | null>(updatedAt);
@@ -376,6 +378,19 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
             </div>
           </div>
         )}
+        {series?.episode_number && (
+          <div className="callout" role="note" data-testid="episode-banner">
+            <Icon name="book" />
+            <div>
+              {fmt(t.stories.studioBanner, { n: series.episode_number, series: series.title })}
+              <div style={{ marginTop: 8 }}>
+                <Link className="btn btn-sm" prefetch={false} href={`/app/stories/${series.series_id}/episodes/${series.episode_number}`}>
+                  {t.stories.openStory}
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         {locked && (
           <div className="callout callout-success" role="note" data-testid="script-locked">
             <Icon name="lock" />
@@ -423,7 +438,7 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
         {step === 'setup' && <SetupStep draft={draft} setDraft={setDraft} catalogs={catalogs} issues={showErrors ? issues : []} />}
         {step === 'cast' && <CastStep draft={draft} setDraft={setDraft} characters={catalogs.characters} issues={showErrors ? issues : []} />}
         {step === 'scenes' && <ScenesStep draft={draft} setDraft={setDraft} characters={catalogs.characters} issues={showErrors ? issues : []} goToCast={() => setStep('cast')} />}
-        {step === 'script' && <ScriptStep draft={draft} setDraft={setDraft} locked={!canChange} languages={catalogs.languages} continuity={continuity} onAiApplied={setAiLabel} />}
+        {step === 'script' && <ScriptStep draft={draft} setDraft={setDraft} applyDraft={applyDraft} locked={!canChange} languages={catalogs.languages} continuity={continuity} onAiApplied={setAiLabel} />}
         {step === 'review' && <ReviewStep draft={draft} issues={issues} catalogs={catalogs} />}
       </fieldset>
 

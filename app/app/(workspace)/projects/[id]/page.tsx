@@ -40,7 +40,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   }
 
   const [series, custom] = await Promise.all([
-    project.series_id ? loadSeriesContext(supabase, project.series_id) : Promise.resolve(null),
+    project.series_id ? loadSeriesContext(supabase, project.series_id, id) : Promise.resolve(null),
     // Archived workspace characters stay resolvable for projects that already use them.
     listCustomCharacters(supabase, project.organization_id, true),
   ]);
