@@ -139,8 +139,11 @@ test('two tabs: the second save is refused instead of overwriting; other workspa
   await second.getByRole('button', { name: 'Reload latest version' }).click();
   await expect(second.locator('#project-title-bar')).toHaveValue('Saved first');
 
-  // Another workspace (beta) cannot see the history, restore or approve.
-  const other = await signIn(browser, baseURL!, process.env.E2E_EMAIL!, process.env.E2E_PASSWORD!);
+  // Another workspace (E2E_EMAIL / E2E_PASSWORD) cannot see the history, restore or approve.
+  const otherEmail = process.env.E2E_EMAIL;
+  const otherPassword = process.env.E2E_PASSWORD;
+  test.skip(!otherEmail || !otherPassword, 'E2E_EMAIL / E2E_PASSWORD (a user in another workspace) not set');
+  const other = await signIn(browser, baseURL!, otherEmail!, otherPassword!);
   const revs = await other.request.get(`/api/projects/${projectId}/revisions`);
   expect((await revs.json()).revisions).toEqual([]);
   const own = await page.request.get(`/api/projects/${projectId}/revisions`);
