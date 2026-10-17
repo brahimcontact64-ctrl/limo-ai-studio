@@ -1,0 +1,20 @@
+{
+  "name": "limo-render-worker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "LIMO video render worker: claims render jobs, assembles MP4 files with FFmpeg, uploads them to private storage.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node src/index.ts",
+    "once": "node src/index.ts --once"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
+    "@supabase/supabase-js": "^2.118.0",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
+  }
+}

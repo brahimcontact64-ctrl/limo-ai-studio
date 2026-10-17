@@ -2,6 +2,47 @@
 
 Actual results only. Newest first.
 
+## 2026-10-17 — Milestone 7 (video assembly, rendering and MP4 export), branch `rebuild/v1`
+Environment: local Supabase replica (production schema dump + pending migrations through `20261017200000`) on ports 564xx; app as a production build (`next build` + `next start` on :3200); render worker `node worker/src/index.ts` with the bundled static FFmpeg 6.0 (libx264, AAC), service role from the local stack only. Real playback checked in Google Chrome (H.264/AAC).
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 95/95 pass (5 new: render sizes, timeline/transition maths keeps approved start times and totals, FFmpeg graphs + finite music loops, settings normalisation and error mapping, overlays incl. text cards and Arabic font choice) |
+| Rendering (no database) | `node --test worker/test/render.test.ts` | 6/6 pass: all four formats at 480p draft, again at 1080p high (`RENDER_RESOLUTION=1080 RENDER_QUALITY=high`, 4/4); silent video still has an AAC track; cancellation stops FFmpeg; missing input fails without retry; step timeout is retryable |
+| Rendering end to end (database + worker) | `node scripts/e2e-render.ts` (local only) | **55/55 pass** |
+| Type check / build | `npm run typecheck`, `npx tsc -p worker`, `npm run build` | pass |
+| Backend e2e | `node scripts/e2e-backend.ts` | 221/221 pass (4 new episode export checks) |
+| Generation gate / spec approval (SQL, rolled back) | `scripts/sql/*.sql` | 4/4, 6/6 |
+| Rollback dry run | `scripts/sql/rollback-dry-run.sh` | all 9 rollbacks pass; database unchanged afterwards |
+| Migration re-apply | `psql -1 < 20261017200000_…` three times | clean |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7) | **40/40 pass (2 new: video export on desktop and Pixel 7; account helper now opens the usage cycle like real activation)** |
+
+Real MP4 files produced (sample media generated with FFmpeg: solid-colour pictures, a test clip, sine-tone narration and music — so files are small):
+
+| Run | Format | Pixels | Duration | Size | Streams |
+|---|---|---|---|---|---|
+| e2e-render (480p draft, 3 scenes 3+3+4 s, music, narration) | 9:16 | 480×854 | 10.000 s | 262.5 KB | H.264 + AAC |
+| | 16:9 | 854×480 | 10.000 s | 257.8 KB | H.264 + AAC |
+| | 1:1 | 480×480 | 10.000 s | 230.1 KB | H.264 + AAC |
+| | 4:5 | 480×600 | 10.000 s | 241.3 KB | H.264 + AAC |
+| render test (1080p high, 3 scenes 3+2.5+3.5 s, logo, subtitles, Arabic text) | 9:16 | 1080×1920 | 9.000 s | 271 KB | H.264 + AAC |
+| | 16:9 | 1920×1080 | 9.000 s | 269 KB | H.264 + AAC |
+| | 1:1 | 1080×1080 | 9.000 s | 253 KB | H.264 + AAC |
+| | 4:5 | 1080×1350 | 9.000 s | 262 KB | H.264 + AAC |
+| browser (UI export, 480p draft, 5 scenes 2+2+2+1+1 s, music) | 9:16 | 480×854 | 8 s | ≈0.3 MB | H.264 + AAC, plays in Chrome |
+
+Each file was probed (container, codecs, size, duration), decoded completely (`ffmpeg -f null`), and its scene order checked by sampling the colour in the middle of each scene.
+
+Rendering end-to-end coverage: unapproved scripts cannot be exported; another workspace cannot export, read jobs, create links or download files; music from another workspace refused; customers cannot call worker functions; idempotency key returns the same job; at most 3 active renders per workspace; one video slot per approved revision whatever the number of formats; the job copies the approved scene order and durations; all four formats rendered, downloaded by the owner through a signed link and verified; the file is registered in the library (kind render); signed-out users see nothing; a missing input fails once (no retry loop) and frees the slot; after fixing the input, retry renders the same job to the same path; a job left by a dead worker is taken over after the lease (attempt 2) and completes; a new approved revision uses a new slot, cancelling its only queued job refunds it; the new revision exports its own timeline; cancelling during rendering stops the worker; the other job of that revision keeps the slot.
+
+Browser coverage (desktop + mobile): upload real sample media; product ad; in the Video step reorder scenes and change durations while the script is a draft; save; approve; timeline locked to the approved revision; choose a clip/pictures per scene and background music; storyboard preview; export → waiting/rendering with progress → ready; download decoded (480×854, 8 s, H.264+AAC, scene order green/red/blue as reordered); in-app preview; real playback in Google Chrome; another workspace gets HTTP 404 for the project, the job and the download link and cannot retry; Arabic RTL Video step without horizontal overflow.
+
+Fixed during verification:
+- **Final assembly never finished when background music was looped endlessly** (`-stream_loop -1` kept the mixer open; the step hit its time limit and the job was retried as designed). Music is now probed and looped a finite number of times; regression unit test added.
+- **Arabic overlay text rendered as empty boxes**: the canvas engine does not fall back per glyph, so right-to-left text now uses an installed font with Arabic (Tahoma on Windows, Noto Sans Arabic in the worker image).
+- **Exports with text-card scenes or characters failed** (`v_notes || 'text'` parsed as an array literal); fixed with `array_append`, covered by the episode export check.
+- The browser test helper activated subscriptions without opening a usage cycle (real activation does); the helper now creates the plan's usage balance.
+
 ## 2026-10-17 — Milestone 6 (Image Studio and social posts), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + pending migrations through `20261017180000`) on ports 564xx; app as a production build (`next build` + `next start` on :3200). Only the `limo-local-e2e` stack was used.
 

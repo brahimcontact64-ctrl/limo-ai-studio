@@ -466,3 +466,133 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Video export (Milestone 7) ---------- */
+.video-timeline {
+  display: flex;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0 0 var(--sp-2);
+  overflow-x: auto;
+  list-style: none;
+}
+.video-scene {
+  display: grid;
+  flex: 1 0 168px;
+  gap: var(--sp-2);
+  align-content: start;
+  min-width: 168px;
+  max-width: 260px;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+}
+.video-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-sm);
+  background: var(--accent-gradient);
+}
+.video-thumb img,
+.video-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.video-thumb-text {
+  position: absolute;
+  inset-inline: 6px;
+  bottom: 6px;
+  padding: 2px 6px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgb(24 20 33 / 0.72);
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-card-label {
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.dur-input {
+  width: 64px;
+  min-height: 30px !important;
+  padding: 2px 6px !important;
+}
+.storyboard {
+  display: grid;
+  gap: var(--sp-2);
+  max-width: 260px;
+}
+.video-step fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.storyboard-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  width: 100%;
+  max-height: 420px;
+  border-radius: var(--r-md);
+  background: var(--accent-gradient);
+}
+.storyboard-frame img,
+.storyboard-frame video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.storyboard-text {
+  position: absolute;
+  inset-inline: 8%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgb(24 20 33 / 0.72);
+  color: #fff;
+  font-weight: 800;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.storyboard-text.pos-top {
+  top: 8%;
+}
+.storyboard-text.pos-center {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.storyboard-text.pos-bottom {
+  bottom: 8%;
+}
+.render-list {
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.render-row {
+  display: grid;
+  gap: var(--sp-2);
+}
+.render-player {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  max-height: 70vh;
+  border-radius: var(--r-md);
+  background: #000;
+}

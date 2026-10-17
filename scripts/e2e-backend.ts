@@ -646,6 +646,14 @@ async function storyChecks(A: Session, B: Session, contentType: string) {
   const noScript = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
   check('an episode cannot be approved before its script', !!noScript.error && /script first/i.test(noScript.error.message), noScript.error?.message ?? 'accepted');
   check('the episode script is approved (Milestone 3)', !(await approveScript(e1.project_id)).error);
+  // Video export (migration 20261017200000): an episode exports only when approved and reviewed.
+  const render = (projectId: string) =>
+    rpcFor(A)('enqueue_render_job', { p_project_id: projectId, p_idempotency_key: `e2e-ep-${crypto.randomUUID()}`, p_aspect: '9:16', p_resolution: 480, p_quality: 'draft', p_settings: {} });
+  const renderReady = !(await render(e1.project_id)).error?.message.match(/could not find the function/i);
+  if (renderReady) {
+    const early = await render(e1.project_id);
+    check('video: an episode whose script is approved but whose ending is not cannot be exported', !!early.error && /approve the episode/i.test(early.error.message), early.error?.message ?? 'accepted');
+  }
   const outsider = await rpcFor(A)('approve_story_episode', { p_episode_id: e1.episode_id, p_bible_version: bibleVersion });
   check('an ending with a character outside the canon is refused', !!outsider.error && /outside the canon/i.test(outsider.error.message), outsider.error?.message ?? 'accepted');
   await saveEnding(e1.episode_id, { ...cp1, events: [...cp1.events, { text: 'Invented earlier event', characters: [], scenes: [99] }] });
@@ -716,6 +724,10 @@ async function storyChecks(A: Session, B: Session, contentType: string) {
   const f3 = await epRow(e3.episode_id);
   check('episode 1 is reopened automatically', f1.checkpoint_status === 'draft');
   check('episodes 2 and 3 are flagged for review (not rewritten)', f2.review_status === 'needs_review' && f3.review_status === 'needs_review' && f2.checkpoint_status === 'approved' && f3.checkpoint_status === 'approved');
+  if (renderReady) {
+    const flagged = await render(e2.project_id);
+    check('video: an episode flagged for review cannot be exported', !!flagged.error && /needs review/i.test(flagged.error.message), flagged.error?.message ?? 'accepted');
+  }
   check('episode 2 is directly affected', f2.review_reasons?.[0]?.impact === 'direct' && f2.review_reasons?.[0]?.episode_number === 1);
   const { data: ev1b } = await db(A).from('story_events').select('id').eq('episode_id', e1.episode_id);
   check('the reopened episode’s events leave the timeline', (ev1b ?? []).length === 0);
@@ -739,6 +751,15 @@ async function storyChecks(A: Session, B: Session, contentType: string) {
   check('another workspace cannot resolve reviews', !!bResolve.error);
   check('episode 2 is reviewed', !(await rpcFor(A)('resolve_episode_review', { p_episode_id: e2.episode_id, p_note: 'Adam’s new presence fits episode 2' })).error);
   check('episode 3 is reviewed', !(await rpcFor(A)('resolve_episode_review', { p_episode_id: e3.episode_id, p_note: 'Episode 3 still fits' })).error);
+  if (renderReady) {
+    const ok = await render(e3.project_id);
+    const jobId = (ok.data as { id?: string } | null)?.id;
+    const { data: job } = await db(A).from('render_jobs').select('episode_id, checkpoint_fingerprint, notes, spec').eq('id', jobId ?? '').maybeSingle();
+    const { data: ep3 } = await db(A).from('content_episodes').select('checkpoint_fingerprint').eq('id', e3.episode_id).single();
+    check('video: an approved, reviewed episode exports with its ending checkpoint fingerprint', !ok.error && job?.episode_id === e3.episode_id && job?.checkpoint_fingerprint === ep3?.checkpoint_fingerprint, ok.error?.message);
+    check('video: the export says honestly that characters are not animated and scenes without media are text cards', JSON.stringify(job?.notes) === '["characters_not_animated","text_card_scenes"]', job?.notes);
+    if (jobId) await rpcFor(A)('cancel_render_job', { p_job_id: jobId });
+  }
   const g3b = await epRow(e3.episode_id);
   check('the review is kept in the episode history', g3b.review_status === 'ok' && (g3b.review_history ?? []).length === 1);
 

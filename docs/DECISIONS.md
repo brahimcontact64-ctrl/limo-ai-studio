@@ -5,6 +5,7 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 ## Owner decisions
 | Date | Decision |
 |---|---|
+| 2026-10-17 | Milestone 6 accepted for continued development; secure push of `20583e1` authorized and done. Milestone 7 (real video assembly, rendering and MP4 export) requested: background worker, approved script revision, real verified MP4s, no paid providers; Milestone 7 must not be pushed without approval. |
 | 2026-10-17 | Milestone 5 accepted for continued development; secure push of the four Milestone 5 commits authorized and done (`eb441b2`). Milestone 6 (Image Studio and social post editor) requested: mock generation clearly labelled, no invented product facts, nothing published, characters not approved; Milestone 6 must not be pushed without approval. |
 | 2026-10-17 | Milestone 4 accepted as a technical foundation only; the 18 characters are not visually complete or approved. Secure push of the Milestone 4 commits authorized and done (full-history secret scan clean). Milestone 5 (Story Engine) requested; Milestone 5 commits must not be pushed without approval. |
 | 2026-10-17 | Milestone 3 accepted for continued development. Safe push of `rebuild/v1` authorized (only that branch, no force, no `main`, no production); pushed after checks (Vercel has no Git link, no CI, Supabase branching off). |
@@ -28,6 +29,9 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - Paid AI providers, real Facebook/Meta integration, production promotion.
 
 ## Technical decisions
+- **Render jobs freeze the approved timeline in the database** (`spec` built by `enqueue_render_job` from the approved revision); the browser only chooses presentation (format, music, transitions, per-scene media), validated against the workspace's own files.
+- **Rendering runs in a dedicated worker with a lease/heartbeat queue** on Postgres (no extra paid queue service). FFmpeg for video, the Image Studio renderer for text overlays (proper Arabic shaping).
+- **One video slot per approved script revision**: extra formats of the same approved version are free; the slot is refunded when every render of that version fails or is cancelled.
 - **Images are layered documents, not flattened pixels**: text stays editable, photos keep a reference to the untouched original, and the same renderer produces the preview and the download.
 - **Exports are verified from the bytes** on the server (format and pixel size) before they enter the library; a mislabelled browser fallback (e.g. no WebP encoder) is refused in the browser too.
 - **Mock image generation produces layouts only** from the customer's own photos and text; it never draws products or characters and never invents prices, offers or claims.

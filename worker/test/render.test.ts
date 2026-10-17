@@ -1,0 +1,117 @@
+/**
+ * Real rendering test (no database): sample images, a video clip and audio are generated with FFmpeg,
+ * then the worker renders the same 3-scene timeline in all four formats. Every MP4 is probed and fully
+ * decoded; scene order is checked by sampling the colour in the middle of each scene.
+ * Run: node --test worker/test/render.test.ts   (RENDER_OUT=<dir> keeps the files for inspection)
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, copyFileSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { renderSpec } from '../src/render.ts';
+import { FFMPEG, probe } from '../src/ffmpeg.ts';
+import { renderSize, type RenderSpec, type SpecMedia, type VideoAspect } from '../../lib/video/types.ts';
+
+const work = mkdtempSync(join(tmpdir(), 'limo-render-test-'));
+const ff = (...args: string[]) => execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', ...args]);
+
+// Sample media: red and blue stills, a green test clip, a narration tone, a music tone, a logo.
+const RED = join(work, 'red.png');
+const BLUE = join(work, 'blue.jpg');
+const CLIP = join(work, 'clip.mp4');
+const VOICE = join(work, 'voice.wav');
+const MUSIC = join(work, 'music.mp3');
+const LOGO = join(work, 'logo.png');
+ff('-f', 'lavfi', '-i', 'color=c=0xd02020:s=800x600', '-frames:v', '1', RED);
+ff('-f', 'lavfi', '-i', 'color=c=0x2040d0:s=1200x900', '-frames:v', '1', BLUE);
+ff('-f', 'lavfi', '-i', 'color=c=0x20b040:s=640x360:r=25', '-f', 'lavfi', '-i', 'sine=f=330:d=2', '-t', '2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', CLIP);
+ff('-f', 'lavfi', '-i', 'sine=f=440:d=2.5', '-ar', '48000', VOICE);
+ff('-f', 'lavfi', '-i', 'sine=f=220:d=4', '-c:a', 'libmp3lame', MUSIC);
+ff('-f', 'lavfi', '-i', 'color=c=white:s=200x200', '-frames:v', '1', LOGO);
+
+const media = (id: string, path: string, type: SpecMedia['media_type'], mime: string): SpecMedia => ({ asset_id: id, path, media_type: type, mime, width: null, height: null, duration_ms: null });
+const files: Record<string, string> = { a: RED, b: CLIP, c: BLUE, v: VOICE, m: MUSIC, l: LOGO };
+const fetchMedia = async (m: SpecMedia, dest: string) => {
+  copyFileSync(files[m.asset_id]!, dest);
+  return dest;
+};
+
+function spec(aspect: VideoAspect, overrides: Partial<RenderSpec> = {}): RenderSpec {
+  // RENDER_RESOLUTION=1080 RENDER_QUALITY=high renders full-size files (default: fast 480p drafts).
+  const { width, height } = renderSize(aspect, Number(process.env.RENDER_RESOLUTION || 480) as 480 | 720 | 1080);
+  return {
+    version: 1, title: 'Render test', language_code: 'en', width, height, fps: 30, quality: (process.env.RENDER_QUALITY as RenderSpec['quality']) || 'draft', transition_seconds: 0.4,
+    subtitles: 'narration', text_position: 'top', text_size: 'small', brand: { primary: '#7157ef', secondary: '#211e2b' },
+    music: { ...media('m', 'm', 'audio', 'audio/mpeg'), volume: 0.3 },
+    logo: media('l', 'l', 'image', 'image/png'),
+    scenes: [
+      { scene_number: 1, title: 'Red', duration_ms: 3000, start_ms: 0, on_screen_text: 'Fresh serum', narration: 'Meet our serum.', dialogue: '', transition: 'cut', visual: media('a', 'a', 'image', 'image/png'), audio: media('v', 'v', 'audio', 'audio/wav'), fit: 'cover', show_text: true, participants: [] },
+      { scene_number: 2, title: 'Green', duration_ms: 2500, start_ms: 3000, on_screen_text: '', narration: '', dialogue: '', transition: 'crossfade', visual: media('b', 'b', 'video', 'video/mp4'), audio: null, fit: 'cover', show_text: true, participants: [] },
+      { scene_number: 3, title: 'Blue', duration_ms: 3500, start_ms: 5500, on_screen_text: 'سيروم التوهج — 2 400 دج', narration: '', dialogue: '', transition: 'fade', visual: media('c', 'c', 'image', 'image/jpeg'), audio: null, fit: 'contain', show_text: true, participants: [] },
+    ],
+    ...overrides,
+  };
+}
+
+/** Average colour of a small area at the left edge (away from text/logo) at time t. */
+function colourAt(file: string, t: number, w: number, h: number): [number, number, number] {
+  const raw = execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', file, '-frames:v', '1', '-vf', `crop=${Math.round(w * 0.1)}:${Math.round(h * 0.1)}:4:${Math.round(h * 0.45)},scale=1:1`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
+  return [raw[0]!, raw[1]!, raw[2]!];
+}
+const dominant = ([r, g, b]: [number, number, number]) => (r > g + 60 && r > b + 60 ? 'red' : g > r + 60 && g > b + 60 ? 'green' : b > r + 60 && b > g + 60 ? 'blue' : `other(${r},${g},${b})`);
+
+const keep = process.env.RENDER_OUT;
+const results: string[] = [];
+
+for (const aspect of ['9:16', '16:9', '1:1', '4:5'] as const) {
+  test(`renders a real ${aspect} MP4: size, duration, audio, decodes, scene order`, async () => {
+    const s = spec(aspect);
+    const out = await renderSpec(s, join(work, aspect.replace(':', 'x')), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 100 * 1024 * 1024 });
+    const p = await probe(out.file);
+    assert.match(p.format, /mp4/);
+    assert.equal(p.video?.codec, 'h264');
+    assert.deepEqual([p.video?.width, p.video?.height], [s.width, s.height]);
+    assert.ok(Math.abs(p.duration - 9) < 0.25, `duration ${p.duration}`);
+    assert.equal(p.audio?.codec, 'aac');
+    // Full decode: any corrupt frame makes ffmpeg exit non-zero.
+    execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-i', out.file, '-f', 'null', '-']);
+    // Scene order: red (0–3 s), green clip (3–5.5 s), blue (5.5–9 s).
+    assert.deepEqual([1.5, 4.2, 7.5].map((t) => dominant(colourAt(out.file, t, s.width, s.height))), ['red', 'green', 'blue']);
+    const size = statSync(out.file).size;
+    results.push(`${aspect} ${p.video?.width}x${p.video?.height} ${p.duration.toFixed(3)}s ${(size / 1024).toFixed(0)} KB h264+${p.audio?.codec}`);
+    if (keep) {
+      mkdirSync(keep, { recursive: true });
+      copyFileSync(out.file, join(keep, `render-${aspect.replace(':', 'x')}.mp4`));
+    }
+  });
+}
+
+test('a video without narration or music still has an audio track; a cancelled render stops', async () => {
+  const s = spec('1:1', { music: null, logo: null, subtitles: 'off', scenes: spec('1:1').scenes.map((x) => ({ ...x, audio: null })) });
+  const out = await renderSpec(s, join(work, 'silent'), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 100 * 1024 * 1024 });
+  const p = await probe(out.file);
+  assert.equal(p.audio?.codec, 'aac');
+  const ctrl = new AbortController();
+  const pending = renderSpec(spec('16:9'), join(work, 'cancel'), fetchMedia, (pct) => {
+    if (pct > 10) ctrl.abort();
+  }, ctrl.signal, { stepTimeoutMs: 120_000, maxInputBytes: 100 * 1024 * 1024 });
+  await assert.rejects(pending, (e: Error & { code?: string }) => e.code === 'cancelled');
+});
+
+test('a missing input fails without retry; a step over its time limit is retryable', async () => {
+  const missing = async () => {
+    throw Object.assign(new Error('gone'), { code: 'input_missing', retryable: false });
+  };
+  await assert.rejects(renderSpec(spec('1:1'), join(work, 'missing'), missing, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 1e8 }), /gone/);
+  await assert.rejects(
+    renderSpec(spec('1:1'), join(work, 'timeout'), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 1, maxInputBytes: 1e8 }),
+    (e: Error & { code?: string; retryable?: boolean }) => e.code === 'timeout' && e.retryable === true,
+  );
+});
+
+test.after(() => {
+  console.log(results.join('\n'));
+  rmSync(work, { recursive: true, force: true });
+});

@@ -22,6 +22,7 @@ import { ReviewStep } from './ReviewStep';
 import { ProjectMenu } from './ProjectMenu';
 import { RevisionsDialog } from './RevisionsDialog';
 import { ApprovalPanel } from './ApprovalPanel';
+import { VideoStep } from './VideoStep';
 
 export interface StudioCatalogs {
   contentTypes: CatalogOption[];
@@ -30,14 +31,15 @@ export interface StudioCatalogs {
   characters: CharacterRecord[];
 }
 
-export type StepId = 'setup' | 'cast' | 'scenes' | 'script' | 'review';
-const STEPS: StepId[] = ['setup', 'cast', 'scenes', 'script', 'review'];
+export type StepId = 'setup' | 'cast' | 'scenes' | 'script' | 'review' | 'video';
+const STEPS: StepId[] = ['setup', 'cast', 'scenes', 'script', 'review', 'video'];
 const STEP_FIELDS: Record<StepId, (i: Issue) => boolean> = {
   setup: (i) => ['title', 'content_type', 'language_code', 'brief', 'goal', 'visual_style', 'export_presets'].includes(i.field ?? ''),
   cast: (i) => i.field === 'cast',
   scenes: (i) => i.scene !== undefined || i.field === 'scenes',
   script: () => false,
   review: () => false,
+  video: () => false,
 };
 /** Autosave runs this long after the last change (existing projects only). */
 const AUTOSAVE_MS = 3000;
@@ -442,6 +444,25 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
         )}
       </div>
 
+      {step === 'video' ? (
+        // Outside the disabled fieldset: an approved (locked) script is exactly what gets exported.
+        <div className="studio-body" id="panel-video" role="tabpanel" aria-labelledby="tab-video">
+          {draft.id ? (
+            <VideoStep
+              projectId={draft.id}
+              draft={draft}
+              setDraft={setDraft}
+              canChange={canChange}
+              approved={locked}
+              approvedRevision={script.approved_revision_number}
+              dirty={dirty}
+              onUnlock={() => setConfirmUnlock(true)}
+            />
+          ) : (
+            <p className="callout">{t.video.saveFirst}</p>
+          )}
+        </div>
+      ) : (
       <fieldset className="studio-body" disabled={!canChange} id={`panel-${step}`} role="tabpanel" aria-labelledby={`tab-${step}`}>
         {step === 'setup' && <SetupStep draft={draft} setDraft={setDraft} catalogs={catalogs} issues={showErrors ? issues : []} />}
         {step === 'cast' && <CastStep draft={draft} setDraft={setDraft} characters={catalogs.characters} issues={showErrors ? issues : []} />}
@@ -449,6 +470,7 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
         {step === 'script' && <ScriptStep draft={draft} setDraft={setDraft} applyDraft={applyDraft} locked={!canChange} languages={catalogs.languages} continuity={continuity} onAiApplied={setAiLabel} />}
         {step === 'review' && <ReviewStep draft={draft} issues={issues} catalogs={catalogs} />}
       </fieldset>
+      )}
 
       {step === 'review' && draft.id && (
         <div className="studio-approval">

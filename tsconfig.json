@@ -22,5 +22,5 @@
     "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "legacy-v1", "tests/e2e"]
+  "exclude": ["node_modules", "legacy-v1", "tests/e2e", "worker"]
 }

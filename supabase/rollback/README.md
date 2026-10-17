@@ -6,6 +6,7 @@ the backups listed in `docs/MIGRATION_REVIEW.md`, and only with the owner's appr
 
 | Rollback file | Undoes | Data removed by the rollback |
 |---|---|---|
+| `20261017200000_down.sql` | video rendering and MP4 export | render jobs and saved video settings (finished MP4 files stay in the library) |
 | `20261017180000_down.sql` | Image Studio and social posts | image designs, revisions, export records, social post drafts (exported files stay in the library) |
 | `20261017160000_down.sql` | Story Engine | Story Bible versions, seasons, episode endings and reviews, timeline (episode projects and scripts stay) |
 | `20261017140000_down.sql` | character system | design specs, reference records and reviews, workspace character designs; stops if projects cast workspace characters |

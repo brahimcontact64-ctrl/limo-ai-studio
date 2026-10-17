@@ -7,6 +7,7 @@ DB="${1:?local database container name}"
 DIR="$(cd "$(dirname "$0")/../../supabase/rollback" && pwd)"
 {
   echo "begin;"
+  cat "$DIR/20261017200000_down.sql"
   cat "$DIR/20261017180000_down.sql"
   cat "$DIR/20261017160000_down.sql"
   # Simulates the owner resolving projects that cast workspace characters before the character rollback.
@@ -24,6 +25,8 @@ select 'ROLLBACK-CHECK ' || string_agg(name || '=' || present::text, ' ' order b
   union all select 'rate_limit_hits', to_regclass('public.rate_limit_hits') is not null
   union all select 'character_design_specs', to_regclass('public.character_design_specs') is not null
   union all select 'character_reference_assets', to_regclass('public.character_reference_assets') is not null
+  union all select 'render_jobs', to_regclass('public.render_jobs') is not null
+  union all select 'enqueue_render_job', exists (select 1 from pg_proc where proname = 'enqueue_render_job')
   union all select 'image_projects', to_regclass('public.image_projects') is not null
   union all select 'social_posts', to_regclass('public.social_posts') is not null
   union all select 'save_image_project', exists (select 1 from pg_proc where proname = 'save_image_project')
