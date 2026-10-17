@@ -5,6 +5,7 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 ## Owner decisions
 | Date | Decision |
 |---|---|
+| 2026-10-17 | Milestone 5 accepted for continued development; secure push of the four Milestone 5 commits authorized and done (`eb441b2`). Milestone 6 (Image Studio and social post editor) requested: mock generation clearly labelled, no invented product facts, nothing published, characters not approved; Milestone 6 must not be pushed without approval. |
 | 2026-10-17 | Milestone 4 accepted as a technical foundation only; the 18 characters are not visually complete or approved. Secure push of the Milestone 4 commits authorized and done (full-history secret scan clean). Milestone 5 (Story Engine) requested; Milestone 5 commits must not be pushed without approval. |
 | 2026-10-17 | Milestone 3 accepted for continued development. Safe push of `rebuild/v1` authorized (only that branch, no force, no `main`, no production); pushed after checks (Vercel has no Git link, no CI, Supabase branching off). |
 | 2026-10-17 | Milestone 4 requested: canonical 3D character system; no approval without visual review; no fabricated images; no paid image generation. |
@@ -27,6 +28,10 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - Paid AI providers, real Facebook/Meta integration, production promotion.
 
 ## Technical decisions
+- **Images are layered documents, not flattened pixels**: text stays editable, photos keep a reference to the untouched original, and the same renderer produces the preview and the download.
+- **Exports are verified from the bytes** on the server (format and pixel size) before they enter the library; a mislabelled browser fallback (e.g. no WebP encoder) is refused in the browser too.
+- **Mock image generation produces layouts only** from the customer's own photos and text; it never draws products or characters and never invents prices, offers or claims.
+- **Unauthorized detail pages return HTTP 404** from the middleware (RLS check) instead of a streamed 200 not-found page.
 - **Story continuity is enforced in the database**: continuation only from the latest approved, reviewed ending (fingerprint), endings limited to canon and the episode's own scenes, the timeline built only from approved episodes.
 - **Earlier changes create reviews, not rewrites**: later episodes are flagged (direct/downstream) and must be confirmed in order by the writer.
 - **Canon is user-controlled**: Story Bible changes are explicit, versioned and restorable; character identities never change; approved episodes protect the characters they use.

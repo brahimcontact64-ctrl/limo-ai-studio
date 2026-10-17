@@ -2,6 +2,29 @@
 
 Actual results only. Newest first.
 
+## 2026-10-17 — Milestone 6 (Image Studio and social posts), branch `rebuild/v1`
+Environment: local Supabase replica (production schema dump + pending migrations through `20261017180000`) on ports 564xx; app as a production build (`next build` + `next start` on :3200). Only the `limo-local-e2e` stack was used.
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 90/90 pass (9 new: PNG/JPEG/WebP header decoding, document normalisation, single-layer editing + lock + undo/redo, crop geometry, mock layouts use only the customer's text and photos, story illustration placeholders, renderer order/RTL/wrapping, social post rules and unpublished payload, readable price/button text in every style) |
+| Type check / build | `npm run typecheck`, `npm run build` | pass |
+| Backend e2e | `node scripts/e2e-backend.ts` | 217/217 pass (33 new Image Studio / social post checks) |
+| Generation gate / spec approval (SQL, rolled back) | `scripts/sql/*.sql` | 4/4, 6/6 |
+| Rollback dry run | `scripts/sql/rollback-dry-run.sh` | all 8 rollbacks pass; database unchanged afterwards |
+| Migration re-apply | `psql -1 < 20261017180000_…` twice | clean |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7) | **38/38 pass (4 new: product ad flow and story illustration, each on desktop and Pixel 7; story isolation now asserts HTTP 404)** |
+
+Backend coverage: design size must match the aspect; images from another workspace refused (design and post); another workspace cannot create, read, read revisions, approve, see or download exports, register exports, read or approve posts; stale saves refused (conflict); revisions, autosave coalescing, restore as a new revision; `[placeholder]` text blocks approval; approved designs are locked; exports only under `<org>/exports/`, only at the design size (1× or 2×), registered as library "design" files and marked "from approved"; posts need a caption and an image, an attached design must be approved; approved posts are locked; removing a design's approval returns its posts to draft; anonymous users read nothing.
+
+Browser coverage (desktop + mobile): product ad from an uploaded photo with typed name, price and call to action → four mock layouts labelled "Mock layout — not AI artwork" → editor shows exactly the typed text and the photo (no offer was typed, none shown, no placeholder); edit only the headline; drag the price tag on the canvas, undo, redo; resize from a corner; add a price tag (starts as a `[placeholder]`, warning until replaced); save; restore revision 1 from the history (as revision 3); preview and approve (editing locked); real PNG, JPG and WebP downloads decoded from the file bytes (format and 1080×1080), all three saved to the library; social post with caption and hashtags, attach the approved design, preview card, approve ("ready to publish — Facebook is not connected"), payload `published: false`; removing the design approval puts the post back to draft; another workspace gets **HTTP 404** for the design and the post and is refused by the APIs; Arabic RTL editor and composer with Arabic text on the canvas, no horizontal overflow. Story illustration from a series: character identity and "artwork pending" kept with the design; approval disabled while the artwork placeholder is present.
+
+Fixed during verification:
+- **Unauthorized detail pages answered HTTP 200** (streaming with `loading.tsx` sends the status before `notFound()`). The middleware now checks the record with the user's own access for `/app/stories|projects|images|posts/<id>` and rewrites to the not-found page with **status 404**; the story and image tests assert the status.
+- Approve/unapprove refreshed the page and remounted the editor, closing a dialog opened right after (seen only on the production build). State is now updated in place.
+- The revision history only listed revisions present when the page loaded; it now loads the current list when opened.
+- The "modern" mock layout drew the price as white text on a white tag; text colours on filled tags are now chosen for contrast (unit test over all styles and brand colours).
+
 ## 2026-10-17 — Milestone 5 (Story Engine), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + pending migrations through `20261017160000`) on ports 564xx; app as a production build (`next build` + `next start` on :3200). Docker Desktop was started by the owner; only the `limo-local-e2e` stack was used.
 

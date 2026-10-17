@@ -52,6 +52,13 @@ export default async function SeriesPage({ params, searchParams }: { params: Pro
             </p>
           )}
         </div>
+        {canEdit && (
+          <div className="page-actions">
+            <Link className="btn btn-sm" href={`/app/images/new?series=${id}`} prefetch={false} data-testid="series-create-illustration">
+              {t.images.storyButton}
+            </Link>
+          </div>
+        )}
       </div>
       <nav className="tabs admin-tabs" aria-label={series.title}>
         {TABS.map((k) => (

@@ -7,6 +7,7 @@ DB="${1:?local database container name}"
 DIR="$(cd "$(dirname "$0")/../../supabase/rollback" && pwd)"
 {
   echo "begin;"
+  cat "$DIR/20261017180000_down.sql"
   cat "$DIR/20261017160000_down.sql"
   # Simulates the owner resolving projects that cast workspace characters before the character rollback.
   echo "delete from public.studio_projects p where exists (select 1 from jsonb_array_elements(p.project_cast) e where e->>'id' like 'custom:%');"
@@ -23,6 +24,9 @@ select 'ROLLBACK-CHECK ' || string_agg(name || '=' || present::text, ' ' order b
   union all select 'rate_limit_hits', to_regclass('public.rate_limit_hits') is not null
   union all select 'character_design_specs', to_regclass('public.character_design_specs') is not null
   union all select 'character_reference_assets', to_regclass('public.character_reference_assets') is not null
+  union all select 'image_projects', to_regclass('public.image_projects') is not null
+  union all select 'social_posts', to_regclass('public.social_posts') is not null
+  union all select 'save_image_project', exists (select 1 from pg_proc where proname = 'save_image_project')
   union all select 'story_bible_versions', to_regclass('public.story_bible_versions') is not null
   union all select 'content_series_write_policy', exists (select 1 from pg_policies where policyname = 'content_series_write')
   union all select 'save_studio_project_v2', to_regprocedure('public.save_studio_project_v2(uuid,uuid,text,text,text,text,text,text,text,jsonb,jsonb,jsonb,text[])') is not null

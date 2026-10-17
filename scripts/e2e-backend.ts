@@ -205,6 +205,7 @@ async function main() {
   await scriptChecks(A, B, draft.content_type);
   await customCharacterChecks(A, B, draft.content_type);
   await storyChecks(A, B, draft.content_type);
+  await imageChecks(A, B);
 
   if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
     const ADMIN = await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD);
@@ -751,6 +752,131 @@ async function storyChecks(A: Session, B: Session, contentType: string) {
   const { data: cur } = await db(A).from('content_series').select('current_bible_version').eq('id', seriesId).single();
   const restored = await rpcFor(A)('restore_story_bible', { p_series_id: seriesId, p_version: 2, p_base_version: cur?.current_bible_version });
   check('an earlier Story Bible version is restored as a new version', !restored.error && restored.data === (cur?.current_bible_version ?? 0) + 1, restored.error?.message);
+}
+
+/** Image Studio and social posts (migration 20261017180000). */
+async function imageChecks(A: Session, B: Session) {
+  console.log('\nImage Studio and social posts (migration 20261017180000)');
+  const probe = await rpcFor(B)('set_social_post_approval', { p_post_id: '00000000-0000-4000-8000-000000000000', p_approve: false, p_base_updated_at: null });
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  image functions not deployed');
+    return;
+  }
+  const db = (s: Session) => s.client as unknown as { from: (t: string) => any };
+  const uploadPhoto = async (s: Session, folder = '') => {
+    const path = `${s.orgId}/${folder}${crypto.randomUUID()}.png`;
+    const up = await s.client.storage.from('workspace-assets').upload(path, FIXTURE_PNG(), { contentType: 'image/png' });
+    if (up.error) return { path, id: null as string | null, error: up.error.message };
+    const reg = await rpcFor(s)('register_media_asset', { p_organization_id: s.orgId, p_object_path: path, p_kind: 'product', p_mime_type: 'image/png', p_size_bytes: 68, p_file_name: 'serum.png', p_width: 1, p_height: 1 });
+    return { path, id: reg.data as string | null, error: reg.error?.message };
+  };
+  const photoA = await uploadPhoto(A);
+  const photoB = await uploadPhoto(B);
+  check('product photos are uploaded to each workspace library', !!photoA.id && !!photoB.id, photoA.error ?? photoB.error);
+
+  const doc = (photo: string | null, headline = 'Glow Serum', size = { width: 1080, height: 1080 }) => ({
+    version: 1, ...size, background: { kind: 'color', color: '#ffffff' }, meta: { generator: 'manual' },
+    layers: [
+      ...(photo ? [{ id: 'p', name: 'product', type: 'image', x: 100, y: 100, w: 800, h: 700, rotation: 0, opacity: 1, visible: true, locked: false, asset_id: photo, fit: 'contain', crop: null, radius: 0, role: 'product' }] : []),
+      { id: 't', name: 'headline', type: 'text', x: 60, y: 840, w: 960, h: 120, rotation: 0, opacity: 1, visible: true, locked: false, content: headline, font: 'Arial', size: 72, weight: 900, italic: false, color: '#211e2b', align: 'center', line_height: 1.2, background: null, padding: 0, radius: 0, role: 'headline' },
+    ],
+  });
+  type Saved = { id: string; updated_at: string; revision_number: number; status: string };
+  const save = (s: Session, id: string | null, base: string | null, document: object, extra: object = {}) =>
+    rpcFor(s)('save_image_project', {
+      p_organization_id: s.orgId, p_project_id: id, p_base_updated_at: base, p_title: 'E2E serum ad', p_purpose: 'product_ad', p_aspect: '1:1', p_style: 'modern',
+      p_prompt: 'Serum ad', p_brief: { product_name: 'Glow Serum', price: '2 400 DA' }, p_document: document, p_source: 'manual', p_label: null, p_series_id: null, p_source_project_id: null, ...extra,
+    });
+
+  const wrongSize = await save(A, null, null, doc(photoA.id, 'x', { width: 1080, height: 1920 }));
+  check('a design whose size does not match the aspect is refused', !!wrongSize.error && /aspect/i.test(wrongSize.error.message), wrongSize.error?.message ?? 'accepted');
+  const foreign = await save(A, null, null, doc(photoB.id));
+  check('a design cannot use another workspace’s photo', !!foreign.error && /outside this workspace/i.test(foreign.error.message), foreign.error?.message ?? 'accepted');
+  const bInA = await rpcFor(B)('save_image_project', { p_organization_id: A.orgId, p_project_id: null, p_base_updated_at: null, p_title: 'x', p_purpose: 'custom', p_aspect: '1:1', p_style: 'modern', p_prompt: '', p_brief: {}, p_document: doc(null), p_source: 'manual', p_label: null, p_series_id: null, p_source_project_id: null });
+  check('another workspace cannot create images here', !!bInA.error);
+  const created = await save(A, null, null, doc(photoA.id), { p_source: 'mock_generation', p_label: 'Mock layout: hero' });
+  const c = created.data as Saved | null;
+  check('a product ad design is created (revision 1, from a mock layout)', !created.error && c?.revision_number === 1, created.error?.message);
+  if (!c) return;
+  const { data: bSees } = await db(B).from('image_projects').select('id').eq('id', c.id);
+  check('another workspace cannot read the design', (bSees ?? []).length === 0);
+  const { data: bRevs } = await db(B).from('image_revisions').select('id').eq('image_project_id', c.id);
+  check('another workspace cannot read its revisions', (bRevs ?? []).length === 0);
+  const stale = await save(A, c.id, '2000-01-01T00:00:00Z', doc(photoA.id, 'Edited'));
+  check('a save based on an old version is refused', !!stale.error && /changed since/i.test(stale.error.message), stale.error?.message ?? 'accepted');
+  const s2 = await save(A, c.id, c.updated_at, doc(photoA.id, 'Glow Serum — new'));
+  const r2 = s2.data as Saved;
+  check('an edit creates revision 2', !s2.error && r2?.revision_number === 2, s2.error?.message);
+  const a1 = await save(A, c.id, r2.updated_at, doc(photoA.id, 'Auto 1'), { p_source: 'autosave' });
+  const a2 = await save(A, c.id, (a1.data as Saved).updated_at, doc(photoA.id, 'Auto 2'), { p_source: 'autosave' });
+  check('consecutive autosaves share one revision', (a1.data as Saved)?.revision_number === 3 && (a2.data as Saved)?.revision_number === 3, [a1.error?.message, a2.error?.message]);
+  const { data: rev1 } = await db(A).from('image_revisions').select('id').eq('image_project_id', c.id).eq('revision_number', 1).single();
+  const restored = await rpcFor(A)('restore_image_revision', { p_revision_id: rev1?.id, p_base_updated_at: (a2.data as Saved).updated_at });
+  const rs = restored.data as Saved | null;
+  const { data: afterRestore } = await db(A).from('image_projects').select('document').eq('id', c.id).single();
+  check('restoring revision 1 brings its design back as a new revision', !restored.error && rs?.revision_number === 4 && afterRestore?.document?.layers?.[1]?.content === 'Glow Serum', restored.error?.message);
+
+  const withPlaceholder = await save(A, c.id, rs!.updated_at, doc(photoA.id, '[Headline]'));
+  const ph = await rpcFor(A)('approve_image_project', { p_project_id: c.id, p_base_updated_at: (withPlaceholder.data as Saved).updated_at });
+  check('a design with [placeholder] text cannot be approved', !!ph.error && /placeholder/i.test(ph.error.message), ph.error?.message ?? 'accepted');
+  const fixed = await save(A, c.id, (withPlaceholder.data as Saved).updated_at, doc(photoA.id, 'Glow Serum'));
+  const ap = await rpcFor(A)('approve_image_project', { p_project_id: c.id, p_base_updated_at: (fixed.data as Saved).updated_at });
+  check('the design is approved', !ap.error, ap.error?.message);
+  const apData = ap.data as { updated_at: string };
+  const locked = await save(A, c.id, apData?.updated_at, doc(photoA.id, 'Silent change'));
+  check('an approved design cannot be edited without removing approval', !!locked.error && /approved/i.test(locked.error.message), locked.error?.message ?? 'accepted');
+  const bApprove = await rpcFor(B)('approve_image_project', { p_project_id: c.id, p_base_updated_at: apData?.updated_at });
+  check('another workspace cannot approve it', !!bApprove.error);
+
+  // Exports.
+  const exportPath = `${A.orgId}/exports/${crypto.randomUUID()}.png`;
+  await A.client.storage.from('workspace-assets').upload(exportPath, FIXTURE_PNG(), { contentType: 'image/png' });
+  const reg = (extra: object) => rpcFor(A)('register_image_export', { p_project_id: c.id, p_object_path: exportPath, p_format: 'png', p_width: 1080, p_height: 1080, p_size_bytes: 68, p_revision_number: 6, ...extra });
+  const badPath = await reg({ p_object_path: photoA.path });
+  check('exports must live in the workspace exports folder', !!badPath.error && /export path/i.test(badPath.error.message), badPath.error?.message ?? 'accepted');
+  const badSize = await reg({ p_width: 500, p_height: 500 });
+  check('an export must match the design size (1× or 2×)', !!badSize.error && /size does not match/i.test(badSize.error.message), badSize.error?.message ?? 'accepted');
+  const exp = await reg({});
+  const e = exp.data as { media_asset_id: string; from_approved: boolean } | null;
+  check('the export is saved to the library from the approved design', !exp.error && e?.from_approved === true, exp.error?.message);
+  const { data: lib } = await db(A).from('media_assets').select('kind, mime_type').eq('id', e?.media_asset_id).single();
+  check('the export is a library design file', lib?.kind === 'design' && lib?.mime_type === 'image/png', lib);
+  const { data: bExp } = await db(B).from('image_exports').select('id').eq('image_project_id', c.id);
+  check('another workspace cannot see the exports', (bExp ?? []).length === 0);
+  check('another workspace cannot download the exported file', !!(await B.client.storage.from('workspace-assets').download(exportPath)).error);
+  const bReg = await rpcFor(B)('register_image_export', { p_project_id: c.id, p_object_path: exportPath, p_format: 'png', p_width: 1080, p_height: 1080, p_size_bytes: 68, p_revision_number: null });
+  check('another workspace cannot register exports for it', !!bReg.error);
+
+  // Social posts.
+  type Post = { id: string; updated_at: string; status: string };
+  const savePost = (s: Session, id: string | null, base: string | null, extra: object = {}) =>
+    rpcFor(s)('save_social_post', { p_organization_id: s.orgId, p_post_id: id, p_base_updated_at: base, p_title: 'E2E serum post', p_caption: '', p_hashtags: ['serum'], p_image_project_id: null, p_media_asset_id: null, ...extra });
+  const p1 = await savePost(A, null, null);
+  const post = p1.data as Post;
+  check('a post draft is created', !p1.error && post?.status === 'draft', p1.error?.message);
+  const noImg = await rpcFor(A)('set_social_post_approval', { p_post_id: post.id, p_approve: true, p_base_updated_at: post.updated_at });
+  check('a post without caption cannot be approved', !!noImg.error && /caption/i.test(noImg.error.message), noImg.error?.message ?? 'accepted');
+  const badTags = await savePost(A, post.id, post.updated_at, { p_hashtags: ['has space'] });
+  check('invalid hashtags are refused', !!badTags.error && /hashtags/i.test(badTags.error.message), badTags.error?.message ?? 'accepted');
+  const foreignImg = await savePost(A, post.id, post.updated_at, { p_caption: 'New serum!', p_media_asset_id: photoB.id });
+  check('a post cannot use another workspace’s image', !!foreignImg.error, foreignImg.error?.message ?? 'accepted');
+  const p2 = await savePost(A, post.id, post.updated_at, { p_caption: 'New Glow Serum, 2 400 DA.', p_image_project_id: c.id, p_media_asset_id: e?.media_asset_id });
+  const post2 = p2.data as Post;
+  check('caption and approved image are attached', !p2.error, p2.error?.message);
+  const bPost = await rpcFor(B)('set_social_post_approval', { p_post_id: post.id, p_approve: true, p_base_updated_at: post2.updated_at });
+  check('another workspace cannot approve the post', !!bPost.error);
+  const okPost = await rpcFor(A)('set_social_post_approval', { p_post_id: post.id, p_approve: true, p_base_updated_at: post2.updated_at });
+  check('the post is approved (ready for the future publishing step)', !okPost.error && (okPost.data as Post)?.status === 'approved', okPost.error?.message);
+  const editApproved = await savePost(A, post.id, (okPost.data as Post).updated_at, { p_caption: 'changed', p_image_project_id: c.id, p_media_asset_id: e?.media_asset_id });
+  check('an approved post cannot be edited silently', !!editApproved.error && /approved/i.test(editApproved.error.message), editApproved.error?.message ?? 'accepted');
+  await rpcFor(A)('remove_image_approval', { p_project_id: c.id });
+  const { data: back } = await db(A).from('social_posts').select('status').eq('id', post.id).single();
+  check('removing the image approval returns its posts to draft', back?.status === 'draft', back);
+  const { data: bPosts } = await db(B).from('social_posts').select('id').eq('id', post.id);
+  check('another workspace cannot read the post', (bPosts ?? []).length === 0);
+  const anon = createClient(URL_, KEY, { auth: { persistSession: false } });
+  const { data: anonRows } = await (anon as unknown as { from: (t: string) => any }).from('image_projects').select('id').limit(1);
+  check('signed-out users cannot read image projects', (anonRows ?? []).length === 0);
 }
 
 /** Manual-payment activation (migration 20261016150000). User B has no subscription. */

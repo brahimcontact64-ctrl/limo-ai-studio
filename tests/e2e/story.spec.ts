@@ -114,11 +114,11 @@ test('three episodes continue from each approved ending; revising episode 1 flag
 
   // Another workspace sees nothing and cannot act.
   const other = await signIn(browser, baseURL!, process.env.E2E_EMAIL!, process.env.E2E_PASSWORD!);
-  // Streaming (loading.tsx) means the status line is sent before notFound(); the page itself is the 404 page.
-  await other.goto(seriesUrl);
+  // The middleware answers 404 before the page streams (a plain notFound() after loading.tsx would send 200).
+  expect((await other.goto(seriesUrl))?.status()).toBe(404);
   await expect(other.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   await expect(other.getByText(`Market Mystery ${info.project.name}`)).toHaveCount(0);
-  await other.goto(`${seriesUrl}/episodes/1`);
+  expect((await other.goto(`${seriesUrl}/episodes/1`))?.status()).toBe(404);
   await expect(other.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   const api = await other.request.post(`${seriesUrl.replace('/app/stories/', '/api/stories/')}/episodes`, { data: { based_on_episode_id: null } });
   expect([403, 404]).toContain(api.status());

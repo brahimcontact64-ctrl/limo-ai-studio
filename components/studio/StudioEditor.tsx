@@ -41,6 +41,8 @@ const STEP_FIELDS: Record<StepId, (i: Issue) => boolean> = {
 };
 /** Autosave runs this long after the last change (existing projects only). */
 const AUTOSAVE_MS = 3000;
+/** Project types that can open the Image Studio with their brief and photos. */
+const IMAGE_MODES: string[] = ['product_ad', 'business_promo', 'social_post'];
 const NO_SCRIPT: ScriptApproval = { status: 'draft', approved_at: null, approved_revision_number: null, available: false };
 
 export interface StudioEditorProps {
@@ -343,6 +345,12 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
               <Icon name="clock" />
               <span className="hide-xs">{t.studio.history.open}</span>
             </button>
+          )}
+          {draft.id && canEdit && IMAGE_MODES.includes(draft.creation_mode) && (
+            <Link className="btn btn-ghost btn-sm" href={`/app/images/new?project=${draft.id}`} prefetch={false} data-testid="project-create-image">
+              <Icon name="brush" />
+              <span className="hide-xs">{t.images.projectButton}</span>
+            </Link>
           )}
           {draft.id && <ProjectMenu projectId={draft.id} title={draft.title} status={status} canEdit={canEdit} draft={draft} dirty={dirty} />}
           {editable && !locked && (

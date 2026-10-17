@@ -47,6 +47,33 @@ export default async function CreatePage() {
           </li>
         ))}
       </ul>
+      <section className="stack" aria-labelledby="create-visual">
+        <h2 id="create-visual" className="section-title">
+          {t.create.visual.title}
+        </h2>
+        <ul className="mode-grid">
+          <li>
+            <Link className="mode-card" href="/app/images/new" data-mode="image">
+              <span className="mode-icon">
+                <Icon name="brush" size={22} />
+              </span>
+              <b>{t.create.visual.images}</b>
+              <span className="small muted">{t.create.visual.imagesBody}</span>
+              <Icon name="arrowRight" className="mode-arrow flip-rtl" />
+            </Link>
+          </li>
+          <li>
+            <Link className="mode-card" href="/app/posts/new" data-mode="post">
+              <span className="mode-icon">
+                <Icon name="share" size={22} />
+              </span>
+              <b>{t.create.visual.posts}</b>
+              <span className="small muted">{t.create.visual.postsBody}</span>
+              <Icon name="arrowRight" className="mode-arrow flip-rtl" />
+            </Link>
+          </li>
+        </ul>
+      </section>
     </div>
   );
 }

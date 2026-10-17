@@ -5,6 +5,7 @@ import '../styles/base.css';
 import '../styles/components.css';
 import '../styles/layout.css';
 import '../styles/studio.css';
+import '../styles/images.css';
 import { getI18n } from '@/lib/i18n/server';
 import { I18nProvider } from '@/lib/i18n/client';
 import { ToastProvider } from '@/components/ui/Toast';
