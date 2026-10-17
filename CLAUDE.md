@@ -12,7 +12,7 @@ Hard rules (details in the docs):
 - Never apply migrations to production Supabase (`aevqhgksniqahqrntzxv`) without owner approval. Migrations are additive only; verify on the local replica first.
 - Keep the approved lavender/white/purple LIMO design. No redesigns.
 - No paid AI providers, no real social publishing, no invented test results, media or credentials. Mock output must be labelled.
-- Never touch MagicFlux, the trading platform or other Docker containers; the local replica uses project id `limo-local-e2e` on ports 554xx.
+- Never touch MagicFlux, the trading platform or other Docker containers; the local replica uses project id `limo-local-e2e` on ports 564xx (554xx is reserved by Windows on this machine).
 - Never commit secrets or `.env*` files (except `.env.example`).
 - Update `docs/IMPLEMENTATION_STATUS.md`, `docs/TEST_REPORT.md` and `docs/NEXT_STEPS.md` after each milestone.
 

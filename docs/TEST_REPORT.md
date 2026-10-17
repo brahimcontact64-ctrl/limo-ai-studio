@@ -2,6 +2,31 @@
 
 Actual results only. Newest first.
 
+## 2026-10-17 — Milestone 5 (Story Engine), branch `rebuild/v1`
+Environment: local Supabase replica (production schema dump + pending migrations through `20261017160000`) on ports 564xx; app as a production build (`next build` + `next start` on :3200). Docker Desktop was started by the owner; only the `limo-local-e2e` stack was used.
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 81/81 pass (7 new: bible validation/diff, three consecutive episodes from approved endings, identity/relationship/thread continuity, checkpoint validation, affected-episode detection, non-series projects untouched, undo step for discrete actions; plus guide-drift check) |
+| Type check / build | `npm run typecheck`, `npm run build` | pass |
+| Backend e2e | `node scripts/e2e-backend.ts` | 184/184 pass (55 new Story Engine checks) |
+| Generation gate / spec approval (SQL, rolled back) | `scripts/sql/*.sql` | 4/4, 6/6 |
+| Rollback dry run | `scripts/sql/rollback-dry-run.sh` | all 7 rollbacks pass; database unchanged afterwards |
+| Migration re-apply | `psql -1 < 20261017160000_…` twice | clean |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7) | **34/34 pass** |
+
+Backend Story Engine coverage: anonymous and other-workspace refusal (create, read series/bible/timeline, add episodes, approve, resolve); no direct writes on series; unknown characters refused; bible conflict (stale version) and versioning; episode 1 from the bible; no second "episode 1"; no continuation before approval; ending required; ending conflict; script approval required; endings with non-canon characters or events outside the episode's scenes refused; approval writes the timeline and turns new threads into canon; continuation with a wrong fingerprint refused; episode 2 opens with episode 1's ending hook, location, present characters and carried states, casts only characters present at the ending, gets a scene per open thread, records its base ending; resolved threads leave later drafts; three consecutive episodes; characters used by approved episodes cannot be removed; removing episode 1's script approval reopens it, removes its timeline events and flags episodes 2 and 3 (episode 2 direct) without rewriting them; continuation blocked while an episode needs review; changing episode 1's ending lists exactly the changed characters and marks episode 3 downstream; reviews in order with a note, kept in history; concurrent continuations (second refused); restore of an earlier bible version.
+
+Browser coverage (desktop + mobile): create a series with characters, first location and thread; three episodes through the UI (studio script approval, Mock AI ending suggestion, approve episode, Continue story), each starting point and first scene equal to the previous approved ending; timeline with three approved episodes and the open thread; reopening episode 1 flags episodes 2 and 3 ("directly affects"), blocks Continue story; another workspace gets the not-found page and no data; Arabic RTL story pages without horizontal overflow.
+
+Fixed during verification:
+- **Production-only stale page:** returning from the studio to the episode page showed the script as "Not approved" (Next.js link prefetch kept the old page). Story/studio cross-links no longer prefetch. Reproduced and fixed against the production build.
+- **Undo merged a Mock AI apply with the typing before it** when applied within 800 ms (visible only on the faster production build): discrete actions now always get their own undo step (regression unit test added).
+- Another workspace opening a story URL gets the 404 page with HTTP 200 because of streaming (`loading.tsx`); the content is the not-found page with no data. The test asserts the content.
+- Local replica moved from ports 554xx to 564xx: after a restart Windows reserved TCP 55375–55474.
+
+Interrupted earlier run: a previous full-suite run was still active when the session resumed and overlapped with a new run; its results (shared database and results folder) were discarded and the suite was re-run cleanly.
+
 ## 2026-10-17 — Milestone 4 (canonical character system), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + pending migrations through `20261017140000`), app as a production build (`next build` + `next start` on :3200).
 

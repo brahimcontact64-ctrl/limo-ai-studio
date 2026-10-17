@@ -5,6 +5,7 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 ## Owner decisions
 | Date | Decision |
 |---|---|
+| 2026-10-17 | Milestone 4 accepted as a technical foundation only; the 18 characters are not visually complete or approved. Secure push of the Milestone 4 commits authorized and done (full-history secret scan clean). Milestone 5 (Story Engine) requested; Milestone 5 commits must not be pushed without approval. |
 | 2026-10-17 | Milestone 3 accepted for continued development. Safe push of `rebuild/v1` authorized (only that branch, no force, no `main`, no production); pushed after checks (Vercel has no Git link, no CI, Supabase branching off). |
 | 2026-10-17 | Milestone 4 requested: canonical 3D character system; no approval without visual review; no fabricated images; no paid image generation. |
 | 2026-10-17 | Milestone 2 accepted for continued local development only (not production, not production migrations, not payment activation). Milestone 3 requested: full script/dialogue/scene editing with revisions, approval and labelled Mock AI. |
@@ -26,6 +27,9 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - Paid AI providers, real Facebook/Meta integration, production promotion.
 
 ## Technical decisions
+- **Story continuity is enforced in the database**: continuation only from the latest approved, reviewed ending (fingerprint), endings limited to canon and the episode's own scenes, the timeline built only from approved episodes.
+- **Earlier changes create reviews, not rewrites**: later episodes are flagged (direct/downstream) and must be confirmed in order by the writer.
+- **Canon is user-controlled**: Story Bible changes are explicit, versioned and restorable; character identities never change; approved episodes protect the characters they use.
 - **Character artwork is never generated or invented by the app.** Without an approved image-generation provider, the character system ships with written specs and empty reference slots marked "Artwork pending".
 - **Approval requires evidence of review**: a recorded viewing of the file by the reviewer and a full checklist, enforced in the database.
 - **Rendered images and rigged 3D models are different asset kinds** with separate file-type rules; an image can never count as a model.
