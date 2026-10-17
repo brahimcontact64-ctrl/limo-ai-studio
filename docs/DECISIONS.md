@@ -5,6 +5,8 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 ## Owner decisions
 | Date | Decision |
 |---|---|
+| 2026-10-17 | Milestone 3 accepted for continued development. Safe push of `rebuild/v1` authorized (only that branch, no force, no `main`, no production); pushed after checks (Vercel has no Git link, no CI, Supabase branching off). |
+| 2026-10-17 | Milestone 4 requested: canonical 3D character system; no approval without visual review; no fabricated images; no paid image generation. |
 | 2026-10-17 | Milestone 2 accepted for continued local development only (not production, not production migrations, not payment activation). Milestone 3 requested: full script/dialogue/scene editing with revisions, approval and labelled Mock AI. |
 | 2026-10-17 | Pending production migrations stay unapplied; a separate migration review is required first (`MIGRATION_REVIEW.md`). |
 | 2026-10-16 | Master product specification (`PRODUCT_SPEC.md`) approved as canonical scope. |
@@ -24,6 +26,9 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - Paid AI providers, real Facebook/Meta integration, production promotion.
 
 ## Technical decisions
+- **Character artwork is never generated or invented by the app.** Without an approved image-generation provider, the character system ships with written specs and empty reference slots marked "Artwork pending".
+- **Approval requires evidence of review**: a recorded viewing of the file by the reviewer and a full checklist, enforced in the database.
+- **Rendered images and rigged 3D models are different asset kinds** with separate file-type rules; an image can never count as a model.
 - **Approved scripts are enforced in the database** (triggers), not only in the UI, so older clients (v1/v2 saves) cannot overwrite them. Removing approval is an explicit, audited action.
 - **Optimistic concurrency** on saves (`base_updated_at`) instead of locks: the second writer gets a conflict and reloads; every saved version is in the history.
 - **Restore never rewrites history**: it saves the old snapshot as a new revision.

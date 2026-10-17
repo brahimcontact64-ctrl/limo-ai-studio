@@ -2,6 +2,27 @@
 
 Actual results only. Newest first.
 
+## 2026-10-17 — Milestone 4 (canonical character system), branch `rebuild/v1`
+Environment: local Supabase replica (production schema dump + pending migrations through `20261017140000`), app as a production build (`next build` + `next start` on :3200).
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 74/74 pass (8 new: canon structure and shared family identity, palette/proportions/expressions/outfits/views, migration seed equals the canon, slot readiness, image vs model file types, workspace character parsing/spec/cast ids, prompts use the identity text) |
+| Type check / build | `npm run typecheck`, `npm run build` | pass |
+| Backend e2e | `node scripts/e2e-backend.ts` | 129/129 pass (32 new) |
+| Spec approval (SQL, rolled back) | `scripts/sql/character-spec-approval-test.sql` | 6/6: aal1 admin refused; only the latest version; approved spec alone not ready; approved spec + 3 approved views = ready and `visual_ref` set; new spec version resets readiness |
+| Generation gate (SQL) | `scripts/sql/generation-gate-test.sql` | 4/4 |
+| Rollback dry run | `scripts/sql/rollback-dry-run.sh` | all 6 rollbacks pass; database unchanged afterwards |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7) | **32/32 pass** |
+
+New browser coverage (desktop + mobile): admin opens a canonical character (spec v1 proposed, readiness "not ready", four "Artwork pending" slots, no rigged model), uploads a test fixture, approval stays disabled until the file is opened and all six checklist items are confirmed, approves, still "not ready" (one view, spec unapproved), then withdraws the fixture; customers see 0/18 approved, the written spec with palette, pending slots and no upload control; create a workspace character, upload and approve its reference as owner, cast it next to Limo · Boy, save and reload; Arabic RTL character library and details without horizontal overflow.
+
+Backend coverage added: 18 specs readable, none approved, no character approved; workspace character isolation (read, create, direct status write refused); storage folder isolation (upload/read); an image cannot be registered as a rigged model; review refused for another workspace, without viewing, with an incomplete checklist; front-only approval keeps the character not ready; workspace characters castable only in their own workspace; archive. Canonical: customers cannot upload, register, see or download pending files, or review; admin with two-factor uploads, registers, approves after viewing; customers then see and download it; still not ready; fixture withdrawn and hidden again.
+
+State after all runs: 0 approved specs, 0 approved characters, every canonical fixture withdrawn.
+
+Fixed during verification: upload form selects were wrapped in their labels, which gave them unclear accessible names; they now use explicit `htmlFor` labels.
+
 ## 2026-10-17 — Milestone 3 (script, dialogue and scene editing), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + pending migrations through `20261017120000`), app as a **production build** (`next build` + `next start` on :3200) unless noted.
 

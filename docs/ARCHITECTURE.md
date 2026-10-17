@@ -22,7 +22,7 @@ Provider adapters (text, image, video, voice, render, Facebook) — mock first  
 | Billing | `plan_definitions`, `addon_definitions`, `organization_subscriptions`, `usage_balances`, `usage_ledger`, `payment_submissions`, `payment_method_settings`; `submit_payment`, `admin_review_payment`, `approve_payment_submission`, `admin_set_subscription` |
 | Studio | `studio_projects` (+ `creation_mode`, `creation_brief`, `script_status`, `approved_revision_id`), `project_scenes` (+ `narration`, `visual_prompt`, `asset_ids`), `project_export_choices`, `export_presets`, `project_revisions`; `save_studio_project` (v1) → `save_studio_project_v2` (modes, assets) → `save_studio_project_v3` (concurrency + revision + approval), `restore_project_revision`, `approve_project_script`, `remove_script_approval`, archive/restore/delete |
 | Assets | `media_assets` (+ upload metadata), `brand_kits`; bucket `workspace-assets` (`<org>/…` folders); `register_media_asset`, `delete_media_asset`, `save_brand_kit` |
-| Characters | `character_catalog` (18 variants + 3 family records), `character_voice_profiles`, workspace `characters` |
+| Characters | `character_catalog` (18 variants + 3 family records), `character_design_specs` (versioned written specs), `character_reference_assets` + `character_reference_views` (files, review), `character_voice_profiles`, workspace `characters` (+ spec, reference status); bucket `character-library` (`canonical/<id>/v<n>/…`, `<org>/custom/<id>/v<n>/…`) |
 | Story | `content_series`, `content_episodes`; `create_series_episode_draft`, `get_next_episode_context` |
 | Media | `media_assets`; buckets `generated-media`, `character-library`, `payment-receipts` |
 | Generation | `generation_runs`, `generation_run_stages`, `generation_cost_policies`, `ai_provider_registry`, `content_jobs` (all providers disabled) |
@@ -46,3 +46,13 @@ Templates in `supabase/templates/` link to `/auth/confirm` with `token_hash` (wo
 - Approval: `approve_project_script` snapshots the script as an "approval" revision and sets `approved_revision_id`. Triggers refuse every write to an approved script's text from any entry point until approval is removed (audited). `generation_runs` inserts require an approved script and record `script_revision_id`.
 - Mock AI (`lib/ai/script.ts`, `POST /api/assist`): deterministic, no external calls, only facts from the brief, missing facts as visible `[placeholders]`. Output is a proposal reviewed field by field with a word diff before it is applied; pre-selection never includes user text for whole-script drafts.
 - Series continuity (`lib/story/continuity.ts`): for projects with `series_id`, edits are checked against the series cast bible, story rules and the previous episode's end state; rule violations block saving. Full Story Engine: Milestone 5.
+
+## Characters (Milestone 4)
+- Canon: `lib/characters/canon.ts` is the source of truth for the 18 written design specs; `scripts/gen-character-specs-sql.ts` generates the migration seed and a unit test fails if the two drift apart.
+- A spec version is approved by a platform admin (two-factor) after reading it. Reference files belong to one spec version; a new version makes older references stop counting.
+- Reference kinds are distinct: `rendered_reference` (PNG/JPEG/WebP picture of a view, expression or outfit), `rigged_model` (glTF/GLB/FBX file with a rig, never an image), `turntable_video`. Each file records its provenance (own artwork, commissioned, AI-generated, 3D render).
+- Review: the reviewer must open the file (recorded in `character_reference_views`, valid 24 h) and confirm every checklist item; the database enforces both. One approved file per slot; approving a new one supersedes the old; "withdraw" retires an approval. All decisions are audited.
+- Readiness (`character_catalog.reference_status`, mirrored in `lib/characters/references.ts`): `approved` only when the latest spec is approved and front, side and three-quarter images of that version are approved; then `visual_ref` points at the approved front image and the generation gate stops reporting `missing_character_reference`.
+- Prompts use the spec's identity text (`identity_prompt`) instead of the short catalog description.
+- Workspace characters: `save_custom_character` builds the spec server-side (`lib/characters/custom.ts`); cast id `custom:<uuid>`; references reviewed by workspace owners/admins; usable only in their own workspace.
+- The family illustrations in the UI are identity markers, labelled as "not a reference".
