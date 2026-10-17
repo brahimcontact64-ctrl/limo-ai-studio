@@ -23,7 +23,8 @@ export function CastStack({ ids, max = 5, size = 24 }: { ids: string[]; max?: nu
     <span className="cast-stack" aria-hidden="true">
       {shown.map((id) => {
         const p = parseCharacterId(id);
-        return p ? <FamilyGlyph key={id} family={p.family} variant={p.variant} size={size} /> : null;
+        // Workspace characters ("custom:<uuid>") have no family illustration: a neutral dot keeps the count visible.
+        return p ? <FamilyGlyph key={id} family={p.family} variant={p.variant} size={size} /> : <span key={id} className="cast-custom-dot" style={{ width: size, height: size }} />;
       })}
       {ids.length > max && (
         <span className="mono xsmall" style={{ display: 'grid', placeItems: 'center', width: size, height: size, color: 'var(--text-2)' }}>

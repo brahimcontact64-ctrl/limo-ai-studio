@@ -200,12 +200,14 @@ async function main() {
 
   await creationChecks(A, B, draft.content_type);
   await scriptChecks(A, B, draft.content_type);
+  await customCharacterChecks(A, B, draft.content_type);
 
   if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
     const ADMIN = await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD);
     await mfaChecks(ADMIN);
     await paymentChecks(A, B, ADMIN);
     await adminHardeningChecks(A, B, ADMIN);
+    await canonicalReferenceChecks(A, ADMIN);
   } else {
     console.log('\nPayments\n  SKIP  set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD (local stack only)');
   }
@@ -426,6 +428,122 @@ async function scriptChecks(A: Session, B: Session, contentType: string) {
   await rpcFor(A)('approve_project_script', { p_project_id: id, p_base_updated_at: cur?.updated_at });
   const del = await rpcFor(A)('delete_studio_project', { p_project_id: id });
   check('an approved project can be deleted with its scenes and revisions', !del.error, del.error?.message);
+}
+
+/** 1×1 PNG used only as a local test fixture (never real character artwork). */
+const FIXTURE_PNG = () => new Blob([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0))], { type: 'image/png' });
+const FULL_CHECKLIST = { identity_matches_spec: true, proportions_match: true, palette_matches: true, family_friendly: true, view_correct: true, no_text_or_watermark: true };
+
+/** Workspace characters (migration 20261017140000): isolation, references, use in a project cast. */
+async function customCharacterChecks(A: Session, B: Session, contentType: string) {
+  console.log('\nWorkspace characters (migration 20261017140000)');
+  const probe = await rpcFor(B)('archive_custom_character', { p_character_id: '00000000-0000-4000-8000-000000000000' });
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  character functions not deployed');
+    return;
+  }
+  const { data: specs } = await A.client.from('character_design_specs' as never).select('character_id, version, status');
+  const specRows = (specs ?? []) as Array<{ character_id: string; status: string }>;
+  check('18 canonical design specs are readable', new Set(specRows.map((s) => s.character_id)).size === 18, specRows.length);
+  check('no design spec is approved by the migration', specRows.every((s) => s.status !== 'approved'));
+  const { data: cat } = await A.client.from('character_catalog').select('id, reference_status').not('family_code', 'is', null);
+  check('no canonical character is marked approved without review', (cat ?? []).every((c) => c.reference_status !== 'approved'), cat);
+
+  const spec = { identity_prompt: 'E2E Mascot: test character', personality: 'calm' };
+  const created = await rpcFor(A)('save_custom_character', { p_organization_id: A.orgId, p_character_id: null, p_name: 'E2E Mascot', p_description: 'Round blue mascot', p_base_family: null, p_age_group: 'adult', p_gender_code: 'unspecified', p_spec: spec });
+  check('owner creates a workspace character', !created.error && typeof created.data === 'string', created.error?.message);
+  const charId = created.data as string;
+  const { data: bSees } = await B.client.from('characters').select('id').eq('id', charId);
+  check('another workspace cannot see the character', (bSees ?? []).length === 0);
+  const bCreate = await rpcFor(B)('save_custom_character', { p_organization_id: A.orgId, p_character_id: null, p_name: 'Intruder', p_description: '', p_base_family: null, p_age_group: null, p_gender_code: null, p_spec: {} });
+  check('another workspace cannot create characters in this workspace', !!bCreate.error);
+  const direct = await A.client.from('characters').update({ reference_status: 'approved' } as never).eq('id', charId).select('id');
+  check('reference status cannot be set directly', !!direct.error || (direct.data ?? []).length === 0, direct.error?.message);
+
+  const path = `${A.orgId}/custom/${charId}/v1/${crypto.randomUUID()}.png`;
+  const up = await A.client.storage.from('character-library').upload(path, FIXTURE_PNG(), { contentType: 'image/png' });
+  check('owner uploads a reference into its own character folder', !up.error, up.error?.message);
+  const bUp = await B.client.storage.from('character-library').upload(`${A.orgId}/custom/${charId}/v1/${crypto.randomUUID()}.png`, FIXTURE_PNG(), { contentType: 'image/png' });
+  check('another workspace cannot upload into that folder', !!bUp.error);
+  const bRead = await B.client.storage.from('character-library').download(path);
+  check('another workspace cannot read the reference file', !!bRead.error);
+  const reg = (extra: object) =>
+    rpcFor(A)('register_character_reference', {
+      p_catalog_character_id: null, p_custom_character_id: charId, p_object_path: path, p_asset_kind: 'rendered_reference', p_view: 'front',
+      p_expression_key: null, p_outfit_key: null, p_mime_type: 'image/png', p_size_bytes: 68, p_width: 1, p_height: 1,
+      p_provenance: 'uploaded_artwork', p_provenance_note: 'E2E test fixture, not artwork', p_model_meta: {}, ...extra,
+    });
+  const asModel = await reg({ p_asset_kind: 'rigged_model', p_view: null });
+  check('an image cannot be registered as a rigged 3D model', !!asModel.error, asModel.error?.message ?? 'accepted');
+  const ref = await reg({});
+  check('owner registers the reference (pending review)', !ref.error && typeof ref.data === 'string', ref.error?.message);
+  const refId = ref.data as string;
+  const bReview = await rpcFor(B)('record_character_reference_view', { p_asset_id: refId });
+  check('another workspace cannot review it', !!bReview.error);
+  const early = await rpcFor(A)('review_character_reference', { p_asset_id: refId, p_approve: true, p_note: null, p_checklist: FULL_CHECKLIST });
+  check('approval without opening the file is refused', !!early.error && /open the reference/i.test(early.error.message), early.error?.message ?? 'accepted');
+  await rpcFor(A)('record_character_reference_view', { p_asset_id: refId });
+  const partial = await rpcFor(A)('review_character_reference', { p_asset_id: refId, p_approve: true, p_note: null, p_checklist: { ...FULL_CHECKLIST, palette_matches: false } });
+  check('approval with an incomplete checklist is refused', !!partial.error && /checklist incomplete/i.test(partial.error.message), partial.error?.message ?? 'accepted');
+  const approved = await rpcFor(A)('review_character_reference', { p_asset_id: refId, p_approve: true, p_note: 'E2E', p_checklist: FULL_CHECKLIST });
+  check('one approved view does not make the character ready (front only)', !approved.error && approved.data === 'pending', approved.error?.message ?? approved.data);
+
+  // The workspace character can be cast in a project of its own workspace only.
+  const story = emptyProject({ content_type: contentType, language_code: 'en', creation_mode: 'story' });
+  story.title = 'E2E custom cast';
+  story.cast = [`custom:${charId}`];
+  story.scenes = [newScene({ title: 'Hello', duration_seconds: 4, participants: [`custom:${charId}`] })];
+  const own = await rpcFor(A)('save_studio_project_v2', toRpcArgsV2(A.orgId, toSaveRequest(story)));
+  check('a workspace character can be cast in its own workspace', !own.error && typeof own.data === 'string', own.error?.message);
+  const foreign = await rpcFor(B)('save_studio_project_v2', toRpcArgsV2(B.orgId, toSaveRequest(story)));
+  check('another workspace cannot cast it', !!foreign.error && /unavailable/i.test(foreign.error.message), foreign.error?.message ?? 'accepted');
+
+  await rpcFor(A)('delete_studio_project', { p_project_id: own.data });
+  const archived = await rpcFor(A)('archive_custom_character', { p_character_id: charId });
+  check('the character can be archived', !archived.error, archived.error?.message);
+}
+
+/** Canonical references: platform admins with two-factor only, approval needs viewing + checklist. */
+async function canonicalReferenceChecks(A: Session, ADMIN: Session) {
+  console.log('\nCanonical references (migration 20261017140000)');
+  const path = `canonical/limo_boy/v1/${crypto.randomUUID()}.png`;
+  const customerUp = await A.client.storage.from('character-library').upload(`canonical/limo_boy/v1/${crypto.randomUUID()}.png`, FIXTURE_PNG(), { contentType: 'image/png' });
+  check('customers cannot upload canonical references', !!customerUp.error);
+  const up = await ADMIN.client.storage.from('character-library').upload(path, FIXTURE_PNG(), { contentType: 'image/png' });
+  if (up.error && /bucket not found/i.test(up.error.message)) {
+    console.log('  SKIP  character-library bucket missing');
+    return;
+  }
+  check('admin (two-factor) uploads a canonical reference file', !up.error, up.error?.message);
+  const reg = await rpcFor(ADMIN)('register_character_reference', {
+    p_catalog_character_id: 'limo_boy', p_custom_character_id: null, p_object_path: path, p_asset_kind: 'rendered_reference', p_view: 'side',
+    p_expression_key: null, p_outfit_key: null, p_mime_type: 'image/png', p_size_bytes: 68, p_width: 1, p_height: 1,
+    p_provenance: 'uploaded_artwork', p_provenance_note: 'E2E test fixture, not artwork', p_model_meta: {},
+  });
+  check('admin registers it as pending review', !reg.error && typeof reg.data === 'string', reg.error?.message);
+  const refId = reg.data as string;
+  const customerReg = await rpcFor(A)('register_character_reference', {
+    p_catalog_character_id: 'limo_boy', p_custom_character_id: null, p_object_path: path, p_asset_kind: 'rendered_reference', p_view: 'side',
+    p_expression_key: null, p_outfit_key: null, p_mime_type: 'image/png', p_size_bytes: 68, p_width: 1, p_height: 1, p_provenance: 'uploaded_artwork', p_provenance_note: null, p_model_meta: {},
+  });
+  check('customers cannot register canonical references', !!customerReg.error);
+  const { data: hidden } = await A.client.from('character_reference_assets' as never).select('id').eq('id', refId);
+  check('customers cannot see a pending canonical reference', ((hidden ?? []) as unknown[]).length === 0);
+  check('customers cannot download a pending canonical file', !!(await A.client.storage.from('character-library').download(path)).error);
+  const customerReview = await rpcFor(A)('record_character_reference_view', { p_asset_id: refId });
+  check('customers cannot review canonical references', !!customerReview.error);
+  await rpcFor(ADMIN)('record_character_reference_view', { p_asset_id: refId });
+  const approve = await rpcFor(ADMIN)('review_character_reference', { p_asset_id: refId, p_approve: true, p_note: null, p_checklist: FULL_CHECKLIST });
+  check('admin approves after viewing with a full checklist', !approve.error, approve.error?.message);
+  const { data: visible } = await A.client.from('character_reference_assets' as never).select('id').eq('id', refId);
+  check('customers can see the approved canonical reference', ((visible ?? []) as unknown[]).length === 1);
+  check('customers can download the approved canonical file', !(await A.client.storage.from('character-library').download(path)).error);
+  const { data: boy } = await A.client.from('character_catalog').select('reference_status').eq('id', 'limo_boy').single();
+  check('the character is still not approved (spec unapproved, one of three views)', boy?.reference_status !== 'approved', boy);
+  const retire = await rpcFor(ADMIN)('retire_character_reference', { p_asset_id: refId, p_note: 'E2E cleanup of a test fixture' });
+  check('the test fixture is retired again', !retire.error, retire.error?.message);
+  const { data: after } = await A.client.from('character_reference_assets' as never).select('id').eq('id', refId);
+  check('a retired reference is no longer visible to customers', ((after ?? []) as unknown[]).length === 0);
 }
 
 /** Manual-payment activation (migration 20261016150000). User B has no subscription. */

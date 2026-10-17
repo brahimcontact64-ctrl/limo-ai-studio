@@ -1,5 +1,6 @@
 'use client';
-import { useMemo, type Dispatch, type SetStateAction } from 'react';
+import Link from 'next/link';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
 import { CHARACTER_FAMILIES, LIMITS, parseCharacterId } from '@/lib/studio/limits';
@@ -7,6 +8,7 @@ import { removeFromCast } from '@/lib/studio/draft';
 import type { Issue } from '@/lib/studio/validation';
 import type { CharacterRecord, ProjectDraft } from '@/lib/studio/types';
 import { CharacterCard } from '@/components/characters/CharacterCard';
+import { CharacterPreview } from '@/components/characters/CharacterPreview';
 import { characterLabel } from '@/components/characters/labels';
 import { FamilyGlyph } from '@/components/characters/FamilyGlyph';
 import { Icon } from '@/components/ui/Icon';
@@ -34,6 +36,9 @@ export function CastStep({
     }
     return map;
   }, [characters]);
+  const custom = useMemo(() => characters.filter((c) => c.custom), [characters]);
+  const nameOf = (id: string) => characters.find((c) => c.id === id)?.name;
+  const [preview, setPreview] = useState<CharacterRecord | null>(null);
   const sceneCount = (id: string) => draft.scenes.filter((s) => s.participants.includes(id)).length;
   const full = draft.cast.length >= LIMITS.castMax;
   const castIssue = issues.find((i) => i.field === 'cast' && i.severity === 'error');
@@ -41,7 +46,7 @@ export function CastStep({
   const toggle = (id: string) => {
     if (draft.cast.includes(id)) {
       const n = sceneCount(id);
-      if (n > 0 && !window.confirm(fmt(t.studio.cast.removeWarning, { name: characterLabel(t, id), n }))) return;
+      if (n > 0 && !window.confirm(fmt(t.studio.cast.removeWarning, { name: characterLabel(t, id, nameOf(id)), n }))) return;
       setDraft((d) => removeFromCast(d, id));
     } else if (!full) {
       setDraft((d) => ({ ...d, cast: [...d.cast, id] }));
@@ -91,9 +96,9 @@ export function CastStep({
           {draft.cast.map((id) => {
             const p = parseCharacterId(id);
             return (
-              <button key={id} type="button" className="cast-chip" onClick={() => toggle(id)} aria-label={fmt(t.studio.cast.remove, { name: characterLabel(t, id) })}>
+              <button key={id} type="button" className="cast-chip" onClick={() => toggle(id)} aria-label={fmt(t.studio.cast.remove, { name: characterLabel(t, id, nameOf(id)) })}>
                 {p && <FamilyGlyph family={p.family} variant={p.variant} size={22} />}
-                <span>{characterLabel(t, id)}</span>
+                <span dir="auto">{characterLabel(t, id, nameOf(id))}</span>
                 {sceneCount(id) > 0 && <span className="mono xsmall muted ltr">×{sceneCount(id)}</span>}
                 <Icon name="x" size={12} />
               </button>
@@ -123,6 +128,7 @@ export function CastStep({
                     selected={selected}
                     disabled={!selected && full}
                     onToggle={() => toggle(c.id)}
+                    onPreview={() => setPreview(c)}
                     footnote={selected && n > 0 ? fmt(t.studio.cast.inScenes, { n }) : undefined}
                   />
                 );
@@ -131,6 +137,38 @@ export function CastStep({
           </section>
         );
       })}
+
+      <section aria-labelledby="cast-custom">
+        <div className="family-head">
+          <span className="family-dot custom" aria-hidden="true" />
+          <h3 id="cast-custom">{t.studio.cast.yourCharacters}</h3>
+          <Link className="xsmall" href="/app/characters?tab=custom">
+            {t.characters.custom.create}
+          </Link>
+        </div>
+        {custom.length === 0 ? (
+          <p className="small muted">{t.characters.custom.empty}</p>
+        ) : (
+          <div className="char-grid">
+            {custom.map((c) => {
+              const selected = draft.cast.includes(c.id);
+              const n = sceneCount(c.id);
+              return (
+                <CharacterCard
+                  key={c.id}
+                  character={c}
+                  selected={selected}
+                  disabled={!selected && full}
+                  onToggle={() => toggle(c.id)}
+                  onPreview={() => setPreview(c)}
+                  footnote={selected && n > 0 ? fmt(t.studio.cast.inScenes, { n }) : undefined}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
+      {preview && <CharacterPreview open characterId={preview.id} label={characterLabel(t, preview.id, preview.name)} onClose={() => setPreview(null)} />}
       <p className="xsmall muted" style={{ marginTop: 24 }}>
         {t.characters.illustrationNote}
       </p>

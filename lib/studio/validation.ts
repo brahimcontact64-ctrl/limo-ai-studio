@@ -1,4 +1,4 @@
-import { LIMITS, SCENE_FIELD_MAX, isCastVariantId } from './limits.ts';
+import { LIMITS, SCENE_FIELD_MAX, isCastId } from './limits.ts';
 import type { ProjectDraft, SaveProjectRequest, SceneDraft } from './types.ts';
 import { isCreationMode, requiresCharacters, sanitizeBrief } from '../create/modes.ts';
 
@@ -73,7 +73,7 @@ export function validateDraft(draft: DraftLike, ctx: CatalogContext = {}): Issue
   if (requiresCharacters(draft.creation_mode) && cast.length < LIMITS.castMin) err({ code: 'cast_min', field: 'cast', params: { min: LIMITS.castMin } });
   if (cast.length > LIMITS.castMax) err({ code: 'cast_max', field: 'cast', params: { max: LIMITS.castMax } });
   if (new Set(cast).size !== cast.length) err({ code: 'cast_duplicate', field: 'cast' });
-  for (const id of cast) if (!isCastVariantId(id)) err({ code: 'cast_invalid_id', field: 'cast', params: { id: String(id) } });
+  for (const id of cast) if (!isCastId(id)) err({ code: 'cast_invalid_id', field: 'cast', params: { id: String(id) } });
   const castSet = new Set(cast);
 
   const scenes = draft.scenes;

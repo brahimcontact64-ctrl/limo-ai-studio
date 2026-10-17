@@ -51,6 +51,18 @@ export function isCastVariantId(id: unknown): id is string {
   return typeof id === 'string' && CHARACTER_ID_PATTERN.test(id);
 }
 
+/** Workspace characters in a project cast: "custom:<uuid>" (characters table). */
+export const CUSTOM_CHARACTER_PATTERN = /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function isCustomCastId(id: unknown): id is string {
+  return typeof id === 'string' && CUSTOM_CHARACTER_PATTERN.test(id);
+}
+
+/** Any id allowed in a project cast: one of the 18 variants or a workspace character. */
+export function isCastId(id: unknown): id is string {
+  return isCastVariantId(id) || isCustomCastId(id);
+}
+
 export function parseCharacterId(id: string): { family: CharacterFamily; variant: CharacterVariant } | null {
   const m = CHARACTER_ID_PATTERN.exec(id);
   if (!m) return null;

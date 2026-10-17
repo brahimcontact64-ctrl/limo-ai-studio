@@ -11,6 +11,7 @@ export function AdminTabs() {
     { href: '/admin/workspaces', label: t.adminWs.tab },
     { href: '/admin/payments', label: t.admin.tabs.payments },
     { href: '/admin/payment-methods', label: t.admin.tabs.methods },
+    { href: '/admin/characters', label: t.adminChars.tab },
   ];
   return (
     <nav className="tabs admin-tabs" aria-label={t.nav.admin}>

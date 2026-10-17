@@ -1,5 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
+import { untyped } from '../supabase/rpc';
 import { getSupabaseServer } from '../supabase/server';
 import { isCastVariantId } from '../studio/limits';
 import type { CatalogOption, CharacterRecord, ExportPresetOption } from '../studio/types';
@@ -15,7 +16,7 @@ export interface Catalogs {
 /** Reads the live catalogs (all readable by anon/authenticated through RLS). */
 export const getCatalogs = cache(async (): Promise<Catalogs> => {
   const supabase = await getSupabaseServer();
-  const [types, langs, presets, chars] = await Promise.all([
+  const [types, langs, presets, chars, specs] = await Promise.all([
     supabase.from('content_type_catalog').select('code, label').eq('active', true).order('sort_order'),
     supabase.from('language_catalog').select('code, label, native_name').eq('active', true).order('sort_order'),
     supabase
@@ -29,14 +30,26 @@ export const getCatalogs = cache(async (): Promise<Catalogs> => {
       .eq('active', true)
       .not('family_code', 'is', null)
       .order('sort_order'),
+    // Latest design spec per character (migration 20261017140000; absent before it is applied).
+    untyped(supabase).from('character_design_specs').select('character_id, version, status, spec').neq('status', 'superseded').order('version', { ascending: false }),
   ]);
+  type SpecRow = { character_id: string; version: number; status: string; spec: { consistency?: { identity_prompt?: string } } };
+  const latest = new Map<string, { version: number; status: string; identity: string | null }>();
+  for (const row of (specs.error ? [] : (specs.data ?? [])) as SpecRow[]) {
+    if (!latest.has(row.character_id)) latest.set(row.character_id, { version: row.version, status: row.status, identity: row.spec?.consistency?.identity_prompt ?? null });
+  }
 
   return {
     contentTypes: types.data ?? [],
     languages: langs.data ?? [],
     exportPresets: presets.data ?? [],
     // Only the 18 cast variants; family base records are excluded.
-    characters: (chars.data ?? []).filter((c) => isCastVariantId(c.id)),
+    characters: (chars.data ?? [])
+      .filter((c) => isCastVariantId(c.id))
+      .map((c) => {
+        const spec = latest.get(c.id);
+        return { ...c, identity_prompt: spec?.identity ?? null, spec_version: spec?.version ?? null, spec_status: spec?.status ?? null };
+      }),
     ok: !types.error && !langs.error && !presets.error && !chars.error,
   };
 });

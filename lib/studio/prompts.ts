@@ -5,7 +5,8 @@ import type { CharacterRecord, ProjectDraft, SceneDraft } from './types.ts';
  *
  * Consistency strategy:
  * - Every character is referenced by its stable catalog id, never by a free-text name alone.
- * - The catalog visual_description is injected verbatim as the appearance specification.
+ * - The latest design spec's identity text (lib/characters/canon.ts) is injected verbatim as the appearance
+ *   specification; the short catalog visual_description is the fallback.
  * - When a character has an approved canonical reference (reference_status = 'approved' and
  *   visual_ref set), adapters that support reference images must attach it; otherwise the
  *   prompt is flagged as text-only and generation must stay blocked for that character.
@@ -21,7 +22,7 @@ export interface ScenePrompt {
   durationSeconds: number;
 }
 
-type CharacterLookup = ReadonlyMap<string, Pick<CharacterRecord, 'id' | 'name' | 'visual_description' | 'reference_status' | 'visual_ref'>>;
+type CharacterLookup = ReadonlyMap<string, Pick<CharacterRecord, 'id' | 'name' | 'visual_description' | 'reference_status' | 'visual_ref'> & { identity_prompt?: string | null }>;
 
 function line(label: string, value: string): string | null {
   const v = value.trim();
@@ -41,7 +42,8 @@ export function buildScenePrompt(
 ): ScenePrompt {
   const cast = scene.participants.map((id) => characters.get(id)).filter((c): c is NonNullable<typeof c> => Boolean(c));
   const castLines = cast.map((c) => {
-    const spec = c.visual_description?.trim() || 'Appearance specification pending.';
+    // The canonical identity text (design spec) wins over the short catalog description.
+    const spec = c.identity_prompt?.trim() || c.visual_description?.trim() || 'Appearance specification pending.';
     return `- [${c.id}] ${c.name}: ${spec}`;
   });
 

@@ -5,6 +5,8 @@ import { getI18n } from '@/lib/i18n/server';
 import { emptyProject } from '@/lib/studio/draft';
 import { isCastVariantId } from '@/lib/studio/limits';
 import { StudioEditor } from '@/components/studio/StudioEditor';
+import { customAsRecords, listCustomCharacters } from '@/lib/data/characters';
+import { getSupabaseServer } from '@/lib/supabase/server';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -32,12 +34,14 @@ export default async function NewProjectPage({ searchParams }: { searchParams: P
   const preset = ((await searchParams).cast ?? '').split(',').filter((id) => isCastVariantId(id) && catalogs.characters.some((c) => c.id === id));
   draft.cast = [...new Set(preset)].slice(0, 18);
 
+  const custom = ctx.org ? customAsRecords(await listCustomCharacters(await getSupabaseServer(), ctx.org.organization_id)) : [];
+
   return (
     <StudioEditor
       initialDraft={draft}
       status="draft"
       updatedAt={null}
-      catalogs={{ contentTypes: catalogs.contentTypes, languages: catalogs.languages, exportPresets: catalogs.exportPresets, characters: catalogs.characters }}
+      catalogs={{ contentTypes: catalogs.contentTypes, languages: catalogs.languages, exportPresets: catalogs.exportPresets, characters: [...catalogs.characters, ...custom] }}
       canEdit={ctx.canEdit}
       subscriptionActive={ctx.subscriptionActive}
     />

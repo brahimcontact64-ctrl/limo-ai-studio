@@ -4,6 +4,7 @@ import { requireAppContext, canEditRole, isSubscriptionActive } from '@/lib/data
 import { getCatalogs } from '@/lib/data/catalog';
 import { loadProject } from '@/lib/data/projects';
 import { loadSeriesContext } from '@/lib/data/series';
+import { customAsRecords, listCustomCharacters } from '@/lib/data/characters';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { getI18n } from '@/lib/i18n/server';
 import { isUuid } from '@/lib/studio/validation';
@@ -38,7 +39,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     subscriptionActive = isSubscriptionActive(sub ?? null);
   }
 
-  const series = project.series_id ? await loadSeriesContext(supabase, project.series_id) : null;
+  const [series, custom] = await Promise.all([
+    project.series_id ? loadSeriesContext(supabase, project.series_id) : Promise.resolve(null),
+    // Archived workspace characters stay resolvable for projects that already use them.
+    listCustomCharacters(supabase, project.organization_id, true),
+  ]);
+  const customRecords = customAsRecords(custom.filter((c) => c.status === 'active' || project.draft.cast.includes(`custom:${c.id}`)));
 
   return (
     <StudioEditor
@@ -46,7 +52,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       initialDraft={project.draft}
       status={project.status}
       updatedAt={project.updated_at}
-      catalogs={{ contentTypes: catalogs.contentTypes, languages: catalogs.languages, exportPresets: catalogs.exportPresets, characters: catalogs.characters }}
+      catalogs={{ contentTypes: catalogs.contentTypes, languages: catalogs.languages, exportPresets: catalogs.exportPresets, characters: [...catalogs.characters, ...customRecords] }}
       canEdit={canEditRole(membership?.role)}
       subscriptionActive={subscriptionActive}
       script={project.script}

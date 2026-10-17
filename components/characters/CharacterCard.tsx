@@ -11,29 +11,43 @@ export function CharacterCard({
   character,
   selected,
   onToggle,
+  onPreview,
   disabled,
   footnote,
 }: {
   character: CharacterRecord;
   selected?: boolean;
   onToggle?: () => void;
+  /** Shows a "Details" button next to the card (spec, references, review). */
+  onPreview?: () => void;
   disabled?: boolean;
   footnote?: string;
 }) {
   const { t } = useI18n();
   const parsed = parseCharacterId(character.id);
-  if (!parsed) return null;
   const label = characterLabel(t, character.id, character.name);
   const age = character.age_group ? (t.characters.age as Record<string, string>)[character.age_group] : null;
+  const kind = parsed
+    ? t.characters.familyKind[parsed.family]
+    : character.base_family && character.base_family in t.characters.familyKind
+      ? t.characters.familyKind[character.base_family as keyof typeof t.characters.familyKind]
+      : t.characters.custom.title;
+  const family = parsed?.family ?? 'custom';
   const body = (
     <>
       <div className="char-art">
-        <FamilyGlyph family={parsed.family} variant={parsed.variant} size={76} />
+        {parsed ? (
+          <FamilyGlyph family={parsed.family} variant={parsed.variant} size={76} />
+        ) : (
+          <span className="char-initials" aria-hidden="true">
+            {character.name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
       </div>
       <div className="char-name">
-        <b>{label}</b>
+        <b dir="auto">{label}</b>
         <span>
-          {t.characters.familyKind[parsed.family]}
+          {kind}
           {age ? ` · ${age}` : ''}
         </span>
       </div>
@@ -48,18 +62,15 @@ export function CharacterCard({
       )}
     </>
   );
-  if (!onToggle) {
-    return (
-      <article className="char-card" data-family={parsed.family}>
-        {body}
-      </article>
-    );
-  }
-  return (
+  const card = !onToggle ? (
+    <article className="char-card" data-family={family}>
+      {body}
+    </article>
+  ) : (
     <button
       type="button"
       className="char-card"
-      data-family={parsed.family}
+      data-family={family}
       aria-pressed={Boolean(selected)}
       aria-label={fmt(selected ? t.studio.cast.remove : t.studio.cast.add, { name: label })}
       onClick={onToggle}
@@ -67,5 +78,15 @@ export function CharacterCard({
     >
       {body}
     </button>
+  );
+  if (!onPreview) return card;
+  return (
+    <div className="char-card-wrap">
+      {card}
+      <button type="button" className="btn btn-ghost btn-sm char-details" onClick={onPreview} aria-label={`${t.characters.preview.details}: ${label}`}>
+        <Icon name="info" />
+        {t.characters.preview.details}
+      </button>
+    </div>
   );
 }

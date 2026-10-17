@@ -7,6 +7,7 @@ import { CHARACTER_FAMILIES, LIMITS, parseCharacterId, type CharacterFamily } fr
 import type { CharacterRecord } from '@/lib/studio/types';
 import { Icon } from '@/components/ui/Icon';
 import { CharacterCard } from './CharacterCard';
+import { CharacterPreview } from './CharacterPreview';
 import { characterLabel } from './labels';
 
 type AgeFilter = 'all' | 'child' | 'adult' | 'elder';
@@ -16,6 +17,7 @@ export function CharacterLibrary({ characters, canCreate }: { characters: Charac
   const [family, setFamily] = useState<'all' | CharacterFamily>('all');
   const [age, setAge] = useState<AgeFilter>('all');
   const [selected, setSelected] = useState<string[]>([]);
+  const [preview, setPreview] = useState<CharacterRecord | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -65,7 +67,7 @@ export function CharacterLibrary({ characters, canCreate }: { characters: Charac
 
       <div className="char-grid">
         {filtered.map((c) => (
-          <CharacterCard key={c.id} character={c} selected={selected.includes(c.id)} onToggle={canCreate ? () => toggle(c.id) : undefined} />
+          <CharacterCard key={c.id} character={c} selected={selected.includes(c.id)} onToggle={canCreate ? () => toggle(c.id) : undefined} onPreview={() => setPreview(c)} />
         ))}
       </div>
 
@@ -101,6 +103,7 @@ export function CharacterLibrary({ characters, canCreate }: { characters: Charac
         </div>
       </section>
       {selected.length >= LIMITS.castMax && <p className="small muted">{fmt(t.studio.cast.limitReached, {})}</p>}
+      {preview && <CharacterPreview open characterId={preview.id} label={characterLabel(t, preview.id, preview.name)} onClose={() => setPreview(null)} />}
     </div>
   );
 }

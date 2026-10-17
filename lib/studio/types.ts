@@ -71,6 +71,14 @@ export interface CharacterRecord {
   tone: string;
   visual_ref: string | null;
   sort_order: number;
+  /** Canonical identity text from the latest design spec (consistency metadata for generation). */
+  identity_prompt?: string | null;
+  /** Latest design spec version and its review status (canonical characters). */
+  spec_version?: number | null;
+  spec_status?: string | null;
+  /** Workspace character ("custom:<uuid>"); base family is optional styling guidance. */
+  custom?: boolean;
+  base_family?: string | null;
 }
 
 export interface CatalogOption {
