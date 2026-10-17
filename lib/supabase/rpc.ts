@@ -18,3 +18,8 @@ export async function callRpc<T>(supabase: SupabaseClient<any, any, any>, fn: st
 export function isMissingFunction(error: RpcError | null | undefined): boolean {
   return Boolean(error && (error.code === 'PGRST202' || error.code === '42883'));
 }
+
+/** Query builder for tables that are not (yet) in the generated Database types. */
+export function untyped(supabase: SupabaseClient<any, any, any>) {
+  return supabase as unknown as SupabaseClient<any, 'public', any>;
+}

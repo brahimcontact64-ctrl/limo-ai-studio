@@ -180,3 +180,37 @@ export function removeFromCast(draft: ProjectDraft, id: string): ProjectDraft {
     scenes: draft.scenes.map((s) => ({ ...s, participants: s.participants.filter((p) => p !== id) })),
   };
 }
+
+/** Snapshot stored in project_revisions.snapshot (same shape as the save_studio_project_v2 input). */
+export interface RevisionSnapshot {
+  title: string;
+  creation_mode: string;
+  creation_brief: unknown;
+  content_type: string;
+  language_code: string;
+  brief: string;
+  goal: string;
+  visual_style: string;
+  project_cast: unknown;
+  export_presets: string[];
+  scenes: DbSceneRow[];
+}
+
+export function draftFromSnapshot(projectId: string, s: RevisionSnapshot): ProjectDraft {
+  return projectFromDb(
+    {
+      id: projectId,
+      title: s.title,
+      content_type: s.content_type,
+      language_code: s.language_code,
+      brief: s.brief,
+      goal: s.goal,
+      visual_style: s.visual_style,
+      project_cast: s.project_cast,
+      creation_mode: s.creation_mode,
+      creation_brief: s.creation_brief,
+    },
+    Array.isArray(s.scenes) ? s.scenes : [],
+    Array.isArray(s.export_presets) ? s.export_presets : [],
+  );
+}

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { requireAppContext, canEditRole, isSubscriptionActive } from '@/lib/data/context';
 import { getCatalogs } from '@/lib/data/catalog';
 import { loadProject } from '@/lib/data/projects';
+import { loadSeriesContext } from '@/lib/data/series';
 import { getSupabaseServer } from '@/lib/supabase/server';
 import { getI18n } from '@/lib/i18n/server';
 import { isUuid } from '@/lib/studio/validation';
@@ -37,6 +38,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     subscriptionActive = isSubscriptionActive(sub ?? null);
   }
 
+  const series = project.series_id ? await loadSeriesContext(supabase, project.series_id) : null;
+
   return (
     <StudioEditor
       key={project.updated_at}
@@ -46,6 +49,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       catalogs={{ contentTypes: catalogs.contentTypes, languages: catalogs.languages, exportPresets: catalogs.exportPresets, characters: catalogs.characters }}
       canEdit={canEditRole(membership?.role)}
       subscriptionActive={subscriptionActive}
+      script={project.script}
+      series={series}
     />
   );
 }

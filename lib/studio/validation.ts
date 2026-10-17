@@ -252,6 +252,9 @@ export function toRpcArgsV2(organizationId: string, req: SaveProjectRequest) {
 
 /** Maps a database exception message from save_studio_project to a stable error code. */
 export type SaveErrorCode =
+  | 'conflict'
+  | 'script_approved'
+  | 'continuity'
   | 'subscription_required'
   | 'not_authorized'
   | 'not_editable'
@@ -264,6 +267,8 @@ export type SaveErrorCode =
 
 export function mapSaveError(message: string | undefined | null): SaveErrorCode {
   const m = (message ?? '').toLowerCase();
+  if (m.includes('changed since it was loaded')) return 'conflict';
+  if (m.includes('script is approved')) return 'script_approved';
   if (m.includes('active subscription required')) return 'subscription_required';
   if (m.includes('not authorized') || m.includes('authentication required')) return 'not_authorized';
   if (m.includes('no longer editable') || m.includes('project not found')) return 'not_editable';

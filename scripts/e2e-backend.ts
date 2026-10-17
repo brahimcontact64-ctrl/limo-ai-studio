@@ -199,6 +199,7 @@ async function main() {
   }
 
   await creationChecks(A, B, draft.content_type);
+  await scriptChecks(A, B, draft.content_type);
 
   if (process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD) {
     const ADMIN = await signIn(process.env.E2E_ADMIN_EMAIL, process.env.E2E_ADMIN_PASSWORD);
@@ -342,6 +343,89 @@ async function creationChecks(A: Session, B: Session, contentType: string) {
   const del = await rpcFor(A)('delete_media_asset', { p_asset_id: assetId });
   check('unused asset can be deleted', !del.error, del.error?.message);
   await A.client.storage.from('workspace-assets').remove([path]);
+}
+
+/** Script revisions, concurrency, approval (migration 20261017120000). */
+async function scriptChecks(A: Session, B: Session, contentType: string) {
+  console.log('\nScript revisions and approval (migration 20261017120000)');
+  const probe = await rpcFor(B)('remove_script_approval', { p_project_id: '00000000-0000-4000-8000-000000000000' });
+  if (probe.error && /could not find the function/i.test(probe.error.message)) {
+    console.log('  SKIP  script revision functions not deployed');
+    return;
+  }
+  type Saved = { project_id: string; updated_at: string; script_status: string; revision_number: number };
+  type Rev = { id: string; revision_number: number; source: string; label: string | null; snapshot: { scenes: Array<{ narration: string }> } };
+  const revisions = (s: Session, projectId: string) =>
+    (s.client.from('project_revisions' as never) as unknown as { select: (c: string) => { eq: (k: string, v: string) => { order: (k: string) => Promise<{ data: Rev[] | null }> } } })
+      .select('id, revision_number, source, label, snapshot')
+      .eq('project_id', projectId)
+      .order('revision_number');
+
+  const ad = emptyProject({ content_type: contentType, language_code: 'en', creation_mode: 'product_ad', creation_brief: { productName: 'E2E Lamp' }, export_presets: ['vertical_9_16'] });
+  ad.title = 'E2E script revisions';
+  ad.scenes = [newScene({ title: 'Hook', duration_seconds: 4, narration: 'Version one.' }), newScene({ title: 'End', duration_seconds: 5, narration: 'Order now.' })];
+  const v3 = (s: Session, d: ProjectDraft, base: string | null, extra: object = {}) =>
+    rpcFor(s)('save_studio_project_v3', { ...toRpcArgsV2(s.orgId, toSaveRequest(d)), p_base_updated_at: base, p_revision_source: 'manual', p_revision_label: null, p_remove_approval: false, ...extra });
+
+  const created = await v3(A, ad, null);
+  const c = created.data as Saved | null;
+  check('v3 creates a character-free project with revision 1', !created.error && c?.revision_number === 1, created.error?.message);
+  if (!c) return;
+  const id = c.project_id;
+  const edit1: ProjectDraft = { ...ad, id, scenes: [{ ...ad.scenes[0]!, narration: 'Version two.' }, ad.scenes[1]!] };
+  const stale = await v3(A, edit1, '2000-01-01T00:00:00Z');
+  check('a save based on an old version is refused (conflict)', !!stale.error && /changed since it was loaded/i.test(stale.error.message), stale.error?.message ?? 'accepted');
+  const saved2 = await v3(A, edit1, c.updated_at);
+  const r2 = saved2.data as Saved;
+  check('a save based on the current version creates revision 2', !saved2.error && r2?.revision_number === 2, saved2.error?.message);
+
+  const withNarration = (text: string): ProjectDraft => ({ ...edit1, scenes: [{ ...edit1.scenes[0]!, narration: text }, edit1.scenes[1]!] });
+  const auto1 = await v3(A, withNarration('Auto A.'), r2.updated_at, { p_revision_source: 'autosave' });
+  const a1 = auto1.data as Saved;
+  const auto2 = await v3(A, withNarration('Auto B.'), a1?.updated_at ?? null, { p_revision_source: 'autosave' });
+  const a2 = auto2.data as Saved;
+  check('consecutive autosaves update one revision', !auto1.error && !auto2.error && a1?.revision_number === 3 && a2?.revision_number === 3, auto2.error?.message ?? [a1?.revision_number, a2?.revision_number]);
+
+  const list = (await revisions(A, id)).data ?? [];
+  check('history keeps created, manual and autosave revisions', list.map((r) => r.source).join(',') === 'created,manual,autosave', list.map((r) => r.source));
+  check('revision snapshots hold the saved text', list[1]?.snapshot.scenes[0]?.narration === 'Version two.' && list[2]?.snapshot.scenes[0]?.narration === 'Auto B.');
+  const bList = (await revisions(B, id)).data ?? [];
+  check('another workspace cannot read the revisions', bList.length === 0);
+  const rev2 = list.find((r) => r.revision_number === 2);
+  const bRestore = await rpcFor(B)('restore_project_revision', { p_revision_id: rev2?.id, p_base_updated_at: a2.updated_at, p_remove_approval: false });
+  check('another workspace cannot restore a revision', !!bRestore.error);
+  const bApprove = await rpcFor(B)('approve_project_script', { p_project_id: id, p_base_updated_at: a2.updated_at });
+  check('another workspace cannot approve the script', !!bApprove.error);
+
+  const approve = await rpcFor(A)('approve_project_script', { p_project_id: id, p_base_updated_at: a2.updated_at });
+  const ap = approve.data as { revision_number: number; updated_at: string } | null;
+  check('owner approves the script (approval revision 4)', !approve.error && ap?.revision_number === 4, approve.error?.message);
+  const { data: proj } = await A.client.from('studio_projects').select('*').eq('id', id).single();
+  const p = proj as unknown as { script_status: string; approved_revision_id: string | null } | null;
+  check('project records the approved revision', p?.script_status === 'approved' && !!p.approved_revision_id, p);
+
+  const v2Overwrite = await rpcFor(A)('save_studio_project_v2', toRpcArgsV2(A.orgId, toSaveRequest({ ...edit1, title: 'Silent overwrite' })));
+  check('approved script cannot be overwritten through save_studio_project_v2', !!v2Overwrite.error && /approved/i.test(v2Overwrite.error.message), v2Overwrite.error?.message ?? 'accepted');
+  const v3NoFlag = await v3(A, { ...edit1, title: 'Edit without removing approval' }, ap?.updated_at ?? null);
+  check('approved script cannot be edited without removing the approval', !!v3NoFlag.error && /approved/i.test(v3NoFlag.error.message), v3NoFlag.error?.message ?? 'accepted');
+  const { data: stillApproved } = await A.client.from('project_scenes').select('narration').eq('project_id', id).order('scene_number');
+  check('approved content unchanged after refused writes', (stillApproved as Array<{ narration: string }> | null)?.[0]?.narration === 'Auto B.', stillApproved);
+
+  const removed = await rpcFor(A)('remove_script_approval', { p_project_id: id });
+  const rm = removed.data as { script_status: string; updated_at: string } | null;
+  check('removing the approval marks the script as changed', !removed.error && rm?.script_status === 'changed', removed.error?.message);
+  const restore = await rpcFor(A)('restore_project_revision', { p_revision_id: rev2?.id, p_base_updated_at: rm?.updated_at, p_remove_approval: false });
+  const rs = restore.data as { revision_number: number } | null;
+  const { data: after } = await A.client.from('project_scenes').select('narration').eq('project_id', id).order('scene_number');
+  check('restoring revision 2 brings its text back as revision 5', !restore.error && rs?.revision_number === 5 && (after as Array<{ narration: string }> | null)?.[0]?.narration === 'Version two.', restore.error?.message ?? after);
+  const last = ((await revisions(A, id)).data ?? []).find((r) => r.revision_number === 5);
+  check('the restore is recorded in the history', last?.source === 'restore', last?.source);
+
+  // An approved project can still be deleted (its scenes and revisions go with it).
+  const { data: cur } = await A.client.from('studio_projects').select('updated_at').eq('id', id).single();
+  await rpcFor(A)('approve_project_script', { p_project_id: id, p_base_updated_at: cur?.updated_at });
+  const del = await rpcFor(A)('delete_studio_project', { p_project_id: id });
+  check('an approved project can be deleted with its scenes and revisions', !del.error, del.error?.message);
 }
 
 /** Manual-payment activation (migration 20261016150000). User B has no subscription. */

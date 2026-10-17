@@ -83,10 +83,20 @@
   gap: var(--sp-2);
 }
 
+.studio > * {
+  /* Grid items default to min-width:auto; keep wide content from widening the page on phones. */
+  min-width: 0;
+}
 .studio-steps {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
   padding-inline: var(--gutter);
   border-bottom: 1px solid var(--line);
   background: #fff;
+}
+.studio-steps .tab {
+  flex: none;
 }
 .studio-notices {
   display: grid;
@@ -602,4 +612,208 @@
   padding: var(--sp-2) var(--sp-5) var(--sp-4);
   font-size: var(--fs-xs);
   color: var(--warning);
+}
+
+/* ---------- Milestone 3: script, history, approval ---------- */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.stack-sm {
+  display: grid;
+  gap: 6px;
+}
+.stack-sm > * {
+  min-width: 0;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.plain-list {
+  margin: 6px 0 0;
+  padding-inline-start: 18px;
+}
+.select-sm {
+  min-height: 34px;
+  padding-block: 4px;
+  font-size: var(--fs-sm);
+}
+.inline-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inline-field .field-label {
+  margin: 0;
+  white-space: nowrap;
+}
+.script-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.script-doc {
+  list-style: none;
+  margin: var(--sp-6) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-4);
+}
+.script-scene {
+  padding: var(--sp-5);
+  display: grid;
+  gap: var(--sp-4);
+}
+.script-scene-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.script-scene-head .step-num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+  font-size: 0.8125rem;
+}
+.script-scene-title {
+  font-weight: 700;
+}
+.duration-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+.duration-input .input {
+  width: 64px;
+}
+.script-scene-ai summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  margin-bottom: 8px;
+}
+@media (max-width: 640px) {
+  .script-scene-head {
+    flex-wrap: wrap;
+  }
+  .script-scene-head .grow {
+    flex-basis: calc(100% - 40px);
+  }
+}
+.diff {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.diff ins {
+  text-decoration: none;
+  background: var(--accent-soft-strong);
+  color: var(--text);
+  border-radius: 3px;
+}
+.diff del {
+  color: var(--text-3);
+  text-decoration-color: currentColor;
+}
+.proposal-scene {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.proposal-field {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  cursor: pointer;
+}
+.proposal-field input {
+  margin-top: 3px;
+}
+.proposal-field .field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.history-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .history-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 55vh;
+  overflow: auto;
+}
+.history-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-1);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.history-item[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.history-item > .xsmall {
+  flex-basis: 100%;
+}
+.change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 45vh;
+  overflow: auto;
+}
+.change-list li {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.studio-approval {
+  padding: 0 var(--gutter) var(--sp-6);
+}
+@media (min-width: 1024px) {
+  .studio-approval {
+    padding-inline: 30px;
+  }
 }

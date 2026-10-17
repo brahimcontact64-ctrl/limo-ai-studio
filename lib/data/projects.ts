@@ -66,8 +66,19 @@ export async function listProjects(supabase: ServerSupabase, organizationId: str
   return (res.data as unknown as SummaryRow[]).map(toSummary);
 }
 
+export type ScriptStatus = 'draft' | 'approved' | 'changed';
+export interface ScriptApproval {
+  status: ScriptStatus;
+  approved_at: string | null;
+  approved_revision_number: number | null;
+  /** False when migration 20261017120000 is not applied (no revisions/approval yet). */
+  available: boolean;
+}
+
 export interface LoadedProject {
   draft: ProjectDraft;
+  series_id: string | null;
+  script: ScriptApproval;
   organization_id: string;
   status: ProjectStatus;
   updated_at: string;
@@ -76,9 +87,16 @@ export interface LoadedProject {
 
 export async function loadProject(supabase: ServerSupabase, projectId: string): Promise<LoadedProject | null> {
   const runProject = (columns: string) => supabase.from('studio_projects').select(columns).eq('id', projectId).maybeSingle();
-  let projectRes = await runProject(`${BASE_PROJECT}, creation_mode, creation_brief`);
-  if (missingColumn(projectRes.error)) projectRes = await runProject(BASE_PROJECT);
-  const row = projectRes.data as unknown as (DbProjectRow & { organization_id: string; status: string; created_at: string; updated_at: string }) | null;
+  let projectRes = await runProject(`${BASE_PROJECT}, series_id, creation_mode, creation_brief, script_status, approved_at, approved_revision_id`);
+  let available = true;
+  if (missingColumn(projectRes.error)) {
+    available = false;
+    projectRes = await runProject(`${BASE_PROJECT}, series_id, creation_mode, creation_brief`);
+  }
+  if (missingColumn(projectRes.error)) projectRes = await runProject(`${BASE_PROJECT}, series_id`);
+  const row = projectRes.data as unknown as
+    | (DbProjectRow & { organization_id: string; status: string; created_at: string; updated_at: string; series_id: string | null; script_status?: string; approved_at?: string | null; approved_revision_id?: string | null })
+    | null;
   if (projectRes.error || !row) return null;
 
   const runScenes = (columns: string) => supabase.from('project_scenes').select(columns).eq('project_id', projectId).order('scene_number');
@@ -87,8 +105,17 @@ export async function loadProject(supabase: ServerSupabase, projectId: string): 
   const presets = await supabase.from('project_export_choices').select('preset_code').eq('project_id', projectId).order('preset_code');
   if (scenes.error || presets.error) return null;
 
+  let approvedNumber: number | null = null;
+  if (row.approved_revision_id) {
+    const { data: rev } = await (supabase as unknown as { from: (t: string) => any }).from('project_revisions').select('revision_number').eq('id', row.approved_revision_id).maybeSingle();
+    approvedNumber = (rev as { revision_number?: number } | null)?.revision_number ?? null;
+  }
+  const status = row.script_status === 'approved' || row.script_status === 'changed' ? row.script_status : 'draft';
+
   return {
     draft: projectFromDb(row, (scenes.data ?? []) as unknown as DbSceneRow[], (presets.data ?? []).map((p) => p.preset_code)),
+    series_id: row.series_id ?? null,
+    script: { status, approved_at: row.approved_at ?? null, approved_revision_number: approvedNumber, available },
     organization_id: row.organization_id,
     status: row.status as ProjectStatus,
     updated_at: row.updated_at,

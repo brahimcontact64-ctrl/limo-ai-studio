@@ -29,7 +29,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const req = toSaveRequest({ ...project.draft, id: null });
   req.title = fmt(t.projects.copyOf, { title: project.draft.title }).slice(0, LIMITS.titleMax);
 
-  let { data, error } = await callRpc<string>(supabase, 'save_studio_project_v2', toRpcArgsV2(project.organization_id, req));
+  const args = toRpcArgsV2(project.organization_id, req);
+  // v3 records the copy's first revision; v2/v1 while migration 20261017120000 is not applied.
+  const v3 = await callRpc<{ project_id: string }>(supabase, 'save_studio_project_v3', {
+    ...args, p_base_updated_at: null, p_revision_source: 'manual', p_revision_label: null, p_remove_approval: false,
+  });
+  if (!isMissingFunction(v3.error)) {
+    if (v3.error || !v3.data) return json({ error: mapSaveError(v3.error?.message) }, 422);
+    return json({ project_id: v3.data.project_id }, 201);
+  }
+  let { data, error } = await callRpc<string>(supabase, 'save_studio_project_v2', args);
   if (isMissingFunction(error)) ({ data, error } = await supabase.rpc('save_studio_project', toRpcArgs(project.organization_id, req) as unknown as SaveRpcArgs));
   if (error || !data) return json({ error: mapSaveError(error?.message) }, 422);
   return json({ project_id: data }, 201);
