@@ -6,7 +6,8 @@ used for rendering): a Node process with FFmpeg that takes jobs from the `render
 ## How it works
 1. A user clicks **Export MP4** in the Studio's Video step. `POST /api/renders` calls
    `enqueue_render_job`, which copies the **approved** script revision (scene order, durations, text,
-   media) into the job's `spec` and reserves one video slot per approved revision.
+   media) into the job's `spec` and reserves one video credit (V1 policy: one per completed video, 30 s maximum;
+   consumed on completion, released on failure or cancellation — see `docs/VIDEO_POLICY.md`).
 2. The worker claims the oldest job (`claim_render_job`, lease + heartbeat). A job whose worker died is
    taken over after the lease, up to `max_attempts` (3).
 3. It downloads the inputs, draws text/subtitle/logo overlays with the Image Studio renderer
@@ -22,7 +23,7 @@ used for rendering): a Node process with FFmpeg that takes jobs from the `render
 Downloads use signed links that expire after 10 minutes, created with the user's own session.
 
 ## Limits
-- 10 minutes per video (scenes per project are limited by the Studio), 3 active renders per workspace, input files up to 100 MB.
+- 30 seconds per video on every plan (refused before rendering otherwise), 3 active renders per workspace, input files up to 100 MB.
 - Each FFmpeg step stops after `STEP_TIMEOUT_MS` (default 300 000 ms).
 - One job at a time per worker process; run more processes for more throughput.
 

@@ -1,3 +1,5 @@
+import { VIDEO_POLICY } from '../video/policy.ts';
+
 /**
  * Limits enforced by the live Supabase backend. Keep in sync with:
  * - public.save_studio_project (migration 20261016061058)
@@ -11,14 +13,14 @@ export const LIMITS = {
   scenesMax: 25,
   sceneDurationMin: 1,
   sceneDurationMax: 15,
+  /** Longest draft the database saves. Exports are limited separately to 30 s (lib/video/policy.ts); longer
+   *  drafts stay saved (never truncated) but must be shortened before approval and export. */
   totalDurationMax: 600,
   titleMax: 200,
   briefMax: 8000,
   goalMax: 1000,
   visualStyleMax: 1000,
   sceneTitleMax: 200,
-  /** Seconds of finished video per usage slot (normalize_studio_project_slots). */
-  secondsPerSlot: 30,
 } as const;
 
 /** Per-field maximum lengths applied by save_studio_project. */
@@ -69,6 +71,7 @@ export function parseCharacterId(id: string): { family: CharacterFamily; variant
   return { family: m[1] as CharacterFamily, variant: m[2] as CharacterVariant };
 }
 
-export function estimateSlots(totalSeconds: number): number {
-  return Math.max(1, Math.ceil(totalSeconds / LIMITS.secondsPerSlot));
+/** Video credits one finished export uses: one per video whatever its length (V1 policy, lib/video/policy.ts). */
+export function exportCreditsPerVideo(): number {
+  return VIDEO_POLICY.creditsPerVideo;
 }

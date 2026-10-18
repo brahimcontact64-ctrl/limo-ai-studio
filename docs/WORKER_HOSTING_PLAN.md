@@ -26,8 +26,9 @@ Measured on the development machine (8 logical cores), synthetic inputs:
 | Temp disk | 4–10 GB fast local disk (`RENDER_TMP`), cleaned after every job, leftovers > 1 h swept at start | none |
 | Network | download inputs + upload one MP4 per job (Supabase Storage) | small RPCs |
 
-Worst case today: a 10-minute 1080p video ≈ 15+ minutes of rendering on 2 vCPU at the measured rate (to be
-re-measured with real customer media before launch: **gate W3**). The step timeout (`STEP_TIMEOUT_MS`,
+Worst case under the V1 policy (30 s per video): a 30 s 1080p video ≈ 45–50 s of rendering on the dev machine
+at the measured rate, roughly 1–2 minutes on 2 vCPU (to be re-measured with real customer media before launch:
+**gate W3**). The step timeout (`STEP_TIMEOUT_MS`,
 300 s per FFmpeg step) bounds a stuck step; long videos are many steps.
 
 ## 3. Concurrency and limits
@@ -106,12 +107,12 @@ Vertical: 4 vCPU per render process shortens long 1080p videos but does not rais
 | Logs | GB ingested/retained by the log service |
 | Monitoring | uptime checks / alerting service |
 Per-video compute ≈ (render seconds × vCPUs) — measure with real media (gate W3) and divide by videos per plan
-to compare with the video-slot price.
+to compare with the video-credit price (one credit per finished video of up to 30 s).
 
 ## 12. Deployment gates (all open)
 - **W1** owner chooses the host/provider and region.
 - **W2** production migrations applied (render/publish tables and functions exist) — see PRODUCTION_ROLLOUT_PLAN.md.
-- **W3** render benchmark with real customer-like media at 720p/1080p; adjust CPU/RAM and the 10-minute limit.
+- **W3** render benchmark with real customer-like media at 720p/1080p; adjust CPU/RAM (videos are at most 30 s in V1).
 - **W4** images built from a tagged commit, scanned, pushed to a private registry.
 - **W5** secrets placed in the host secret store; verify they are absent from images and logs.
 - **W6** alerts from §8 connected and tested (stop a worker, see the alert).

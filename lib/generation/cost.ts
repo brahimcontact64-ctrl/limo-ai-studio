@@ -1,3 +1,5 @@
+import { VIDEO_POLICY } from '../video/policy.ts';
+
 /**
  * Mirrors the estimate computed inside public.request_studio_generation so the UI can show the
  * same number the database will reserve. Keep in sync with that function.
@@ -26,7 +28,8 @@ export interface CostBreakdown {
   base: number;
   /** Reserved amount including the retry buffer (what the budget reservation holds). */
   reserved: number;
-  slots: number;
+  /** Video export credits the finished video will use at export (V1: always 1; never reserved by generation). */
+  exportCredits: number;
 }
 
 export function estimateGenerationCost(policy: CostPolicy, input: CostInput): CostBreakdown {
@@ -39,5 +42,5 @@ export function estimateGenerationCost(policy: CostPolicy, input: CostInput): Co
   const render = policy.render_flat_cents;
   const base = script + voice + images + video + render;
   const reserved = Math.ceil((base * (100 + policy.retry_buffer_percent)) / 100);
-  return { script, voice, images, video, render, base, reserved, slots: Math.max(1, Math.ceil(input.totalDurationSeconds / 30)) };
+  return { script, voice, images, video, render, base, reserved, exportCredits: VIDEO_POLICY.creditsPerVideo };
 }

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { LIMITS, isCastVariantId, parseCharacterId, estimateSlots, CHARACTER_FAMILIES, CHARACTER_VARIANTS } from '../../lib/studio/limits.ts';
+import { LIMITS, isCastVariantId, parseCharacterId, exportCreditsPerVideo, CHARACTER_FAMILIES, CHARACTER_VARIANTS } from '../../lib/studio/limits.ts';
 import { validateDraft, hasErrors, parseSaveRequest, toRpcArgs, mapSaveError, totalDuration } from '../../lib/studio/validation.ts';
 import { emptyProject, newScene, toSaveRequest, projectFromDb, castFromDb, moveItem, removeFromCast, draftFingerprint } from '../../lib/studio/draft.ts';
 import { buildStoryboard } from '../../lib/studio/prompts.ts';
@@ -169,11 +169,21 @@ describe('draft helpers', () => {
     const b = { ...a, scenes: a.scenes.map((s) => ({ ...s, key: 'other' })) };
     assert.equal(draftFingerprint(a), draftFingerprint(b));
   });
-  test('slot estimate uses 30-second slots', () => {
-    assert.equal(estimateSlots(0), 1);
-    assert.equal(estimateSlots(30), 1);
-    assert.equal(estimateSlots(31), 2);
-    assert.equal(LIMITS.secondsPerSlot, 30);
+  test('V1: one video credit per finished video, whatever its length', () => {
+    assert.equal(exportCreditsPerVideo(), 1);
+  });
+  test('V1: drafts over 30 s are saved (warning), not refused; up to 30 s has no warning', () => {
+    const at30 = { ...validDraft(), scenes: [newScene({ duration_seconds: 15 }), newScene({ duration_seconds: 15 })] };
+    assert.ok(!codes(at30).includes('video_too_long'));
+    const over = { ...validDraft(), scenes: [newScene({ duration_seconds: 15 }), newScene({ duration_seconds: 15 }), newScene({ duration_seconds: 1 })] };
+    const issue = validateDraft(over).find((i) => i.code === 'video_too_long');
+    assert.equal(issue?.severity, 'warning');
+    assert.deepEqual(issue?.params, { max: 30, total: 31, over: 1 });
+    assert.equal(hasErrors(validateDraft(over).filter((i) => i.code === 'video_too_long')), false);
+  });
+  test('approval/export refusal maps to video_too_long', () => {
+    assert.equal(mapSaveError('Videos are limited to 30 seconds. Shorten the scenes before approving the script'), 'video_too_long');
+    assert.equal(mapSaveError('Each scene must be between 1 and 15 seconds'), 'scene_duration');
   });
 });
 

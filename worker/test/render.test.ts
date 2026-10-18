@@ -111,6 +111,21 @@ test('a missing input fails without retry; a step over its time limit is retryab
   );
 });
 
+test('V1 policy: exactly 30 s renders a real 30 s MP4; over 30 s is refused before rendering and not retried', async () => {
+  const card = (n: number, ms: number, start: number) => ({ scene_number: n, title: `Card ${n}`, duration_ms: ms, start_ms: start, on_screen_text: `Card ${n}`, narration: '', dialogue: '', transition: 'cut' as const, visual: null, audio: null, fit: 'cover' as const, show_text: true, participants: [] });
+  const at30 = spec('9:16', { music: null, logo: null, subtitles: 'off', scenes: [card(1, 15_000, 0), card(2, 15_000, 15_000)] });
+  const r = await renderSpec(at30, join(work, 'policy30'), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 1e8 });
+  assert.ok(Math.abs(r.probe.duration - 30) <= 0.25, `duration ${r.probe.duration}`);
+  results.push(`policy 30 s ${r.probe.video?.width}x${r.probe.video?.height} ${r.probe.duration.toFixed(3)}s`);
+  let fetched = 0;
+  const over = spec('9:16', { scenes: [card(1, 15_000, 0), card(2, 15_001, 15_000)] });
+  await assert.rejects(
+    renderSpec(over, join(work, 'policy31'), async (m, d) => { fetched++; return fetchMedia(m, d); }, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 1e8 }),
+    (e: Error & { code?: string; retryable?: boolean }) => e.code === 'over_duration_limit' && e.retryable === false && /limited to 30 seconds/.test(e.message),
+  );
+  assert.equal(fetched, 0, 'nothing downloaded for a refused video');
+});
+
 test.after(() => {
   console.log(results.join('\n'));
   rmSync(work, { recursive: true, force: true });

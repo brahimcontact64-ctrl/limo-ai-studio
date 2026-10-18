@@ -5,6 +5,7 @@ import { renderDoc, type Ctx2D, type LoadedImage } from '../../lib/images/render
 import { assemblyGraph, fitFilter, musicLoops, planRender, QUALITY_PRESET } from '../../lib/video/plan.ts';
 import { sceneOverlay, type OverlayFonts } from '../../lib/video/overlay.ts';
 import type { RenderSpec, SpecMedia } from '../../lib/video/types.ts';
+import { checkSpecDuration } from '../../lib/video/policy.ts';
 import { probe, RenderError, runFfmpeg, type ProbeResult } from './ffmpeg.ts';
 
 export interface RenderLimits {
@@ -36,6 +37,9 @@ const extOf = (m: SpecMedia) => (m.mime?.split('/')[1]?.replace('quicktime', 'mo
  * 4. join segments with the planned transitions and mix background music, 5. probe the result.
  */
 export async function renderSpec(spec: RenderSpec, dir: string, fetchMedia: Fetch, onProgress: Progress, signal: AbortSignal, limits: RenderLimits): Promise<RenderResult> {
+  // V1 policy: never render more than 30 s (refused before any download or FFmpeg run; not retryable).
+  const overLimit = checkSpecDuration(spec);
+  if (overLimit) throw new RenderError('over_duration_limit', overLimit, false);
   await mkdir(dir, { recursive: true });
   const plan = planRender(spec);
   const q = QUALITY_PRESET[spec.quality];

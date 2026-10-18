@@ -2,6 +2,27 @@
 
 Actual results only. Newest first.
 
+## 2026-10-18 — V1 video duration and credit policy (before Milestone 10), branch `rebuild/v1`
+Environment: local replica (production schema + all 11 pending migrations incl. `20261018090000_limo_video_policy_v1`), production build on :3200, render worker and publisher against the local stack. Nothing applied to production.
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | **118/118** (new `video-policy.test.ts` 6; studio, video, generation and provider tests updated for the policy) |
+| Worker | `node --test worker/test/health.test.ts worker/test/render.test.ts` | **10/10**; a real 30.000 s MP4 (480×854); 30.001 s refused before any download, not retried |
+| Typecheck | app / worker | clean / clean |
+| SQL | `video-policy-test.sql` / `generation-gate-test.sql` / `character-spec-approval-test.sql` | **20/20** / 4/4 / 6/6 (all rolled back) |
+| Migrations | all 11 re-applied in order (`psql -1`); #11 applied twice | clean, idempotent |
+| Rollback | `rollback-dry-run.sh` (11 scripts) and #11 alone (restores the 10-minute limit, per-revision slot and production generation functions) | clean |
+| Backend e2e | `scripts/e2e-backend.ts` | **221/221** (40 s draft saved as is, 1 credit per video) |
+| Render e2e | `scripts/e2e-render.ts` | **72/72** (55 + 17 policy checks) |
+| Publish e2e | `scripts/e2e-publish.ts` | **63/63** |
+| Browser | `video-policy.spec.ts` (desktop + phone) | 2/2 |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7, production build) | **50 passed, 1 skipped** (a11y is desktop-only), 1 failed: the desktop product-seller journey chose its upload file before the Assets page was hydrated (nothing uploaded). Rerun passed; the journey now waits for the page to settle before uploading → `journeys.spec.ts` 6/6 (desktop + mobile) |
+
+Policy coverage (details in VIDEO_POLICY.md): 30 s boundary at every layer (approval trigger, render-job trigger incl. direct service-role inserts and inconsistent totals, enqueue, retry, worker, API 422, Studio UI), 31 s drafts saved but not approvable or exportable, legacy 35 s approved project and over-limit retry refused without a credit, credit reserved → consumed / released, ledger = balance, downloads and identical re-exports free, worker retry and lease takeover charged once, retry after failure paid once in total, credit limit refuses without creating a job, AI generation within 30 s reserves budget only (no credit, nothing to refund), 31 s generation refused, starter templates and story continuations ≤ 30 s, pricing/FAQ/billing copy in four languages.
+
+Found while testing: the new duplicate protection correctly returned existing videos for two render-e2e exports that were byte-for-byte the same video as earlier ones (the test passed `quality` inside the settings instead of as the export quality); the test now requests genuinely different videos. A browser check counted nested note items as export rows; it now counts top-level rows.
+
 ## 2026-10-18 — Milestone 9 (full-system audit, production readiness), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + all 10 pending migrations, including the M9 privilege blocks) on ports 564xx; app as a production build on :3200; render worker and publisher against the local stack (local service role only). Production was read only (schema dump, counts). No paid AI call, no Facebook request, no payment activation.
 

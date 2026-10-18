@@ -125,7 +125,8 @@ async function main() {
   check('reloaded project matches what was saved (all scene fields, cast, presets)', !!loaded && comparable(loaded) === comparable(draft), loaded ? undefined : 'not found');
   const { data: row } = await A.client.from('studio_projects').select('project_cast, status, total_duration_seconds, estimated_slots').eq('id', id).single();
   check('project_cast stored as [{id}] objects', JSON.stringify(row?.project_cast) === JSON.stringify(draft.cast.map((c) => ({ id: c }))), row?.project_cast);
-  check('status draft, duration 40 s, 2 slots', row?.status === 'draft' && row?.total_duration_seconds === 40 && row?.estimated_slots === 2, row);
+  // V1 policy: a 40 s draft is saved as it is (only approval/export are limited to 30 s); one credit per video.
+  check('status draft, 40 s draft saved (not truncated), 1 credit per video', row?.status === 'draft' && row?.total_duration_seconds === 40 && row?.estimated_slots === 1, row);
 
   console.log('\nEdit → reload');
   const edited: ProjectDraft = {

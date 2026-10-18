@@ -30,6 +30,7 @@ Fixed order (dependencies in MIGRATION_REVIEW §1):
 | 8 | `20261017180000_limo_image_studio_v1` | additive |
 | 9 | `20261017200000_limo_video_render_v1` | additive |
 | 10 | `20261017220000_limo_social_publishing_v1` | extends/replaces social functions (same signatures) |
+| 11 | `20261018090000_limo_video_policy_v1` | **behaviour change** (V1 video policy: 30 s, one credit per completed video; see VIDEO_POLICY.md) |
 
 ### Milestone 9 changes to the pending files (privileges)
 The audit found that tables created by four pending migrations inherited Supabase's default grants
@@ -68,7 +69,7 @@ Steps:
 |---|---|---|
 | −1 day | G1–G6 complete; announce window (few users, no customers yet) | any gate open |
 | 0 | fresh dumps (§4.2); re-run the read-only counts of §1 | counts changed unexpectedly |
-| +5 min | apply #1…#10 **one file at a time**, each in a single transaction (`psql -1` or `supabase db push --linked` which applies in order) | any error: stop; the failing file left no change |
+| +5 min | apply #1…#11 **one file at a time**, each in a single transaction (`psql -1` or `supabase db push --linked` which applies in order) | any error: stop; the failing file left no change |
 | after each | MIGRATION_REVIEW §5 checks for that step (SQL counts; e2e after all ten) | a check fails |
 | +20 min | backend e2e against production with the test accounts (no service role, test workspace only) | any failure |
 | +30 min | promote the matching `rebuild/v1` build (separate approval) | — |
@@ -110,7 +111,7 @@ promoted.
 ## 9. Gated checklist
 | Gate | Item | Owner | Status |
 |---|---|---|---|
-| G1 | Written approval to apply migrations 1–10 | owner | open |
+| G1 | Written approval to apply migrations 1–11 | owner | open |
 | G2 | Backup type/restore point confirmed; manual dumps stored encrypted outside git | owner | open |
 | G3 | Restore drill into a scratch project succeeded (verified recovery, not just dry run) | owner + Claude | open |
 | G4 | Confirm the old production deployment does not need direct writes (or accept that its screens fail) | owner | open |

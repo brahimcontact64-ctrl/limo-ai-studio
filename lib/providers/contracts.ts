@@ -10,6 +10,8 @@
  * the orchestration layer on top of these capabilities.
  */
 
+import { VIDEO_POLICY, withinVideoLimit } from '../video/policy.ts';
+
 export const CAPABILITIES = ['text', 'story', 'image', 'character_image', 'video', 'voice', 'transcription', 'translation'] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 export type Locale = 'en' | 'fr' | 'ar' | 'de';
@@ -334,6 +336,8 @@ export interface VideoRequest extends Base {
   firstFrameAssetId: string | null;
   references: CharacterImageRequest['references'];
   durationSeconds: number;
+  /** Total length of the video this clip belongs to (V1 policy: at most 30 s, like every export). */
+  videoTotalSeconds: number;
   aspect: '9:16' | '16:9' | '1:1' | '4:5';
   scriptRevisionId: string;
 }
@@ -393,6 +397,9 @@ export function validateRequest(r: CapabilityRequest): string[] {
   if (!r.requestKey) e.push('requestKey required');
   if (r.kind === 'character_image' && (r.references.length === 0 || r.references.some((x) => x.assetIds.length === 0))) e.push('approved character references required');
   if (r.kind === 'video' && (r.durationSeconds < 1 || r.durationSeconds > 15)) e.push('video duration 1–15 s per scene');
+  // V1 policy (lib/video/policy.ts): AI-generated videos obey the same 30 s limit as every export. Provider cost
+  // is budgeted separately (paidCallBlockers); the export credit is taken only when the final video is rendered.
+  if (r.kind === 'video' && !withinVideoLimit(r.videoTotalSeconds)) e.push(`videos are limited to ${VIDEO_POLICY.maxDurationSeconds} s`);
   if ((r.kind === 'image' || r.kind === 'character_image') && (r.count < 1 || r.count > 4)) e.push('1–4 images per call');
   if (r.kind === 'translation' && r.lockedTerms.some((t) => t && !r.text.includes(t))) e.push('locked term not present in source');
   if (r.kind === 'story' && r.bibleVersion < 1) e.push('approved Story Bible version required');

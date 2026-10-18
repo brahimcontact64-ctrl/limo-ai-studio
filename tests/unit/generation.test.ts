@@ -8,13 +8,13 @@ import type { ProviderAdapter } from '../../lib/generation/types.ts';
 const policy = { script_flat_cents: 5, voice_per_minute_cents: 20, image_per_scene_cents: 4, video_per_second_cents: 5, render_flat_cents: 10, retry_buffer_percent: 25 };
 
 test('cost estimate mirrors request_studio_generation', () => {
-  const c = estimateGenerationCost(policy, { totalDurationSeconds: 40, sceneCount: 4, hasDialogue: true });
-  // 5 + 1*20 + 4*4 + 40*5 + 10 = 251; *1.25 = 313.75 → 314
-  assert.equal(c.base, 251);
-  assert.equal(c.reserved, 314);
-  assert.equal(c.slots, 2);
-  const long = estimateGenerationCost(policy, { totalDurationSeconds: 61, sceneCount: 5, hasDialogue: false });
-  assert.equal(long.voice, 40); // ceil(61/60)=2 minutes
+  const c = estimateGenerationCost(policy, { totalDurationSeconds: 30, sceneCount: 4, hasDialogue: true });
+  // 5 + 1*20 + 4*4 + 30*5 + 10 = 201; *1.25 = 251.25 → 252
+  assert.equal(c.base, 201);
+  assert.equal(c.reserved, 252);
+  // AI cost (cents) is separate from the export credit: a finished video always uses exactly one credit.
+  assert.equal(c.exportCredits, 1);
+  assert.equal(estimateGenerationCost(policy, { totalDurationSeconds: 10, sceneCount: 1, hasDialogue: false }).exportCredits, 1);
 });
 
 test('mock provider: idempotent submit, async completion, no cost', async () => {

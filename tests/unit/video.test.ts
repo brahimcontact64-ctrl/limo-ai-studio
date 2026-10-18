@@ -62,6 +62,9 @@ test('video settings are normalised: unknown values fall back, ids must be UUIDs
   assert.equal(renderError('Approve the script before exporting a video').code, 'script_not_approved');
   assert.equal(renderError('Too many videos are rendering; wait for one to finish').status, 429);
   assert.equal(renderError('Background music must be an audio file of this workspace').code, 'foreign_asset');
+  assert.deepEqual(renderError('Videos are limited to 30 seconds'), { code: 'too_long', status: 422 });
+  assert.deepEqual(renderError('Video credit limit reached'), { code: 'video_limit_reached', status: 402 });
+  assert.deepEqual(renderError('Render timeline is inconsistent'), { code: 'invalid_timeline', status: 422 });
 });
 
 test('overlays: approved on-screen text, optional subtitles, logo; scenes without media become text cards', () => {

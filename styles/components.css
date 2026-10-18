@@ -781,6 +781,10 @@
 .muted {
   color: var(--text-3);
 }
+.text-danger {
+  color: var(--danger);
+  font-weight: 600;
+}
 .small {
   font-size: var(--fs-sm);
 }

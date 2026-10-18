@@ -95,7 +95,7 @@ test('video export: timeline editing, approval, real MP4 rendering, progress, do
   await expect(page.getByTestId('video-scene-1')).toContainText('Product reveal');
   await expect(page.getByTestId('video-scene-2')).toContainText('Hook');
   for (const [n, s] of [[1, 2], [2, 2], [3, 2], [4, 1], [5, 1]] as const) await page.getByLabel(`Duration of scene ${n} (seconds)`).fill(String(s));
-  await expect(page.getByTestId('video-total')).toHaveText('8 s in total');
+  await expect(page.getByTestId('video-total')).toHaveText('8 s of 30 s');
   await page.keyboard.press('Control+s');
   await expect(page.getByText('Project saved.')).toBeVisible();
 

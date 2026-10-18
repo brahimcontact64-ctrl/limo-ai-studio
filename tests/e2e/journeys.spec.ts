@@ -72,6 +72,7 @@ test('product seller: product details → script → image → video → export 
   await startWorkspace(page, 'seller', info.project.name);
   await simulatedPage(page);
   await page.goto('/app/assets');
+  await page.waitForLoadState('networkidle'); // the upload handler must be hydrated before a file is chosen
   await page.locator('input[type=file]').setInputFiles({ name: 'perfume.png', mimeType: 'image/png', buffer: await photo(page, '#c03060') });
   await expect(page.getByText(/1 files? uploaded/)).toBeVisible();
 
@@ -192,6 +193,7 @@ test('business owner: Brand Kit → content brief → Mock AI draft → review �
   await page.getByRole('button', { name: 'Save brand kit' }).click();
   await expect(page.getByText('Brand kit saved.')).toBeVisible();
   await page.goto('/app/assets');
+  await page.waitForLoadState('networkidle'); // the upload handler must be hydrated before a file is chosen
   await page.locator('input[type=file]').setInputFiles({ name: 'bread.png', mimeType: 'image/png', buffer: await photo(page, '#d0a050') });
   await expect(page.getByText(/1 files? uploaded/)).toBeVisible();
 

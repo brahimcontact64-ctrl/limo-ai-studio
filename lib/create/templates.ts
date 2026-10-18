@@ -5,15 +5,15 @@ import type { Brief, CreationMode } from './modes.ts';
 /**
  * Starter scene structure per creation mode. Deterministic, not AI.
  * On-screen text only ever copies what the user typed (product name, offer, price, CTA…):
- * nothing is invented (spec §7). Durations respect the 1–15 s scene limit.
+ * nothing is invented (spec §7). Durations respect the 1–15 s scene limit and the 30 s video limit (V1).
  */
 const DURATIONS: Record<CreationMode, number[]> = {
   product_ad: [3, 4, 5, 3, 3],
   business_promo: [3, 5, 5, 3, 3],
   social_video: [3, 6, 6, 3],
   social_post: [5],
-  story: [8, 8, 8, 8],
-  explainer: [4, 8, 8, 8, 5],
+  story: [8, 8, 7, 7],
+  explainer: [4, 7, 7, 7, 5],
   ugc_ad: [3, 5, 6, 5, 3],
   custom: [8],
 };

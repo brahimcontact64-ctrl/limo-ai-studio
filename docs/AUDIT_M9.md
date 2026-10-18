@@ -15,7 +15,7 @@ Legend: ✅ works (local, verified) · 🟡 works with a mock/simulation or a kn
 | 3 | Story Bible, episodes, continuity | 🟡 | backend e2e Story Engine (55); `story.spec.ts`; story journey | continuation/ending suggestions are mock (rule-based from canon); no LLM continuity check |
 | 4 | Canonical characters | ⛔ artwork | backend e2e characters (32); SQL `character-spec-approval-test` (6) | **no artwork or references exist**; all specs proposed; generation blocked by design (CHARACTER_ARTWORK_PLAN) |
 | 5 | Image Studio, real downloads | 🟡 | backend e2e (33); `images.spec.ts` (PNG/JPG/WebP decoded); journeys | variations are **mock layouts** of the customer's own photo ("Mock layout — not AI artwork"); no image provider |
-| 6 | MP4 rendering and downloads | ✅ (assembly) | `e2e-render.ts` (55); render unit 6/6 (480p + 1080p, 4 formats); `video.spec.ts`; journeys export real MP4s | assembles customer media + text cards; **no AI footage, voice or character animation** (labelled). Pricing copy "one slot covers up to 30 s" vs charge "1 slot per approved revision up to 10 min" — owner decision (B5) |
+| 6 | MP4 rendering and downloads | ✅ (assembly) | `e2e-render.ts` (55); render unit 6/6 (480p + 1080p, 4 formats); `video.spec.ts`; journeys export real MP4s | assembles customer media + text cards; **no AI footage, voice or character animation** (labelled). The pricing/charging mismatch (B5) is resolved by the V1 video policy (30 s max, one credit per completed video; VIDEO_POLICY.md) |
 | 7 | Facebook composer, approval, scheduling | 🟡 | `e2e-publish.ts` (63); `social.spec.ts`; journeys (publish now, scheduled) | composer is Mock AI; publishing is **simulated Pages only**; live Graph adapter refuses while `facebook_live_publishing` is off; no Meta app review |
 | 8 | Automatic publishing policies | 🟡 | `e2e-publish.ts` automation section | off by default (platform flag + owner authorisation per version); posts only approved media; simulated publishing |
 | 9 | Subscriptions, entitlements, metering | 🟡 | `payments.spec.ts`; backend e2e payments; ledger checks in render/publish e2e | manual payments (RedotPay, BaridiMob, CCP receipts + admin approval); **no automatic payment provider**; production test subscription lacks a `usage_balances` row (rollout G10) |
@@ -58,7 +58,7 @@ Fix made while writing the journeys: none in the product — two test-side waits
 | S5 | medium (ops) | Recovery never tested (only rollback dry run) | open — restore drill G3 |
 | S6 | low | `/api/health` is liveness only (no DB check) | open; workers now have `/healthz` with a DB check |
 | S7 | info | Facebook webhooks verify the signature but events are not processed (503 until configured) | by design until Meta integration |
-| B5 | product | Pricing text says a video slot covers 30 s; renders charge one slot per approved revision (≤ 10 min) | owner decision (suggestion: ceil(total ÷ 30 s) slots) |
+| B5 | product | Pricing text said a video slot covers 30 s; renders charged one slot per approved revision (≤ 10 min) | **resolved 2026-10-18** by the V1 video policy (30 s max, one credit per completed video; VIDEO_POLICY.md); migration #11 pending |
 
 ### Accessibility fixes in M9
 Contrast of `--text-3`, `--eyebrow`, footer and the ADAM heading; tab links use `aria-current` only; the
@@ -72,7 +72,7 @@ composer's media switch is a proper radio group. Axe scan: 0 serious/critical on
 | 3 | No render worker / publisher running | host choice + deployment approval (W1–W8) | WORKER_HOSTING_PLAN |
 | 4 | Recovery not proven | restore drill (G3) | PRODUCTION_ROLLOUT_PLAN §4 |
 | 5 | No error monitoring/alerting | service choice + setup (S3) | — |
-| 6 | Pricing vs slot charging mismatch | owner decision (B5) | — |
+| 6 | ~~Pricing vs slot charging mismatch~~ | resolved by the V1 video policy (apply migration #11 with the others) | VIDEO_POLICY.md |
 | 7 | Payment methods in production | owner configures methods and receipts review process; test subscription balance (G10) | — |
 | 8 | Email deliverability in production | verify sender domain (SPF/DKIM) and the three email flows on production | — |
 | 9 | Legal review for a paid service | terms and privacy pages exist (`/legal/terms`, `/legal/privacy`); no refund policy page; legal review for the selling countries not done | — |

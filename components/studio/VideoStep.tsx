@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/Toast';
 import { useWorkspaceAssets } from './SceneAssets';
 import { LIMITS } from '@/lib/studio/limits';
+import { VIDEO_POLICY } from '@/lib/video/policy';
 
 interface Job {
   id: string;
@@ -136,7 +137,10 @@ export function VideoStep({
   const size = renderSize(settings.aspect, settings.resolution);
   const music = settings.music_asset_id ? library?.find((a) => a.id === settings.music_asset_id) : null;
   const hasPeople = scenes.some((s) => s.participants.length > 0);
-  const exportBlocker = !approved ? v.needsApproval : dirty ? v.needsSave : !canEdit ? v.readOnly : null;
+  const max = VIDEO_POLICY.maxDurationSeconds;
+  const overLimit = total > max;
+  // V1 policy: over 30 s nothing can be exported (the database refuses it too); the project itself stays saved.
+  const exportBlocker = overLimit ? fmt(v.tooLong, { total, max }) : !approved ? v.needsApproval : dirty ? v.needsSave : !canEdit ? v.readOnly : null;
 
   async function startExport() {
     if (exportBlocker || busy) return;
@@ -145,7 +149,7 @@ export function VideoStep({
     // One key per click: a repeated or retried request returns the same job instead of rendering twice.
     pendingKey.current ??= `ui-${crypto.randomUUID()}`;
     const res = await fetch('/api/renders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: projectId, idempotency_key: pendingKey.current, settings }) }).catch(() => null);
-    const body = (await res?.json().catch(() => ({}))) as { id?: string; error?: string };
+    const body = (await res?.json().catch(() => ({}))) as { id?: string; error?: string; duplicate?: boolean };
     setBusy(false);
     if (!res?.ok || !body.id) {
       if (res) pendingKey.current = null;
@@ -154,7 +158,7 @@ export function VideoStep({
       return;
     }
     pendingKey.current = null;
-    toast(v.queued, 'success');
+    toast(body.duplicate ? v.alreadyExported : v.queued, 'success');
     await load();
   }
 
@@ -204,8 +208,8 @@ export function VideoStep({
             {v.timeline}
           </h3>
           <span className="spacer" />
-          <span className="small muted ltr" data-testid="video-total">
-            {fmt(v.totalSeconds, { n: total })}
+          <span className={`small ltr ${overLimit ? 'text-danger' : 'muted'}`} data-testid="video-total" data-over-limit={overLimit || undefined}>
+            {fmt(v.totalSeconds, { n: total, max })}
           </span>
         </div>
         {approved ? (
@@ -433,7 +437,7 @@ export function VideoStep({
         </fieldset>
         <div className="row">
           <span className="small muted ltr" data-testid="video-size">
-            {size.width}×{size.height} · {fmt(v.totalSeconds, { n: total })}
+            {size.width}×{size.height} · {fmt(v.totalSeconds, { n: total, max })}
           </span>
           {state.slots && <span className="small muted">· {fmt(v.slots, { used: state.slots.used, total: state.slots.total })}</span>}
         </div>

@@ -105,7 +105,9 @@ test('paid-call gate: every condition is required; default environment blocks ev
 test('request validation', () => {
   const base = { requestKey: 'k', organizationId: 'o', locale: 'en' as const };
   assert.deepEqual(validateRequest({ ...base, kind: 'character_image', prompt: 'p', references: [], size: { width: 1024, height: 1024 }, count: 1 }), ['approved character references required']);
-  assert.deepEqual(validateRequest({ ...base, kind: 'video', prompt: 'p', firstFrameAssetId: null, references: [], durationSeconds: 30, aspect: '9:16', scriptRevisionId: 'r' }), ['video duration 1–15 s per scene']);
+  assert.deepEqual(validateRequest({ ...base, kind: 'video', prompt: 'p', firstFrameAssetId: null, references: [], durationSeconds: 30, videoTotalSeconds: 30, aspect: '9:16', scriptRevisionId: 'r' }), ['video duration 1–15 s per scene']);
+  assert.deepEqual(validateRequest({ ...base, kind: 'video', prompt: 'p', firstFrameAssetId: null, references: [], durationSeconds: 15, videoTotalSeconds: 31, aspect: '9:16', scriptRevisionId: 'r' }), ['videos are limited to 30 s']);
+  assert.deepEqual(validateRequest({ ...base, kind: 'video', prompt: 'p', firstFrameAssetId: null, references: [], durationSeconds: 15, videoTotalSeconds: 30, aspect: '9:16', scriptRevisionId: 'r' }), []);
   assert.deepEqual(validateRequest({ ...base, kind: 'translation', source: 'en', text: 'Rose Perfume 3 900 DA', lockedTerms: ['Rose Perfume', '3 900 DA'] }), []);
   assert.deepEqual(validateRequest({ ...base, kind: 'translation', source: 'en', text: 'Rose', lockedTerms: ['LIMO'] }), ['locked term not present in source']);
 });

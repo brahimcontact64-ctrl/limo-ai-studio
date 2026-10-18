@@ -37,7 +37,7 @@ and must not be assumed).
 - Every paid call is estimated before submission (`estimate`) and reserved against the workspace budget
   (`reserve_ai_budget`) and the platform monthly cap; actual cost is recorded per stage
   (`generation_run_stages`) and settled in `usage_ledger`.
-- Customer quotas map to plan allowances already in `usage_balances` (video slots, AI images, posts);
+- Customer quotas map to plan allowances already in `usage_balances` (video credits, AI images, posts);
   text assistance gets a soft daily cap per workspace.
 - Hard limits: per-request maximum cost, per-workspace daily cap, platform monthly cap with alerting at
   50/80/100 %. When a cap is reached the product falls back to the mock adapter with a visible label.
@@ -106,7 +106,8 @@ verified on the provider's official pages on the decision date. No price is assu
 
 ## 10. Quotas and metering per workspace
 - Reserve before calling (`reservation`), settle with the provider's measured usage; difference refunded.
-- Plan allowances map to `usage_balances` (video slots, AI images, posts); text assistance gets a soft daily cap.
+- Plan allowances map to `usage_balances` (video credits, AI images, posts); text assistance gets a soft daily cap.
+- V1 video policy (VIDEO_POLICY.md): an AI-generated video is at most 30 s like every export (`VideoRequest.videoTotalSeconds`, `request_studio_generation`). Provider costs are reserved and settled in cents; the single video credit is consumed only when the final MP4 is rendered.
 - Platform caps: per request, per workspace per day, platform per month (alerts 50/80/100 %).
 - Every paid call writes a ledger row with provider, model, units, cost, request key (idempotent).
 

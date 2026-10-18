@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { RenderSpec, SpecMedia } from '../../lib/video/types.ts';
 import { renderSpec } from './render.ts';
 import { RenderError } from './ffmpeg.ts';
+import { checkSpecDuration } from '../../lib/video/policy.ts';
 import { createHealth, serveHealth } from './health.ts';
 
 const URL_ = process.env.SUPABASE_URL;
@@ -47,6 +48,7 @@ interface Job {
   id: string;
   organization_id: string;
   spec: RenderSpec;
+  total_duration_ms: number;
   attempt_count: number;
 }
 
@@ -84,6 +86,9 @@ async function processJob(job: Job) {
   const heart = setInterval(() => void beat(), Math.max(5000, (LEASE * 1000) / 6));
   health.busy(true);
   try {
+    // V1 policy (30 s per video): the database refuses such jobs; never render one even if it slipped through.
+    const overLimit = checkSpecDuration(job.spec, job.total_duration_ms);
+    if (overLimit) throw new RenderError('over_duration_limit', overLimit, false);
     log('render', job.id, `attempt ${job.attempt_count}`, `${job.spec.width}x${job.spec.height}`, `${job.spec.scenes.length} scenes`);
     const result = await renderSpec(job.spec, dir, fetchMedia, onProgress, abort.signal, { stepTimeoutMs: STEP_TIMEOUT, maxInputBytes: MAX_BYTES });
     await onProgress(96, 'uploading');

@@ -13,7 +13,9 @@ declare
   v_run uuid;
   v_ok boolean := false;
 begin
-  select * into p from public.studio_projects where exists (select 1 from public.project_scenes s where s.project_id = studio_projects.id) and script_status <> 'approved' limit 1;
+  -- A project within the V1 30 s video limit (migration 20261018090000 refuses approving longer scripts).
+  select * into p from public.studio_projects where exists (select 1 from public.project_scenes s where s.project_id = studio_projects.id) and script_status <> 'approved'
+    and (select sum(s.duration_seconds) from public.project_scenes s where s.project_id = studio_projects.id) <= 30 limit 1;
   select code into v_policy from public.generation_cost_policies limit 1;
   begin
     insert into public.generation_runs(organization_id, project_id, requested_by, request_key, cost_policy_code, slots_reserved, estimated_cost_cents)

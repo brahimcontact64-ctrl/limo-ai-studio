@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
 import { formatDuration, plural } from '@/lib/i18n/format';
-import { estimateSlots } from '@/lib/studio/limits';
+import { exportCreditsPerVideo } from '@/lib/studio/limits';
 import { buildStoryboard } from '@/lib/studio/prompts';
 import { downloadProjectJson } from '@/lib/studio/export';
 import { totalDuration, type Issue } from '@/lib/studio/validation';
@@ -19,7 +19,7 @@ export function ReviewStep({ draft, issues, catalogs }: { draft: ProjectDraft; i
   const charMap = useMemo(() => new Map(catalogs.characters.map((c) => [c.id, c])), [catalogs.characters]);
   const board = useMemo(() => buildStoryboard(draft, charMap), [draft, charMap]);
   const total = totalDuration(draft.scenes);
-  const slots = estimateSlots(total);
+  const slots = exportCreditsPerVideo();
   const errors = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
   const missingRefs = [...new Set(board.flatMap((b) => b.missingReferences))];

@@ -6,7 +6,8 @@ import { fmt } from '@/lib/i18n/config';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { draftFingerprint, toSaveRequest } from '@/lib/studio/draft';
 import { createHistory, pushHistory, redo, undo, type History } from '@/lib/studio/history';
-import { hasErrors, validateDraft, type Issue } from '@/lib/studio/validation';
+import { hasErrors, totalDuration, validateDraft, type Issue } from '@/lib/studio/validation';
+import { VIDEO_POLICY } from '@/lib/video/policy';
 import { checkContinuity, type SeriesContext } from '@/lib/story/continuity';
 import type { ScriptApproval } from '@/lib/data/projects';
 import { EDITABLE_STATUSES, type CatalogOption, type CharacterRecord, type ExportPresetOption, type ProjectDraft, type ProjectStatus } from '@/lib/studio/types';
@@ -285,7 +286,14 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
   const stepIndex = STEPS.indexOf(step);
   const nextStep = STEPS[stepIndex + 1];
   const prevStep = STEPS[stepIndex - 1];
-  const approvalBlocker = !draft.id || dirty ? t.studio.approval.needsSave : hasErrors(issues) || continuity.some((c) => c.severity === 'error') ? t.studio.approval.needsFix : null;
+  const scriptSeconds = totalDuration(draft.scenes);
+  const approvalBlocker = !draft.id || dirty
+    ? t.studio.approval.needsSave
+    : scriptSeconds > VIDEO_POLICY.maxDurationSeconds
+      ? fmt(t.studio.approval.tooLong, { total: scriptSeconds, max: VIDEO_POLICY.maxDurationSeconds })
+      : hasErrors(issues) || continuity.some((c) => c.severity === 'error')
+        ? t.studio.approval.needsFix
+        : null;
 
   const saveLabel = saving ? (
     t.common.saving

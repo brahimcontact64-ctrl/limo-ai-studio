@@ -1,4 +1,5 @@
 import { LIMITS, SCENE_FIELD_MAX, isCastId } from './limits.ts';
+import { VIDEO_POLICY } from '../video/policy.ts';
 import type { ProjectDraft, SaveProjectRequest, SceneDraft } from './types.ts';
 import { isCreationMode, requiresCharacters, sanitizeBrief } from '../create/modes.ts';
 
@@ -18,6 +19,7 @@ export type IssueCode =
   | 'scenes_max'
   | 'scene_duration_range'
   | 'total_duration_max'
+  | 'video_too_long'
   | 'participant_not_in_cast'
   | 'participant_duplicate'
   | 'scene_field_too_long'
@@ -107,6 +109,9 @@ export function validateDraft(draft: DraftLike, ctx: CatalogContext = {}): Issue
 
   const total = totalDuration(scenes);
   if (total > LIMITS.totalDurationMax) err({ code: 'total_duration_max', field: 'scenes', params: { max: LIMITS.totalDurationMax } });
+  // V1 policy: saving stays possible (existing projects are never truncated), approval and export are blocked.
+  else if (total > VIDEO_POLICY.maxDurationSeconds)
+    issues.push({ code: 'video_too_long', severity: 'warning', field: 'scenes', params: { max: VIDEO_POLICY.maxDurationSeconds, total, over: total - VIDEO_POLICY.maxDurationSeconds } });
 
   if (new Set(draft.export_presets).size !== draft.export_presets.length) err({ code: 'preset_duplicate', field: 'export_presets' });
   if (ctx.exportPresets) {
@@ -261,6 +266,7 @@ export type SaveErrorCode =
   | 'cast_limit'
   | 'character_unavailable'
   | 'scene_duration'
+  | 'video_too_long'
   | 'invalid_catalog'
   | 'validation'
   | 'unknown';
@@ -275,6 +281,7 @@ export function mapSaveError(message: string | undefined | null): SaveErrorCode 
   if (m.includes('project_cast_check') || m.includes('and 18 characters')) return 'cast_limit';
   if (m.includes('scene asset')) return 'validation';
   if (m.includes('characters are unavailable') || m.includes('not in the project cast')) return 'character_unavailable';
+  if (m.includes('videos are limited to')) return 'video_too_long';
   if (m.includes('scene must be between') || m.includes('scene duration') || m.includes('limited to 10 minutes')) return 'scene_duration';
   if (m.includes('invalid content type') || m.includes('invalid language') || m.includes('invalid export preset')) return 'invalid_catalog';
   if (m.includes('scene') || m.includes('title') || m.includes('character')) return 'validation';

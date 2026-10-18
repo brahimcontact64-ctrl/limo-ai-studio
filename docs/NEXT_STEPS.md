@@ -1,6 +1,8 @@
 # Next steps
 
 ## Exact next action
+V1 video policy (30 s per video on every plan, one credit per completed video) is implemented and verified locally (VIDEO_POLICY.md; pending migration #11 `20261018090000`), committed locally, not pushed. Milestone 10 starts after the owner has reviewed it.
+
 Milestone 9 (audit) is committed locally; push only with owner approval. Read `docs/AUDIT_M9.md` §4 (blockers before paying customers) and decide the gates in `docs/PRODUCTION_ROLLOUT_PLAN.md` §9 (G1–G10) and `docs/WORKER_HOSTING_PLAN.md` §12 (W1–W8).
 
 Then, in order (each needs owner approval): production rollout (migrations → app promotion → workers → monitoring → restore drill); text provider (first `CapabilityAdapter`, `lib/providers/contracts.ts`); character artwork (`docs/CHARACTER_ARTWORK_PLAN.md`); image/voice/subtitle providers; video clips; live Facebook. Provider details: `docs/PROVIDER_INTEGRATION_PLAN.md` §8–§12. Nothing is activated.
