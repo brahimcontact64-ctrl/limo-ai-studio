@@ -8,13 +8,19 @@
  *                    provider key is set; every call still has to pass `paidCallBlockers` (owner approval of the
  *                    capability, provider enabled in ai_provider_registry, verified price, budget, user confirmation)
  * In off/mock mode the HTTP client is `blockedFetch`, so a real adapter cannot reach a provider even by mistake.
+ *
+ * Provider choice per capability (live only):
+ *   LIMO_VOICE_PROVIDER   elevenlabs (default) | google  (Gemini TTS on the prepaid Google account)
+ *   LIMO_SAFETY_PROVIDER  openai (default, free moderation) | anthropic  (Claude safety review)
+ * The $10 pilot uses google + anthropic so that only two accounts with hard billing caps are involved.
  */
 import { ProviderError, type AsyncCapabilityAdapter, type CapabilityAdapter, type CapabilityRequest, type CharacterImageRequest, type ImageRequest, type SafetyRequest, type StoryRequest, type TextRequest, type TranscriptionRequest, type TranslationRequest, type VideoRequest, type VoiceRequest } from './contracts.ts';
 import { blockedFetch, type FetchLike } from './http.ts';
-import { claudeStoryAdapter, claudeTextAdapter, claudeTranslationAdapter } from './adapters/anthropic.ts';
+import { claudeSafetyAdapter, claudeStoryAdapter, claudeTextAdapter, claudeTranslationAdapter } from './adapters/anthropic.ts';
 import { geminiCharacterAdapter, geminiImageAdapter } from './adapters/gemini-image.ts';
 import { veoAdapter, type VeoTier } from './adapters/veo.ts';
 import { elevenLabsAdapter } from './adapters/elevenlabs.ts';
+import { geminiTtsAdapter } from './adapters/gemini-tts.ts';
 import { openAIModerationAdapter, openAITranscriptionAdapter } from './adapters/openai.ts';
 import * as mock from './mocks.ts';
 
@@ -29,8 +35,13 @@ export interface ProviderEnv {
   OPENAI_API_KEY?: string;
   LIMO_CLAUDE_MODEL?: string;
   LIMO_VEO_TIER?: string;
+  LIMO_VOICE_PROVIDER?: string;
+  LIMO_SAFETY_PROVIDER?: string;
   [k: string]: string | undefined;
 }
+
+export const voiceProvider = (env: ProviderEnv): 'elevenlabs' | 'google' => (env.LIMO_VOICE_PROVIDER === 'google' ? 'google' : 'elevenlabs');
+export const safetyProvider = (env: ProviderEnv): 'openai' | 'anthropic' => (env.LIMO_SAFETY_PROVIDER === 'anthropic' ? 'anthropic' : 'openai');
 
 /** Credential env var per provider (matches ai_provider_registry.credential_env_key). */
 export const CREDENTIAL_ENV = { anthropic: 'ANTHROPIC_API_KEY', google: 'GEMINI_API_KEY', elevenlabs: 'ELEVENLABS_API_KEY', openai: 'OPENAI_API_KEY' } as const;
@@ -107,8 +118,14 @@ export function buildAdapters(env: ProviderEnv, deps: AdapterDeps): Adapters {
     image: google ? geminiImageAdapter(google) : disabled('image', missing('google')),
     character_image: google ? geminiCharacterAdapter(google) : disabled('character_image', missing('google')),
     video: google ? veoAdapter({ ...google, tier }) : disabledAsync(missing('google')),
-    voice: key('elevenlabs') ? elevenLabsAdapter({ apiKey: key('elevenlabs')!, fetch }) : disabled('voice', missing('elevenlabs')),
+    voice:
+      voiceProvider(env) === 'google'
+        ? (google ? geminiTtsAdapter({ apiKey: google.apiKey, fetch }) : disabled('voice', missing('google')))
+        : key('elevenlabs') ? elevenLabsAdapter({ apiKey: key('elevenlabs')!, fetch }) : disabled('voice', missing('elevenlabs')),
     transcription: openai ? openAITranscriptionAdapter(openai) : disabled('transcription', missing('openai')),
-    safety: openai ? openAIModerationAdapter(openai) : disabled('safety', missing('openai')),
+    safety:
+      safetyProvider(env) === 'anthropic'
+        ? (claude ? claudeSafetyAdapter({ ...claude, loadAsset: deps.loadAsset }) : disabled('safety', missing('anthropic')))
+        : openai ? openAIModerationAdapter(openai) : disabled('safety', missing('openai')),
   };
 }

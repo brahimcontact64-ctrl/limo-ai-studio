@@ -106,7 +106,9 @@ mocked HTTP responses built from the documented request/response shapes.
 ## Implementation status (Milestone 10)
 Real adapters exist for every primary choice (`lib/providers/adapters/`), plus mocks. They were tested only against
 mocked HTTP built from the documentation above (`tests/unit/provider-adapters.test.ts`); **none was called live**.
-Alternatives (OpenAI images/text, Runway, Gemini TTS, ElevenLabs Scribe) are documented but have no adapter yet.
+Alternatives (OpenAI images/text, Runway, ElevenLabs Scribe) are documented but have no adapter yet. Added for the
+$10 pilot (2026-10-18): Gemini TTS (`lib/providers/adapters/gemini-tts.ts`) and a Claude safety review
+(`claudeSafetyAdapter`), selected with `LIMO_VOICE_PROVIDER=google` / `LIMO_SAFETY_PROVIDER=anthropic`.
 
 ## Detail matrix (as documented on 2026-10-18; "unverified" = not stated on the pages read)
 | Field | Claude (text) | Gemini Nano Banana 2.1 / 3 Pro Image | Veo 3.1 (Fast / Lite / Standard) | ElevenLabs TTS | OpenAI whisper-1 | OpenAI moderation |
@@ -128,3 +130,35 @@ Alternatives (OpenAI images/text, Runway, Gemini TTS, ElevenLabs Scribe) are doc
 | Integration complexity | low (official SDK) | low–medium (new Interactions API; first live test must confirm the raw response path) | medium (async, large downloads) | low | low (multipart) | low |
 | Docs | platform.claude.com/docs | ai.google.dev/gemini-api/docs/image-generation | ai.google.dev/gemini-api/docs/veo | elevenlabs.io/docs | developers.openai.com/api/docs/guides/speech-to-text | developers.openai.com/api/docs/guides/moderation |
 | Date verified | 2026-10-18 | 2026-10-18 | 2026-10-18 | 2026-10-18 | 2026-10-18 | 2026-10-18 |
+
+## Pilot verification addendum (2026-10-18): accounts, billing caps, markets, failure billing
+Re-checked for the $10 pilot (docs/AI_PILOT_PLAN.md) from official pages. "Unverified" = not stated on the pages read.
+
+| | Google Gemini API | Anthropic | OpenAI | ElevenLabs |
+|---|---|---|---|---|
+| Available in Algeria | yes (available-regions list) | yes (supported countries) | yes (supported countries) | unverified |
+| Account / minimum | billing account; **prepay is the default**, top-up min **$5**, max $5,000 | prepaid credits; **minimum purchase unverified** | pay-as-you-go wording; prepaid minimum unverified | subscription (Starter $6/month, first month $1) or pay-as-you-go |
+| Hard external spend cap | prepay: requests stop at a **$0 balance** (HTTP 402); tier caps $250 / $2,000 / $20k–100k pause traffic; project spend caps exist but are **experimental, ≈ 10 min enforcement delay** | **user-set spend limit** below the tier cap is a hard stop (HTTP 400); tier caps Start $500 / Build $1,000 / Scale $200k (429 `enforced_spend_limit_reached`) | hard spend limits stop traffic at the limit; alerts are notification-only | **no documented hard cap or overage switch** (help page returned 403) |
+| Credits | non-refundable, expire after 1 year | non-refundable, expire after 1 year | unverified | — |
+| Failed requests | 400/500 not charged; blocked Veo videos not charged | failed requests not billed; refusals before output billed only in categories `bio`, `frontier_llm`, `reasoning_extraction`; after partial output input + output billed | unverified | unverified |
+| Age / audience | 18+; not for apps directed at minors (legal check open) | per Usage Policy | per terms | commercial use needs a paid plan |
+
+Model status checked on the models pages: `gemini-nano-banana-2.1` (new, stable), `gemini-3-pro-image` (stable),
+`gemini-3.1-flash-image`, `gemini-3.1-flash-lite-image`; Veo `veo-3.1-generate-preview` and
+`veo-3.1-lite-generate-preview` are on the models page, **`veo-3.1-fast-generate-preview` appears only on the Veo and
+pricing pages** (confirm at the first live call). Gemini TTS `gemini-3.8-flash-tts` (new, stable): Interactions API,
+`input: [{type:"user_input", content:[{type:"text"}]}]`, `response_format {type:"audio"}`,
+`generation_config.speech_config: [{voice}]`; 24 kHz mono 16-bit audio, 30 voices, French/German/Arabic supported,
+**no timestamps** (LIMO estimates subtitle timing and flags it); $0.50 / 1M input + $9 / 1M audio-output tokens until
+2026-12-31, then $1 / $18 (the price sheet carries this end date and blocks after it). Audio-token rate per second of
+speech: **unverified** (LIMO reserves 32 tokens/s × 1.5 and bills the reported usage).
+
+Corrections to the Milestone 10 assumptions: the pilot uses Claude (not OpenAI moderation) for safety and Gemini TTS
+(not ElevenLabs) for voice, so that only two accounts with hard caps are involved; ElevenLabs stays the production
+voice candidate only after its overage controls are confirmed. The 2048 × 2730 character sheets need the **4K** Pro
+image tier ($0.24), not 2K ($0.134), unless a 2K 3:4 output proves large enough (unverified).
+
+Sources: ai.google.dev/gemini-api/docs/{pricing, billing, available-regions, models, veo, speech-generation};
+platform.claude.com/docs/en/about-claude/pricing and the platform.claude.com rate-limit and refusal pages;
+anthropic.com/supported-countries; support.claude.com/en/articles/8977456;
+developers.openai.com/api/docs/{supported-countries, pricing, guides/production-best-practices}; elevenlabs.io/pricing/api.

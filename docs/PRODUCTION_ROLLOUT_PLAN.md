@@ -32,6 +32,7 @@ Fixed order (dependencies in MIGRATION_REVIEW §1):
 | 10 | `20261017220000_limo_social_publishing_v1` | extends/replaces social functions (same signatures) |
 | 11 | `20261018090000_limo_video_policy_v1` | **behaviour change** (V1 video policy: 30 s, one credit per completed video; see VIDEO_POLICY.md) |
 | 12 | `20261018120000_limo_ai_generation_v1` | additive (AI generation foundation; every provider stays disabled; see AI_GENERATION.md) |
+| 13 | `20261018150000_limo_ai_spend_guard_v1` | additive (AI spend guard; pilot scope disabled; see AI_PILOT_PLAN.md) |
 
 ### Milestone 9 changes to the pending files (privileges)
 The audit found that tables created by four pending migrations inherited Supabase's default grants
@@ -112,7 +113,7 @@ promoted.
 ## 9. Gated checklist
 | Gate | Item | Owner | Status |
 |---|---|---|---|
-| G1 | Written approval to apply migrations 1–12 | owner | open |
+| G1 | Written approval to apply migrations 1–13 | owner | open |
 | G2 | Backup type/restore point confirmed; manual dumps stored encrypted outside git | owner | open |
 | G3 | Restore drill into a scratch project succeeded (verified recovery, not just dry run) | owner + Claude | open |
 | G4 | Confirm the old production deployment does not need direct writes (or accept that its screens fail) | owner | open |

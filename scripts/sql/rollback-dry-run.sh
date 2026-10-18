@@ -7,6 +7,7 @@ DB="${1:?local database container name}"
 DIR="$(cd "$(dirname "$0")/../../supabase/rollback" && pwd)"
 {
   echo "begin;"
+  cat "$DIR/20261018150000_down.sql"
   cat "$DIR/20261018120000_down.sql"
   cat "$DIR/20261018090000_down.sql"
   cat "$DIR/20261017220000_down.sql"
@@ -25,6 +26,7 @@ select 'ROLLBACK-CHECK ' || string_agg(name || '=' || present::text, ' ' order b
   select 'project_revisions' as name, to_regclass('public.project_revisions') is not null as present
   union all select 'video_policy', exists (select 1 from pg_proc where proname = 'limo_video_max_duration_ms')
   union all select 'ai_generation', to_regclass('public.generation_proposal_decisions') is not null
+  union all select 'ai_spend_guard', to_regclass('public.ai_spend_guards') is not null
   union all select 'brand_kits', to_regclass('public.brand_kits') is not null
   union all select 'feature_flags', to_regclass('public.feature_flags') is not null
   union all select 'rate_limit_hits', to_regclass('public.rate_limit_hits') is not null

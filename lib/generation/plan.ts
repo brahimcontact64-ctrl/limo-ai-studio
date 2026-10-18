@@ -56,6 +56,10 @@ export interface PlanOptions {
   voiceModel: string;
   narratorVoiceId: string | null;
   textModel: string;
+  /** Voice provider: 'elevenlabs' (characters) or 'google' (Gemini TTS, tokens). Default elevenlabs. */
+  voiceProvider?: 'elevenlabs' | 'google';
+  /** Safety provider: 'openai' (free moderation) or 'anthropic' (Claude review with textModel). Default openai. */
+  safetyProvider?: 'openai' | 'anthropic';
 }
 
 export interface PlanInput {
@@ -128,7 +132,12 @@ export function buildPlan(input: PlanInput, prices: Record<string, PriceSheet>, 
   };
   const scriptText = input.scenes.map((s) => [s.title, s.narration, s.dialogue, s.visual_prompt].join(' ')).join('\n');
 
-  add({ kind: 'safety', scene: null, key: operationKey([input.revisionId, 'safety', sha256(scriptText)]), provider: 'openai', model: 'omni-moderation-latest', priceKey: priceKey('openai', 'omni-moderation-latest'), usage: { requests: 1 }, prompt: '' });
+  if (o.safetyProvider === 'anthropic') {
+    const images = input.scenes.filter((s) => s.media?.media_type === 'image').length;
+    add({ kind: 'safety', scene: null, key: operationKey([input.revisionId, 'safety', 'anthropic', o.textModel, sha256(scriptText)]), provider: 'anthropic', model: o.textModel, priceKey: priceKey('anthropic', o.textModel), usage: { inputTokens: Math.ceil(scriptText.length / 3) + 1600 * Math.min(images, 6) + 700, outputTokens: 400 }, prompt: '' });
+  } else {
+    add({ kind: 'safety', scene: null, key: operationKey([input.revisionId, 'safety', sha256(scriptText)]), provider: 'openai', model: 'omni-moderation-latest', priceKey: priceKey('openai', 'omni-moderation-latest'), usage: { requests: 1 }, prompt: '' });
+  }
   if (o.images || o.video) {
     const chars = Math.ceil(scriptText.length / 3) + 1500;
     add({ kind: 'scene_prompts', scene: null, key: operationKey([input.revisionId, 'scene_prompts', o.textModel, sha256(scriptText)]), provider: 'anthropic', model: o.textModel, priceKey: priceKey('anthropic', o.textModel), usage: { inputTokens: chars, outputTokens: 300 * input.scenes.length + 200 }, prompt: scriptText });
@@ -166,7 +175,10 @@ export function buildPlan(input: PlanInput, prices: Record<string, PriceSheet>, 
       const voiceId = o.narratorVoiceId ?? '';
       add({
         kind: 'voice', scene: s.scene_number, key: operationKey([input.revisionId, s.scene_number, 'voice', o.voiceModel, voiceId, input.language, sha256(spoken)]),
-        provider: 'elevenlabs', model: o.voiceModel, priceKey: priceKey('elevenlabs', o.voiceModel), usage: { characters: spoken.length }, prompt: spoken,
+        ...(o.voiceProvider === 'google'
+          ? { provider: 'google', model: o.voiceModel, priceKey: priceKey('google', o.voiceModel), usage: { inputTokens: Math.ceil(spoken.length / 2) + 50, outputTokens: Math.ceil((spoken.length / 12) * 32 * 1.5) + 100 } }
+          : { provider: 'elevenlabs', model: o.voiceModel, priceKey: priceKey('elevenlabs', o.voiceModel), usage: { characters: spoken.length } }),
+        prompt: spoken,
       });
     }
   }

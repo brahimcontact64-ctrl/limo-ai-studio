@@ -62,11 +62,15 @@ twice). Stale stages are quarantined by the database.
 | `GEMINI_API_KEY` | Google AI (paid tier, billing account) | images, character sheets, Veo video |
 | `ELEVENLABS_API_KEY` | ElevenLabs (paid plan for commercial use) | narration |
 | `OPENAI_API_KEY` | OpenAI | moderation (free), transcription |
-| `LIMO_NARRATOR_VOICE_ID` | ElevenLabs voice id | default narrator voice (per-character voices later via `character_voice_profiles`) |
+| `LIMO_NARRATOR_VOICE_ID` | ElevenLabs voice id, or a Gemini voice name (`Kore` default with Google TTS) | default narrator voice (per-character voices later via `character_voice_profiles`) |
+| `LIMO_VOICE_PROVIDER` / `LIMO_SAFETY_PROVIDER` | selectors | `elevenlabs` (default) or `google` (Gemini TTS); `openai` (default) or `anthropic` (Claude review) |
+| `LIMO_AI_SPEND_SCOPE` | LIMO | spend-guard scope (`ai_spend_guards`); without it every paid call is blocked |
+| `LIMO_AI_KILL_SWITCH` / `LIMO_AI_MAX_ATTEMPTS` | LIMO | `on` blocks all paid calls of the process; `1` = no paid retries |
 None is configured anywhere. Do not send keys in chat; put them in the worker host's secret store.
 
 ## 5. Activation checklist (each step is an owner decision)
-1. Apply the pending migrations (1–12) with the production rollout plan.
+0. First run the internal $10 pilot on the local replica: docs/AI_PILOT_PLAN.md (spend guard, kill switch, approvals).
+1. Apply the pending migrations (1–13) with the production rollout plan.
 2. Legal check: Gemini API terms bar apps "directed at or likely accessed by" under-18s — confirm LIMO's audience
    (accounts are 18+, content is family-friendly) or choose another image/video provider.
 3. Re-check each price on the official page and record it in `ai_provider_registry.pricing_metadata`, then set

@@ -17,15 +17,23 @@
  * (an identical earlier result is reused, never paid twice), per-operation authorisation (execute.ts), actual
  * cost from the owner-verified registry price, transient retries only, no fallback after a refusal.
  *
+ * Spend guard (live): every paid call reserves its worst case in ai_spend_guards scope LIMO_AI_SPEND_SCOPE before it
+ * is sent, and settles/releases it afterwards (lib/providers/spend.ts). Without a scope, paid calls are blocked.
+ * LIMO_AI_KILL_SWITCH=on blocks every paid call of this process; ai_spend_guards.enabled=false blocks them for all.
+ *
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LIMO_GENERATION_MODE (off|mock|live), LIMO_ENABLE_PAID_GENERATION,
  *      ANTHROPIC_API_KEY / GEMINI_API_KEY / ELEVENLABS_API_KEY / OPENAI_API_KEY (live only), LIMO_NARRATOR_VOICE_ID,
+ *      LIMO_VOICE_PROVIDER, LIMO_SAFETY_PROVIDER, LIMO_AI_SPEND_SCOPE, LIMO_AI_KILL_SWITCH, LIMO_AI_MAX_ATTEMPTS,
  *      WORKER_ID, POLL_MS (3000), HEALTH_PORT. Flags: --once (exit when nothing is left to do).
  */
 import { hostname } from 'node:os';
 import { createClient } from '@supabase/supabase-js';
 import { ProviderError, type CapabilityResult, type PriceSheet, type VideoRequest } from '../../lib/providers/contracts.ts';
-import { collectOperation, executeOperation, OperationBlockedError, submitOperation, type GateInput } from '../../lib/providers/execute.ts';
-import { buildAdapters, generationMode } from '../../lib/providers/registry.ts';
+import { collectOperation, executeOperation, OperationBlockedError, settleFailure, submitOperation, type ExecuteOptions, type GateInput } from '../../lib/providers/execute.ts';
+import { buildAdapters, generationMode, safetyProvider, voiceProvider } from '../../lib/providers/registry.ts';
+import type { SpendGuard } from '../../lib/providers/spend.ts';
+import { dbSpendGuard } from '../../lib/providers/spend-db.ts';
+import { GEMINI_TTS_DEFAULT_VOICE } from '../../lib/providers/adapters/gemini-tts.ts';
 import { sheetFromRegistry, type RegistryRow } from '../../lib/providers/registry-prices.ts';
 import { priceKey } from '../../lib/providers/prices.ts';
 import { provenanceRecord } from '../../lib/providers/provenance.ts';
@@ -89,6 +97,13 @@ const adapters = buildAdapters(process.env, { loadAsset, liveFetch: MODE === 'li
 interface Run { id: string; organization_id: string; project_id: string; requested_by: string; status: string; estimated_cost_cents: number }
 interface Ctx { run: Run; plan: Plan; input: PlanInput; registry: RegistryRow[]; paidFlag: boolean; spentCents: number }
 
+/** The database spend guard; absent → every paid call is blocked (spend_guard_missing). */
+const SPEND: SpendGuard | undefined = MODE === 'live' && process.env.LIMO_AI_SPEND_SCOPE ? dbSpendGuard(process.env.LIMO_AI_SPEND_SCOPE, rpc, log) : undefined;
+if (MODE === 'live' && !SPEND) log('LIMO_AI_SPEND_SCOPE is not set: every paid call is blocked (spend_guard_missing)');
+
+/** Options for one operation: verified price, authorisation gate and the spend guard. */
+const opts = (ctx: Ctx, op: PlannedOp, adapter: { provider: string; model: string }, stage: string): ExecuteOptions => ({ price: priceFor(ctx, op, stage), gate: gateFor(ctx, op, adapter, stage), spend: SPEND });
+
 const SCENE_KEYS = ['title', 'narration', 'dialogue', 'visual_prompt', 'camera_prompt'] as const;
 
 async function loadContext(runId: string): Promise<Ctx> {
@@ -128,8 +143,9 @@ async function loadContext(runId: string): Promise<Ctx> {
     projectId: run.project_id, revisionId: p.approved_revision_id, language: p.language_code, aspect: (settings.aspect as PlanInput['aspect']) ?? '9:16', scenes, characters, styleHint: p.visual_style ?? '',
     options: {
       images: true, video: true, voice: true, videoTier: (process.env.LIMO_VEO_TIER as 'fast') || 'fast', resolution: '720p',
-      imageModel: mock ? 'mock-image' : adapters.image.model, characterImageModel: mock ? 'mock-character' : adapters.character_image.model, imageSize: '1K', voiceModel: mock ? 'mock-voice' : 'eleven_flash_v2_5',
-      narratorVoiceId: mock ? 'MockVoice0001' : (process.env.LIMO_NARRATOR_VOICE_ID ?? null), textModel: adapters.text.model,
+      imageModel: mock ? 'mock-image' : adapters.image.model, characterImageModel: mock ? 'mock-character' : adapters.character_image.model, imageSize: '1K', voiceModel: mock ? 'mock-voice' : adapters.voice.model,
+      narratorVoiceId: mock ? 'MockVoice0001' : (process.env.LIMO_NARRATOR_VOICE_ID ?? (voiceProvider(process.env) === 'google' ? GEMINI_TTS_DEFAULT_VOICE : null)), textModel: adapters.text.model,
+      voiceProvider: mock ? undefined : voiceProvider(process.env), safetyProvider: mock ? undefined : safetyProvider(process.env),
     },
   };
   const prices: Record<string, PriceSheet> = {};
@@ -147,16 +163,20 @@ function mockPlan(input: PlanInput): Plan {
   return { ...p, ops, totalMicros: 0, reserveCents: 0, blockers: p.blockers.filter((b) => b !== 'price_unverified') };
 }
 
-function gateFor(ctx: Ctx, op: PlannedOp, adapter: { provider: string; model: string }): GateInput {
-  const row = ctx.registry.find((r) => r.provider === adapter.provider && r.model_id === adapter.model);
+const STAGE_OF: Record<PlannedOp['kind'], string> = { safety: 'safety', scene_prompts: 'script', scene_image: 'scene_image', scene_video: 'scene_video', voice: 'voice' };
+/** The registry row of this provider/model FOR this stage (the same Claude model has separate script and safety rows). */
+const rowFor = (ctx: Ctx, provider: string, model: string, stage: string) => ctx.registry.find((r) => r.provider === provider && r.model_id === model && r.stage_type === stage);
+
+function gateFor(ctx: Ctx, op: PlannedOp, adapter: { provider: string; model: string }, stage = STAGE_OF[op.kind]): GateInput {
+  const row = rowFor(ctx, adapter.provider, adapter.model, stage);
   return {
     env: process.env, capabilityApproved: ctx.paidFlag, providerEnabledInRegistry: !!row?.enabled,
     remainingBudgetCents: Math.max(0, ctx.run.estimated_cost_cents - ctx.spentCents), confirmAboveCents: 0, userConfirmedCents: ctx.run.estimated_cost_cents,
     missingReferences: op.blocked === 'missing_character_reference' ? ['scene characters'] : [], sourceApproved: true,
   };
 }
-function priceFor(ctx: Ctx, op: PlannedOp): PriceSheet | null {
-  const row = ctx.registry.find((r) => r.provider === op.provider && r.model_id === op.model);
+function priceFor(ctx: Ctx, op: PlannedOp, stage = STAGE_OF[op.kind]): PriceSheet | null {
+  const row = rowFor(ctx, op.provider, op.model, stage);
   if (!row) return null;
   const tier = op.priceKey.includes('@') ? op.priceKey.split('@')[1] : undefined;
   return sheetFromRegistry(row, tier);
@@ -212,7 +232,16 @@ async function runSafety(ctx: Ctx): Promise<void> {
   const op = ctx.plan.ops.find((o) => o.kind === 'safety')!;
   const text = ctx.input.scenes.map((s) => SCENE_KEYS.map((k) => s[k]).join(' ')).join('\n');
   const images = ctx.input.scenes.filter((s) => s.media?.media_type === 'image').map((s) => s.media!.asset_id);
-  const ex = await executeOperation(adapters.safety, { ...req(ctx, op), kind: 'safety', text, imageAssetIds: images }, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.safety) });
+  let ex;
+  try {
+    ex = await executeOperation(adapters.safety, { ...req(ctx, op), kind: 'safety', text, imageAssetIds: images }, opts(ctx, op, adapters.safety, 'safety'));
+  } catch (e) {
+    // The reviewer itself declined the content: that is a block, never a retry with another provider.
+    if (!(e instanceof ProviderError && e.code === 'content_refused')) throw e;
+    await rpc('apply_generation_safety_decision', { p_run_id: ctx.run.id, p_decision: 'block', p_categories: ['provider_refused'], p_rationale: null, p_provider: adapters.safety.provider, p_provider_ref: op.key, p_provider_cost_cents: 0 });
+    log('safety', ctx.run.id, 'block', 'provider_refused');
+    return;
+  }
   const d = ex.result.json as { decision: 'allow' | 'review' | 'block'; categories: string[] };
   await rpc('apply_generation_safety_decision', { p_run_id: ctx.run.id, p_decision: d.decision, p_categories: d.categories, p_rationale: null, p_provider: ex.result.provenance.provider, p_provider_ref: ex.result.provenance.providerRequestId ?? op.key, p_provider_cost_cents: cents(ex.actualMicros) });
   log('safety', ctx.run.id, d.decision, d.categories.join(',') || '-');
@@ -222,7 +251,7 @@ async function runScript(ctx: Ctx): Promise<Done> {
   const op = ctx.plan.ops.find((o) => o.kind === 'scene_prompts');
   if (!op) return { provider: 'limo', jobId: 'none', costCents: 0, assetId: null, payload: { scene_prompts: [] } };
   const scenes = ctx.input.scenes.map((s) => ({ scene_number: s.scene_number, title: s.title, narration: s.narration, visual_prompt: s.visual_prompt, camera_prompt: s.camera_prompt }));
-  const ex = await executeOperation(adapters.text, { ...req(ctx, op), kind: 'text', task: 'scene_prompts', instructions: 'For each scene write an image_prompt and a motion_prompt for a family-friendly, premium stylized look. Describe only what the approved scene says; never add products, prices or text to the image.', facts: { scenes: JSON.stringify(scenes), style: ctx.input.styleHint }, maxOutputTokens: 4000 }, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.text) });
+  const ex = await executeOperation(adapters.text, { ...req(ctx, op), kind: 'text', task: 'scene_prompts', instructions: 'For each scene write an image_prompt and a motion_prompt for a family-friendly, premium stylized look. Describe only what the approved scene says; never add products, prices or text to the image.', facts: { scenes: JSON.stringify(scenes), style: ctx.input.styleHint }, maxOutputTokens: 4000 }, opts(ctx, op, adapters.text, 'script'));
   return { provider: ex.result.provenance.provider, jobId: ex.result.provenance.providerRequestId ?? op.key, costCents: cents(ex.actualMicros), assetId: null, payload: { scene_prompts: (ex.result.json?.scenes as unknown[]) ?? [], provenance: provenanceRecord(ex.result.provenance), issues: ex.result.issues ?? [] } };
 }
 
@@ -242,7 +271,7 @@ async function runVoice(ctx: Ctx): Promise<Done> {
       continue;
     }
     if (!ctx.input.options.narratorVoiceId) throw new OperationBlockedError(['voice_not_configured']);
-    const ex = await executeOperation(adapters.voice, { ...req(ctx, op), kind: 'voice', text: op.prompt, voiceId: ctx.input.options.narratorVoiceId, voiceProfileVersion: null, scriptRevisionId: ctx.input.revisionId }, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.voice) });
+    const ex = await executeOperation(adapters.voice, { ...req(ctx, op), kind: 'voice', text: op.prompt, voiceId: ctx.input.options.narratorVoiceId, voiceProfileVersion: null, scriptRevisionId: ctx.input.revisionId }, opts(ctx, op, adapters.voice, 'voice'));
     const seconds = Number((ex.result.json as { audio_seconds?: number } | undefined)?.audio_seconds ?? ex.result.usage.audioSeconds ?? 0) || undefined;
     const id = await store(ctx, op, ex.result.files![0]!, ex.result, seconds);
     out.push({ scene_number: op.scene, asset_id: id, subtitles: ex.result.subtitles ?? [] });
@@ -261,8 +290,8 @@ async function runImage(ctx: Ctx, stage: Stage): Promise<Done> {
   const size = ctx.plan.generationAspect === '16:9' ? { width: 1920, height: 1080 } : { width: 1080, height: 1920 };
   const refs = op.references ?? [];
   const run = refs.length
-    ? executeOperation(adapters.character_image, { ...req(ctx, op), kind: 'character_image', prompt, references: ctx.input.characters.filter((c) => scene.participants.includes(c.id)).map((c) => ({ character: c.id, specVersion: c.specVersion, assetIds: c.assetIds.slice(0, 2) })), size, count: 1 }, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.character_image) })
-    : executeOperation(adapters.image, { ...req(ctx, op), kind: 'image', task: 'generate', prompt, inputAssetIds: [], size, count: 1 }, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.image) });
+    ? executeOperation(adapters.character_image, { ...req(ctx, op), kind: 'character_image', prompt, references: ctx.input.characters.filter((c) => scene.participants.includes(c.id)).map((c) => ({ character: c.id, specVersion: c.specVersion, assetIds: c.assetIds.slice(0, 2) })), size, count: 1 }, opts(ctx, op, adapters.character_image, 'scene_image'))
+    : executeOperation(adapters.image, { ...req(ctx, op), kind: 'image', task: 'generate', prompt, inputAssetIds: [], size, count: 1 }, opts(ctx, op, adapters.image, 'scene_image'));
   const ex = await run;
   const id = await store(ctx, op, ex.result.files![0]!, ex.result);
   return { provider: ex.result.provenance.provider, jobId: ex.result.provenance.providerRequestId ?? op.key, costCents: cents(ex.actualMicros), assetId: id, payload: { provenance: provenanceRecord(ex.result.provenance) } };
@@ -287,8 +316,8 @@ async function startVideo(ctx: Ctx, stage: Stage): Promise<Done | null> {
   const image = (await stageOutputs(ctx.run.id)).find((s) => s.stage_type === 'scene_image' && s.scene_number === stage.scene_number)?.output_asset_id ?? (scene.media?.media_type === 'image' ? scene.media.asset_id : null);
   const prompt = await promptFor(ctx, scene.scene_number, 'motion_prompt', op.prompt);
   const r = videoRequest(ctx, op, prompt, image);
-  const sub = await submitOperation(adapters.video, r, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.video) });
-  await rpc('attach_generation_provider_task', { p_stage_id: stage.id, p_provider: adapters.video.provider, p_provider_job_id: sub.taskId, p_output_payload: { op_key: op.key, plan: sub.plan, prompt, first_frame: image }, p_poll_after_seconds: Math.max(5, Math.round(sub.pollAfterMs / 1000)) });
+  const sub = await submitOperation(adapters.video, r, opts(ctx, op, adapters.video, 'scene_video'));
+  await rpc('attach_generation_provider_task', { p_stage_id: stage.id, p_provider: adapters.video.provider, p_provider_job_id: sub.taskId, p_output_payload: { op_key: op.key, plan: sub.plan, prompt, first_frame: image, reserved_cents: sub.reservedCents }, p_poll_after_seconds: Math.max(5, Math.round(sub.pollAfterMs / 1000)) });
   log('video submitted', stage.id, sub.taskId);
   return null;
 }
@@ -304,9 +333,14 @@ async function pollVideo(stage: Stage): Promise<void> {
     await rpc('defer_generation_provider_poll', { p_stage_id: stage.id, p_delay_seconds: 15, p_output_payload: {} });
     return;
   }
-  if (outcome.status === 'failed') throw outcome.error;
+  const reservedCents = Number(pay.reserved_cents ?? 0) || 0;
+  if (outcome.status === 'failed') {
+    // A blocked clip is not billed (released); an unknown failure is charged at the reservation for reconciliation.
+    await settleFailure(SPEND, op.key, reservedCents, outcome.error, priceFor(ctx, op, 'scene_video'));
+    throw outcome.error;
+  }
   const r = videoRequest(ctx, op, String(pay.prompt ?? op.prompt), (pay.first_frame as string | null) ?? null);
-  const ex = await collectOperation(adapters.video, r, outcome.outputRef, (pay.plan as Record<string, string | number>) ?? {}, { price: priceFor(ctx, op), gate: gateFor(ctx, op, adapters.video) });
+  const ex = await collectOperation(adapters.video, r, outcome.outputRef, (pay.plan as Record<string, string | number>) ?? {}, { ...opts(ctx, op, adapters.video, 'scene_video'), reservedCents });
   const file = ex.result.files?.[0];
   const assetId = file ? await store(ctx, op, file, ex.result, Number((pay.plan as Record<string, number>)?.seconds ?? 0) || undefined) : null;
   await complete(stage, { provider: adapters.video.provider, jobId: stage.provider_job_id!, costCents: cents(ex.actualMicros), assetId, payload: { ...(ex.result.json ?? {}), provenance: provenanceRecord(ex.result.provenance) } });

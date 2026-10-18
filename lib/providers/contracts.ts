@@ -72,6 +72,8 @@ export interface PriceSheet {
   verifiedBy: string | null;
   /** Date the price was copied from the official page (research), before the owner's verification. */
   researchedAt?: string;
+  /** Last day the published price applies (promotional or announced change); after it the sheet is stale. */
+  validUntil?: string;
 }
 
 export class PriceSheetError extends Error {
@@ -98,6 +100,7 @@ export function operationCost(sheet: PriceSheet, usage: Usage, opts: { now?: Dat
   if (!sheet.verifiedAt || !sheet.verifiedBy) throw new PriceSheetError('unverified', `${sheet.provider}/${sheet.model}`);
   const age = ((opts.now ?? new Date()).getTime() - new Date(sheet.verifiedAt).getTime()) / 86_400_000;
   if (!(age <= (opts.maxAgeDays ?? 30))) throw new PriceSheetError('stale', `${sheet.provider}/${sheet.model} verified ${sheet.verifiedAt}`);
+  if (sheet.validUntil && (opts.now ?? new Date()).getTime() > new Date(`${sheet.validUntil}T23:59:59Z`).getTime()) throw new PriceSheetError('stale', `${sheet.provider}/${sheet.model} price valid until ${sheet.validUntil}`);
   const lines: OperationCost['lines'] = [];
   for (const unit of UNITS) {
     const q = quantity(usage, unit);
@@ -131,10 +134,14 @@ export type ProviderErrorCode = 'rate_limited' | 'timeout' | 'unavailable' | 'qu
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;
   readonly retryAfterMs?: number;
-  constructor(code: ProviderErrorCode, message: string, retryAfterMs?: number) {
+  /** Usage the provider BILLED although the call failed (e.g. a Claude refusal in a billed category): the spend
+   *  guard settles it as real cost instead of treating the failure as free. */
+  readonly billedUsage?: Usage;
+  constructor(code: ProviderErrorCode, message: string, retryAfterMs?: number, billedUsage?: Usage) {
     super(message);
     this.code = code;
     this.retryAfterMs = retryAfterMs;
+    this.billedUsage = billedUsage;
   }
 }
 
@@ -246,6 +253,7 @@ export interface Provenance {
 // ---------------------------------------------------------------------------------------------------
 
 export type BlockReason =
+  | 'kill_switch'
   | 'paid_generation_disabled'
   | 'capability_not_approved'
   | 'provider_disabled'
@@ -274,10 +282,15 @@ export interface PaidCallContext {
   sourceApproved: boolean;
 }
 
+/** LIMO_AI_KILL_SWITCH=on|true|1 stops every paid call of the process (the database switch, ai_spend_guards.enabled,
+ *  stops them for every worker without a restart). */
+export const killSwitchOn = (env: Record<string, string | undefined>) => ['on', 'true', '1'].includes((env.LIMO_AI_KILL_SWITCH ?? '').trim().toLowerCase());
+
 /** All reasons that block the call; empty = allowed. Mock adapters skip this gate (`paid: false`). */
 export function paidCallBlockers(c: PaidCallContext): BlockReason[] {
   const out: BlockReason[] = [];
   const visual = c.capability === 'image' || c.capability === 'character_image' || c.capability === 'video';
+  if (killSwitchOn(c.env)) out.push('kill_switch');
   if (c.env.LIMO_ENABLE_PAID_GENERATION !== 'true') out.push('paid_generation_disabled');
   if (!c.capabilityApproved) out.push('capability_not_approved');
   if (!c.providerEnabledInRegistry) out.push('provider_disabled');

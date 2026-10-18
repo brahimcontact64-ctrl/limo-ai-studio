@@ -5,6 +5,7 @@ import { executeOperation, OperationBlockedError, preflight, type GateInput } fr
 import { RESEARCHED_PRICES, priceKey, verifySheet } from '../../lib/providers/prices.ts';
 import { buildAdapters, generationMode } from '../../lib/providers/registry.ts';
 import { mockImageAdapter, mockVideoAdapter, mockVoiceAdapter, solidPng, toneWav } from '../../lib/providers/mocks.ts';
+import { memorySpendGuard } from '../../lib/providers/spend.ts';
 import { buildPlan, type PlanInput } from '../../lib/generation/plan.ts';
 import { ARTWORK_TOTALS, identityChecks, nextSheets, sheetPlan } from '../../lib/characters/artwork.ts';
 import { canonFor } from '../../lib/characters/canon.ts';
@@ -16,6 +17,8 @@ const imgReq: ImageRequest = { requestKey: 'k', organizationId: 'o', locale: 'en
 const textReq: TextRequest = { requestKey: 'k', organizationId: 'o', locale: 'en', kind: 'text', task: 'rewrite', instructions: 'x', facts: {}, maxOutputTokens: 500 };
 const openGate: GateInput = { env: { LIMO_ENABLE_PAID_GENERATION: 'true' }, capabilityApproved: true, providerEnabledInRegistry: true, remainingBudgetCents: 10_000, confirmAboveCents: 1_000, userConfirmedCents: null, missingReferences: [], sourceApproved: true };
 const verifiedClaude = verifySheet(RESEARCHED_PRICES[priceKey('anthropic', 'claude-opus-5-5')]!, 'owner', now);
+/** A generous spend guard (paid calls are refused without one; the guard rules are tested in spend-guard.test.ts). */
+const spend = () => memorySpendGuard({ enabled: true, limitCents: 10_000, maxOperationCents: 1_000, caps: { text: 5_000, image: 5_000, video: 5_000, voice: 5_000 } });
 
 function fakeText(behaviour: Array<ProviderError | 'ok'>): CapabilityAdapter<TextRequest> & { calls: number } {
   const a = {
@@ -67,17 +70,17 @@ test('retries: transient errors are retried with back-off and paid once; refusal
   const slept: number[] = [];
   const sleep = async (ms: number) => void slept.push(ms);
   const flaky = fakeText([new ProviderError('rate_limited', 'slow', 4000), new ProviderError('unavailable', 'down')]);
-  const ok = await executeOperation(flaky, textReq, { price: verifiedClaude, gate: openGate, sleep, now });
+  const ok = await executeOperation(flaky, textReq, { price: verifiedClaude, gate: openGate, sleep, now, spend: spend() });
   assert.equal(ok.attempts, 3);
   assert.deepEqual(slept, [4000, 4000]);
   assert.equal(ok.actualMicros, 28_000);
   for (const code of ['content_refused', 'disabled', 'invalid_request', 'auth', 'quota_exceeded'] as const) {
     const a = fakeText([new ProviderError(code, code)]);
-    await assert.rejects(executeOperation(a, textReq, { price: verifiedClaude, gate: openGate, sleep, now }), (e: unknown) => e instanceof ProviderError && e.code === code);
+    await assert.rejects(executeOperation(a, textReq, { price: verifiedClaude, gate: openGate, sleep, now, spend: spend() }), (e: unknown) => e instanceof ProviderError && e.code === code);
     assert.equal(a.calls, 1, `${code} must not be retried`);
   }
   const always = fakeText([new ProviderError('timeout', 't'), new ProviderError('timeout', 't'), new ProviderError('timeout', 't'), new ProviderError('timeout', 't')]);
-  await assert.rejects(executeOperation(always, textReq, { price: verifiedClaude, gate: openGate, sleep, now }), /t/);
+  await assert.rejects(executeOperation(always, textReq, { price: verifiedClaude, gate: openGate, sleep, now, spend: spend() }), /t/);
   assert.equal(always.calls, 3, 'bounded by maxAttempts');
 });
 

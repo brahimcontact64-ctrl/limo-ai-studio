@@ -7,9 +7,13 @@
  *   4. call with bounded retries for transient errors only (rate limit, timeout, unavailable); a safety refusal,
  *      an invalid request, auth/quota problems or a disabled provider are never retried and never re-sent elsewhere
  *   5. actual cost from the provider's measured usage and the same verified sheet
- * Mock adapters (paid: false, provider "limo-mock") skip 2–3 and always cost 0.
+ * Paid adapters additionally need a spend guard (spend.ts): the worst case (estimate × allowed attempts) is reserved
+ * before the first byte is sent, then settled at the actual cost or released when the provider provably did not bill.
+ * LIMO_AI_MAX_ATTEMPTS lowers the retry policy (the pilot uses 1: no paid retries without a new approval).
+ * Mock adapters (paid: false, provider "limo-mock") skip 2–3 and the guard, and always cost 0.
  */
 import { DEFAULT_RETRY, nextRetryDelay, operationCost, paidCallBlockers, ProviderError, validateRequest, type AsyncCapabilityAdapter, type BlockReason, type Capability, type CapabilityAdapter, type CapabilityRequest, type CapabilityResult, type PaidCallContext, type PriceSheet, type RetryPolicy } from './contracts.ts';
+import { failureSettlement, reservationCents, SpendBlockedError, type SpendGuard } from './spend.ts';
 
 export class OperationBlockedError extends Error {
   readonly reasons: Array<BlockReason | string>;
@@ -30,6 +34,10 @@ export interface ExecuteOptions {
   signal?: AbortSignal;
   now?: Date;
   onAttempt?: (attempt: number, error: ProviderError | null) => void;
+  /** Required for paid adapters (no guard = blocked). */
+  spend?: SpendGuard;
+  /** Owner approval to re-run an operation whose earlier reservation was released. */
+  retryApproved?: boolean;
 }
 
 export interface Executed {
@@ -37,6 +45,8 @@ export interface Executed {
   attempts: number;
   estimateMicros: number;
   actualMicros: number;
+  /** Cents reserved in the spend guard (0 for free/mock operations). */
+  reservedCents: number;
 }
 
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -72,8 +82,51 @@ function actual(price: PriceSheet | null, result: CapabilityResult, now?: Date):
   }
 }
 
+/** The retry policy, lowered by LIMO_AI_MAX_ATTEMPTS (never raised). */
+export function effectivePolicy(capability: Capability, o: Pick<ExecuteOptions, 'policy' | 'gate'>): RetryPolicy {
+  const base = o.policy ?? DEFAULT_RETRY[capability];
+  const cap = Number(o.gate.env.LIMO_AI_MAX_ATTEMPTS);
+  return Number.isInteger(cap) && cap >= 1 && cap < base.maxAttempts ? { ...base, maxAttempts: cap } : base;
+}
+
+/** Reserves the worst case before a paid call; returns the reserved cents (0 when the adapter is free or a mock). */
+async function reserve(adapter: { paid: boolean; provider: string; model: string; capability: string }, req: CapabilityRequest, estimateMicros: number, o: ExecuteOptions): Promise<number> {
+  if (!adapter.paid || isMock(adapter)) return 0;
+  if (!o.spend) throw new OperationBlockedError(['spend_guard_missing']);
+  const cents = reservationCents(estimateMicros, effectivePolicy(adapter.capability as Capability, o).maxAttempts);
+  try {
+    await o.spend.reserve({ opKey: req.requestKey, capability: adapter.capability as Capability, provider: adapter.provider, model: adapter.model, cents, organizationId: req.organizationId, retryApproved: o.retryApproved });
+  } catch (e) {
+    if (e instanceof SpendBlockedError) throw new OperationBlockedError([`spend:${e.reason}`]);
+    throw e;
+  }
+  return cents;
+}
+
+/** Closes a reservation after a failed call (release when provably not billed, otherwise settle). */
+export async function settleFailure(spend: SpendGuard | undefined, opKey: string, reservedCents: number, err: unknown, price: PriceSheet | null, now?: Date): Promise<void> {
+  if (!spend || reservedCents <= 0) return;
+  const pe = err instanceof ProviderError ? err : new ProviderError('unknown', err instanceof Error ? err.message : String(err));
+  const s = failureSettlement(pe, price, reservedCents, now);
+  if (s.action === 'release') await spend.release(opKey, pe.code);
+  else await spend.settle(opKey, s.cents, { needsReconciliation: s.needsReconciliation, note: pe.code });
+}
+
+/** Settles a successful call at its actual cost; an unpriceable result is charged at the reservation and rethrown. */
+async function settleSuccess(o: ExecuteOptions, opKey: string, reservedCents: number, result: CapabilityResult): Promise<number> {
+  let micros: number;
+  try {
+    micros = actual(o.price, result, o.now);
+  } catch (e) {
+    if (o.spend && reservedCents > 0) await o.spend.settle(opKey, null, { providerRequestId: result.provenance.providerRequestId ?? null, needsReconciliation: true, note: 'unpriced' });
+    throw e;
+  }
+  if (o.spend && reservedCents > 0) await o.spend.settle(opKey, Math.ceil(micros / 10_000), { providerRequestId: result.provenance.providerRequestId ?? null });
+  return micros;
+}
+
 async function withRetry<T>(capability: Capability, fn: () => Promise<T>, o: ExecuteOptions): Promise<{ value: T; attempts: number }> {
-  const policy = o.policy ?? DEFAULT_RETRY[capability];
+  const policy = effectivePolicy(capability, o);
   const sleep = o.sleep ?? realSleep;
   for (let attempt = 1; ; attempt++) {
     try {
@@ -93,21 +146,45 @@ async function withRetry<T>(capability: Capability, fn: () => Promise<T>, o: Exe
 
 export async function executeOperation(adapter: CapabilityAdapter, req: CapabilityRequest, o: ExecuteOptions): Promise<Executed> {
   const estimateMicros = preflight(adapter, req, o);
+  const reservedCents = await reserve(adapter, req, estimateMicros, o);
   const signal = o.signal ?? new AbortController().signal;
-  const { value, attempts } = await withRetry(adapter.capability as Capability, () => adapter.run(req as never, signal), o);
-  return { result: value, attempts, estimateMicros, actualMicros: actual(o.price, value, o.now) };
+  let run: { value: CapabilityResult; attempts: number };
+  try {
+    run = await withRetry(adapter.capability as Capability, () => adapter.run(req as never, signal), o);
+  } catch (e) {
+    await settleFailure(o.spend, req.requestKey, reservedCents, e, o.price, o.now);
+    throw e;
+  }
+  const actualMicros = await settleSuccess(o, req.requestKey, reservedCents, run.value);
+  return { result: run.value, attempts: run.attempts, estimateMicros, actualMicros, reservedCents };
 }
 
-/** Async (video): submit only — the task id must be stored before polling. */
+/** Async (video): submit only — the task id must be stored before polling. The reservation stays open until the
+ *  result is collected (collectOperation) or the job fails (settleFailure with the stored reservedCents). */
 export async function submitOperation(adapter: AsyncCapabilityAdapter, req: CapabilityRequest, o: ExecuteOptions) {
   const estimateMicros = preflight(adapter, req, o);
+  const reservedCents = await reserve(adapter, req, estimateMicros, o);
   const signal = o.signal ?? new AbortController().signal;
-  const { value, attempts } = await withRetry(adapter.capability as Capability, () => adapter.submit(req as never, signal), o);
-  return { ...value, attempts, estimateMicros };
+  try {
+    const { value, attempts } = await withRetry(adapter.capability as Capability, () => adapter.submit(req as never, signal), o);
+    return { ...value, attempts, estimateMicros, reservedCents };
+  } catch (e) {
+    await settleFailure(o.spend, req.requestKey, reservedCents, e, o.price, o.now);
+    throw e;
+  }
 }
 
-export async function collectOperation(adapter: AsyncCapabilityAdapter, req: CapabilityRequest, outputRef: string, plan: Record<string, string | number>, o: ExecuteOptions): Promise<Executed> {
+export async function collectOperation(adapter: AsyncCapabilityAdapter, req: CapabilityRequest, outputRef: string, plan: Record<string, string | number>, o: ExecuteOptions & { reservedCents?: number }): Promise<Executed> {
   const signal = o.signal ?? new AbortController().signal;
-  const { value, attempts } = await withRetry(adapter.capability as Capability, () => adapter.fetchResult(req as never, outputRef, plan, signal), o);
-  return { result: value, attempts, estimateMicros: 0, actualMicros: actual(o.price, value, o.now) };
+  const reservedCents = adapter.paid && !isMock(adapter) ? (o.reservedCents ?? 0) : 0;
+  let run: { value: CapabilityResult; attempts: number };
+  try {
+    run = await withRetry(adapter.capability as Capability, () => adapter.fetchResult(req as never, outputRef, plan, signal), o);
+  } catch (e) {
+    // The clip was generated (the provider bills it) even if the download failed: charge the reservation.
+    if (o.spend && reservedCents > 0) await o.spend.settle(req.requestKey, null, { needsReconciliation: true, note: 'download_failed' });
+    throw e;
+  }
+  const actualMicros = await settleSuccess(o, req.requestKey, reservedCents, run.value);
+  return { result: run.value, attempts: run.attempts, estimateMicros: 0, actualMicros, reservedCents };
 }

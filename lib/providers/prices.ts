@@ -41,6 +41,9 @@ export const RESEARCHED_PRICES: Record<string, PriceSheet> = {
   'google/veo-3.1-fast-generate-preview@1080p': sheet('google', 'veo-3.1-fast-generate-preview', { video_second: usd(0.12) }, GEMINI, { video_second: 8 }),
   'google/veo-3.1-lite-generate-preview@720p': sheet('google', 'veo-3.1-lite-generate-preview', { video_second: usd(0.05) }, GEMINI, { video_second: 4 }),
   'google/veo-3.1-lite-generate-preview@1080p': sheet('google', 'veo-3.1-lite-generate-preview', { video_second: usd(0.08) }, GEMINI, { video_second: 8 }),
+  // Voice: Gemini TTS per million tokens (text input, audio output); these are the prices listed until 2026-12-31,
+  // after which the page lists $1 / $18 — the sheet must be re-verified then.
+  'google/gemini-3.8-flash-tts': { ...sheet('google', 'gemini-3.8-flash-tts', { input_tokens_1m: usd(0.5), output_tokens_1m: usd(9) }, GEMINI), validUntil: '2026-12-31' },
   // Voice (per 1,000 characters).
   'elevenlabs/eleven_flash_v2_5': sheet('elevenlabs', 'eleven_flash_v2_5', { characters_1k: usd(0.04) }, ELEVEN),
   'elevenlabs/eleven_multilingual_v2': sheet('elevenlabs', 'eleven_multilingual_v2', { characters_1k: usd(0.08) }, ELEVEN),

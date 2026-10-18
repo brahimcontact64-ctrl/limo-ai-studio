@@ -2,6 +2,25 @@
 
 Actual results only. Newest first.
 
+## 2026-10-18 — $10 AI pilot preparation (spend guard, kill switch, pilot adapters), branch `rebuild/v1`
+Environment: local replica with migrations #12 and **#13 applied locally only**; no provider key exists, generation
+mode off; **no live or paid provider call was made** (adapters tested against mocked HTTP only).
+- Pushed before this work (owner-authorised): `a781322..0418ee8` fast-forward; `origin/rebuild/v1` =
+  `0418ee83d187e186e1057a9d4d371257a0c21f17`; `origin/main` = `2a3f426` unchanged.
+- Unit tests **165/165** (new: `spend-guard.test.ts` 16 — guard rules, reserve-before-send, settle/release, billed
+  refusals, no paid retry, kill switch, price end date, Gemini TTS and Claude safety request/response contracts,
+  provider selectors; `ai-pilot.test.ts` 3). Typecheck app + worker clean; `next build` compiles.
+- SQL `ai-spend-guard-test.sql` **23/23** (caps, duplicate keys, retry approval, reconcile, auto-off at the limit,
+  kill switch, MFA-only admin switch, customers cannot call or read). `ai-spend-guard-concurrency.sh`: 20 parallel
+  sessions × $1 against $10 → **exactly 10 accepted**, reserved 1000 ¢ in 10 entries; same key from 5 sessions → 1.
+- Rollback dry run of all **13** pending migrations clean; existing SQL tests 4/4, 6/6, 20/20; worker 10/10;
+  `e2e-generate` (mock mode, generator worker) 24/24 after the worker changes.
+- Pilot runner `scripts/ai-pilot.ts`: dry runs for all 4 steps print request + planning estimate (script $0.043,
+  character front $0.24 at 4K); live mode refuses with nothing sent when the brief, env, keys, scope or confirmation
+  are missing, and at preflight with `kill_switch` / `capability_not_approved` / `provider_disabled` / `price_unverified`.
+- Not run this round (no relevant code change): backend/render/publish e2e and the 22-minute browser suite (last full
+  run on `0418ee8`: 53 passed, 1 skipped).
+
 ## 2026-10-18 — Milestone 10 (AI provider integration foundation), branch `rebuild/v1`
 Environment: local replica (production schema + 12 pending migrations), production build on :3200, render worker
 and publisher on the local stack. **No provider API key exists in this environment (checked by name), generation

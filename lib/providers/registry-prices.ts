@@ -42,5 +42,6 @@ export function sheetFromRegistry(row: RegistryRow, tier?: string): PriceSheet {
   return {
     provider: row.provider, model: row.model_id, currency: 'USD', prices, source: row.official_reference ?? '',
     verifiedAt: row.verified_at, verifiedBy: row.verified_at ? `registry:${row.code}` : null,
+    ...(typeof m.price_valid_until === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.price_valid_until) ? { validUntil: m.price_valid_until } : {}),
   };
 }
