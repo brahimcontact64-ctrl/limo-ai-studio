@@ -1,7 +1,9 @@
 # Next steps
 
 ## Exact next action
-V1 video policy (30 s per video on every plan, one credit per completed video) is implemented and verified locally (VIDEO_POLICY.md; pending migration #11 `20261018090000`), committed locally, not pushed. Milestone 10 starts after the owner has reviewed it.
+Milestone 9 and the V1 video policy are pushed (`origin/rebuild/v1` = `a781322`). Milestone 10 (AI provider foundation) is committed locally, not pushed — push only with owner approval.
+
+Next (owner decisions, in order): (1) production rollout of migrations 1–12 (PRODUCTION_ROLLOUT_PLAN.md); (2) AI activation checklist (AI_GENERATION.md §5): legal check of the Gemini terms for a family audience, verify prices, choose provider defaults, keys in the generator's secret store, pilot workspace; (3) pricing decision (AI_COSTS_AND_PRICING.md §4); (4) pilot character artwork (CHARACTER_ARTWORK_PLAN.md).
 
 Milestone 9 (audit) is committed locally; push only with owner approval. Read `docs/AUDIT_M9.md` §4 (blockers before paying customers) and decide the gates in `docs/PRODUCTION_ROLLOUT_PLAN.md` §9 (G1–G10) and `docs/WORKER_HOSTING_PLAN.md` §12 (W1–W8).
 

@@ -68,3 +68,18 @@ The body holds counters and ages only (`busy`, `done`, `failed`, `last_db_ok_s`,
 Prepared, **not built or deployed**: `Dockerfile` (render, with HEALTHCHECK), `Dockerfile.publisher`
 (no FFmpeg), `deploy/docker-compose.example.yml`, `deploy/limo-render.service` (systemd). Sizing,
 secrets, scaling and alerting are in `docs/WORKER_HOSTING_PLAN.md`.
+
+## AI generator (Milestone 10)
+`node worker/src/generator.ts` executes `generation_runs` stage by stage with the provider adapters
+(`lib/providers`): safety check, scene prompts, narration, scene images, scene clips (async with polling), and a
+proposal the customer applies or rejects in the Video step. The MP4 itself is still the customer's export
+(render worker, one video credit). Modes: `off` (default; the process exits), `mock` (no network, labelled
+results, used by the local tests), `live` (only with `LIMO_ENABLE_PAID_GENERATION=true`, provider keys and the
+owner's activation; every call is authorised, priced from the verified registry and budgeted). Identical
+operations reuse earlier results instead of paying twice. Image: `Dockerfile.generator` (prepared, not built).
+Details: `docs/AI_GENERATION.md`.
+
+## Worker isolation (Milestone 10)
+Every worker registers itself in `<tmp>/limo-workers` while it runs (`src/lock.ts`). The local e2e scripts refuse
+to start while another live worker targets the same database (fixes the Windows orphan-worker interference), and
+workers named `e2e-*` / `local-*` refuse to run against a non-local database.

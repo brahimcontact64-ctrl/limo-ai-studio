@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import { useWorkspaceAssets } from './SceneAssets';
 import { LIMITS } from '@/lib/studio/limits';
 import { VIDEO_POLICY } from '@/lib/video/policy';
+import { GenerationPanel } from './GenerationPanel';
 
 interface Job {
   id: string;
@@ -319,6 +320,14 @@ export function VideoStep({
         </ol>
         <Storyboard scenes={scenes} settings={settings} library={library} />
       </section>
+
+      <GenerationPanel
+        projectId={projectId}
+        onUse={(scene, assetId) => {
+          updateScene(scene, { media_asset_id: assetId });
+          setLibrary(null);
+        }}
+      />
 
       <section className="panel panel-pad stack" aria-labelledby={`${id}-out`}>
         <h3 id={`${id}-out`} className="section-title">

@@ -3,10 +3,13 @@ import type { ServerSupabase } from '../supabase/server';
 
 export const ASSET_KINDS = ['product', 'logo', 'background', 'reference', 'photo', 'video', 'audio', 'render', 'design', 'other'] as const;
 export type AssetKind = (typeof ASSET_KINDS)[number];
+/** Kinds of files produced by AI generation (Milestone 10); customers cannot upload with these kinds. */
+export const GENERATED_KINDS = ['ai_image', 'ai_video', 'ai_audio'] as const;
+export type GeneratedKind = (typeof GENERATED_KINDS)[number];
 
 export interface AssetItem {
   id: string;
-  kind: AssetKind;
+  kind: AssetKind | GeneratedKind;
   media_type: 'image' | 'video' | 'audio' | 'other';
   file_name: string;
   label: string | null;

@@ -60,6 +60,16 @@ Additionally checked by the owner before approving a family (not enforced by the
 - [ ] Rights: written licence/assignment on file (or provider terms recorded for AI-generated art)
 - [ ] Arabic, French, English, German names/labels checked in the app's character picker
 
+## 4b. Generation workflow prepared in code (Milestone 10)
+`lib/characters/artwork.ts` builds the prompt of every sheet from the approved written spec (identity text, outfit,
+view/expression, shared light rig, camera and #EFECF7 background, locked colours, the "Never" list), orders the work
+(front first; three-quarter, side, back, 8 expressions and 2 outfits only after the front is approved and with it as
+the identity reference) and lists the identity checks for the reviewer. The character image adapter (Gemini 3 Pro
+Image, up to 5 character references) is implemented but disabled. Cost per pass ≈ $7.40 for the 54 required sheets
+(AI_COSTS_AND_PRICING.md). **No artwork was generated**: it needs the owner's explicit authorisation, and every result
+goes through the existing admin review before anything counts as approved. A generated image is a 3D-style render,
+not a rigged 3D model.
+
 ## 5. Steps to "ready for generation"
 1. Owner reviews and approves spec v1 of each character (after migration #6 is applied in production).
 2. Artwork produced (§3); files named `<code>_<view>.png`.

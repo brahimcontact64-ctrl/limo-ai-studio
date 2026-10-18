@@ -8,6 +8,7 @@
  *      E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD (platform admin, optional)
  * Usage: node scripts/e2e-publish.ts
  */
+import { assertNoForeignWorkers } from '../worker/src/lock.ts';
 import { spawn } from 'node:child_process';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { emptyProject, newScene, toSaveRequest } from '../lib/studio/draft.ts';
@@ -70,6 +71,8 @@ function publisher(extra: Record<string, string> = {}): Promise<string> {
 }
 
 async function main() {
+  // Leftover workers (e.g. orphans after stopping a shell on Windows) would take this test's jobs.
+  assertNoForeignWorkers(URL_, ['publisher']);
   const A = await signIn(env('E2E_A_EMAIL'), env('E2E_A_PASSWORD'));
   const B = await signIn(env('E2E_B_EMAIL'), env('E2E_B_PASSWORD'));
   console.log('\nSocial publishing (migration 20261017220000 + publisher)');

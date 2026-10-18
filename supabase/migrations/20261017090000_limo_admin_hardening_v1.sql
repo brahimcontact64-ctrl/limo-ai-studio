@@ -2,7 +2,8 @@
 -- Status: PENDING OWNER APPROVAL for production. Additive. Depends on 20261016150000 (is_platform_admin_mfa).
 --
 -- 1. feature_flags: readable by signed-in users, changed only by MFA platform admins (audited).
--- 2. admin_list_workspaces(): workspace overview (owner email, members, plan, usage, projects, pending payments).
+-- 2. admin_list_workspaces(p_search): workspace overview (owner email, members, plan, usage, projects, pending payments),
+--    newest 500, searchable by workspace name, owner email or id so every workspace can be found.
 -- 3. admin_set_subscription(): audited manual subscription changes with a mandatory reason.
 -- 4. provider registry read access for MFA admins (enabling providers stays an owner decision).
 
@@ -39,7 +40,8 @@ begin
 end;
 $function$;
 
-create or replace function public.admin_list_workspaces()
+drop function if exists public.admin_list_workspaces();
+create or replace function public.admin_list_workspaces(p_search text default null)
 returns table (
   id uuid, name text, created_at timestamptz, owner_email text, members integer,
   plan_code text, subscription_status text, renews_at timestamptz,
@@ -50,8 +52,13 @@ stable
 security definer
 set search_path to ''
 as $function$
+declare
+  -- LIKE pattern with the user's text escaped (% and _ are literal).
+  v_q text := nullif(btrim(coalesce(p_search, '')), '');
+  v_like text := '%' || replace(replace(replace(coalesce(v_q, ''), '\', '\\'), '%', '\%'), '_', '\_') || '%';
 begin
   if not public.is_platform_admin_mfa() then raise exception 'Not authorized: platform admin with two-factor authentication required'; end if;
+  if v_q is not null and char_length(v_q) > 200 then raise exception 'Search text is too long'; end if;
   return query
     select o.id, o.name, o.created_at,
       (select u.email::text from public.organization_members m join auth.users u on u.id = m.user_id
@@ -64,6 +71,11 @@ begin
     from public.organizations o
     left join public.organization_subscriptions s on s.organization_id = o.id
     left join public.usage_balances b on b.organization_id = o.id
+    where v_q is null
+       or o.name ilike v_like
+       or o.id::text ilike v_like
+       or exists (select 1 from public.organization_members m join auth.users u on u.id = m.user_id
+                  where m.organization_id = o.id and u.email ilike v_like)
     order by o.created_at desc
     limit 500;
 end;
@@ -128,10 +140,10 @@ drop policy if exists provider_registry_admin_read on public.ai_provider_registr
 create policy provider_registry_admin_read on public.ai_provider_registry for select to authenticated using (public.is_platform_admin_mfa());
 
 revoke all on function public.admin_set_feature_flag(text, boolean) from public, anon;
-revoke all on function public.admin_list_workspaces() from public, anon;
+revoke all on function public.admin_list_workspaces(text) from public, anon;
 revoke all on function public.admin_set_subscription(uuid, text, text, integer, text) from public, anon;
 grant execute on function public.admin_set_feature_flag(text, boolean) to authenticated;
-grant execute on function public.admin_list_workspaces() to authenticated;
+grant execute on function public.admin_list_workspaces(text) to authenticated;
 grant execute on function public.admin_set_subscription(uuid, text, text, integer, text) to authenticated;
 
 -- Least privilege (Milestone 9 audit): signed-in users read flags; changes go through admin_set_feature_flag.

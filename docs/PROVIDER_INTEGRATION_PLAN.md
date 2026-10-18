@@ -3,6 +3,10 @@
 Status: **plan for owner decision. Nothing here is activated.** Paid generation stays behind the locked
 `paid_generation` flag and the cost/provider gates already in the database.
 
+> Milestone 10 implemented this plan: provider research and selection in `AI_PROVIDERS.md`, the architecture,
+> safety rules and activation checklist in `AI_GENERATION.md`, costs and pricing in `AI_COSTS_AND_PRICING.md`.
+> The sections below remain the original criteria.
+
 ## 1. What already exists (reuse)
 - Provider contract `lib/generation/types.ts` (`ProviderAdapter`: capabilities, `estimate`, `submit`,
   `poll`, idempotent request keys), the free `MockProvider`, the cost estimator `lib/generation/cost.ts`

@@ -19,6 +19,7 @@ import { MetaGraphAdapter, MockFacebookAdapter, PublishError, type PublishingAda
 import { normalizeRules, planAutomationPost } from '../../lib/social/automation.ts';
 import type { MediaCandidate } from '../../lib/social/types.ts';
 import { createHealth, serveHealth } from './health.ts';
+import { registerWorker } from './lock.ts';
 
 const URL_ = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -48,6 +49,13 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 }) as typeof fetch;
 
 const db = createClient(URL_, KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+// Visible to test scripts (no orphan may silently take their jobs); test-named workers stay on local databases.
+try {
+  registerWorker('publisher', URL_, WORKER_ID);
+} catch (e) {
+  console.error(e instanceof Error ? e.message : e);
+  process.exit(2);
+}
 const rpc = (fn: string, args: Record<string, unknown>) => (db.rpc as unknown as (f: string, a: object) => Promise<{ data: unknown; error: { message: string } | null }>)(fn, args);
 
 interface Job {

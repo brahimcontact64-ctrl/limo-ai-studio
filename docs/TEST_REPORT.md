@@ -2,6 +2,47 @@
 
 Actual results only. Newest first.
 
+## 2026-10-18 — Milestone 10 (AI provider integration foundation), branch `rebuild/v1`
+Environment: local replica (production schema + 12 pending migrations), production build on :3200, render worker
+and publisher on the local stack. **No provider API key exists in this environment (checked by name), generation
+mode unset (= off): no live or paid provider call was made.** Real adapters are verified only against mocked HTTP.
+
+Pre-push verification of `a781322` (Part 3, before Milestone 10 code): clean tree; unit 118/118; worker 10/10
+(real 30.000 s MP4); SQL 4/4, 6/6, 20/20; 11 rollbacks clean; backend 221/221; render 72/72; publish 63/63; full
+browser suite on a fresh production build **51 passed, 1 skipped (mobile a11y by design), 0 failed** (21.9 min).
+Pushed fast-forward `1cd8c20..a781322` to `origin/rebuild/v1`; secret scan of the 5,717 published diff lines clean;
+no deployment triggered (Vercel latest deployment 2 days old, 0 GitHub deployments, 0 workflows).
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | **146/146** (+26 provider adapter/execution tests, +2 proposal tests) |
+| Provider contract tests (mocked HTTP) | `tests/unit/provider-adapters.test.ts` | 15/15: network guard; Claude request/JSON schema/refusal/429 retry-after/529/invented numbers/locked terms/story canon; Gemini image request/references/output/safety; Veo submit/poll/download/host and operation-name checks; ElevenLabs timestamps → cues; OpenAI moderation and whisper multipart |
+| Execution, registry, planner, artwork | `tests/unit/provider-execution.test.ts` | 11/11: prices unverified ⇒ blocked; cost per op; default-blocked gate; retries only for transient errors (refusal/disabled/auth/quota never retried); modes off/mock/live; planner keys, reuse across formats, 30 s, references; 18 × 3 / 14 sheets |
+| Worker | health + render tests | 10/10 |
+| Typecheck | app / worker | clean / clean |
+| SQL | gate / spec / video policy | 4/4 / 6/6 / 20/20 |
+| Migrations | all 12 re-applied in order (`psql -1`); #12 applied twice | clean (after the #4 fix below) |
+| Rollback | dry run of 12 scripts; #12 alone | clean |
+| Backend / render / publish e2e | `scripts/e2e-*.ts` | **224/224** (+3 admin search), **72/72**, **63/63** |
+| Generation e2e (mock providers) | `node scripts/e2e-generate.ts` | **24/24** |
+| Browser | `tests/e2e/ai-generation.spec.ts` (desktop + phone + Arabic) | 2/2 |
+| Browser, full suite (final build) | `npx playwright test` (desktop + Pixel 7, production build, render worker + publisher) | **53 passed, 1 skipped (mobile a11y by design), 0 failed** (21.6 min). Earlier runs during the milestone: 52/1 failed (upload hydration race, fixed in the product) and 52/1 failed (admin list cap, fixed in the product) |
+| Client bundle scan | `.next/static` for provider hosts, auth headers, key names, `@anthropic-ai` | none found |
+| Orphan-worker guard | start a worker, stop its shell task, run `e2e-render.ts` | the node process survived (orphan reproduced); the test refused to start and named the PID; after killing it the stale lock was cleaned automatically |
+
+Generation e2e covers: mode off/live-without-flag do nothing; test worker refuses a non-local database; other
+workspace cannot request or see; request reserves AI budget and **no video credit**; all stages complete in mock
+mode at $0; customer photo kept; generated image stored privately with provenance (mock label, operation key,
+prompt hash, scene); mock video honest (still, not animated); narration audio + subtitle cues; proposal not applied
+automatically; approved script and video settings untouched; decisions only for files of that run; applied image
+renders into a real 10 s MP4 with one credit; retry reuses earlier results (no new files); local settings restored.
+
+Defects found and fixed during Milestone 10: Veo operation-name check allowed `../` (now strict); usage reports
+contained unbilled units (strict pricing refused them; now only billed units are metered); the generator crashed
+on `.catch` of a Supabase RPC builder; `--once` exited before mock clips were polled; migration #4 narrowed the media
+kind list when re-run after #12 (constraint now created only when absent; production first-apply unchanged);
+"already generated" was shown as "busy". Character scenes were priced with the cheaper image model while the worker used the character model (planner now prices and records the character model; registry row for Gemini 3 Pro Image added, disabled and unverified). **Product fix:** the Assets library and Image Studio upload inputs now stay disabled until the page is interactive — a file chosen during hydration was silently lost (seen twice in the full suite: the desktop product-seller journey in M9 and the desktop Facebook post spec in the first Milestone 10 run, 52 passed / 1 failed / 1 skipped); tests now wait for the enabled input instead of a per-test workaround. **Product fix:** the admin workspace list was capped at the 500 newest workspaces with no way to find older ones (found when the local test data passed 500 workspaces and the admin test could no longer see its account); `admin_list_workspaces` now has a search (name, owner email, id; wildcards literal) and the page a search box — backend e2e +3 checks (224/224), admin spec updated.
+
 ## 2026-10-18 — V1 video duration and credit policy (before Milestone 10), branch `rebuild/v1`
 Environment: local replica (production schema + all 11 pending migrations incl. `20261018090000_limo_video_policy_v1`), production build on :3200, render worker and publisher against the local stack. Nothing applied to production.
 

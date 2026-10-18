@@ -14,10 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Access: app/admin/layout.tsx (admin + aal2) and admin_list_workspaces() (is_platform_admin_mfa). */
-export default async function AdminWorkspacesPage() {
+export default async function AdminWorkspacesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { t } = await getI18n();
+  const q = ((await searchParams).q ?? '').trim().slice(0, 200);
   const supabase = await getSupabaseServer();
-  const [{ data, error }, plans] = await Promise.all([callRpc<WorkspaceRow[]>(supabase, 'admin_list_workspaces'), getPlans()]);
+  const [{ data, error }, plans] = await Promise.all([callRpc<WorkspaceRow[]>(supabase, 'admin_list_workspaces', { p_search: q || null }), getPlans()]);
+  const rows = data ?? [];
   return (
     <div className="content-inner stack-lg">
       <div className="page-head" style={{ marginBottom: 0 }}>
@@ -28,10 +30,20 @@ export default async function AdminWorkspacesPage() {
         </div>
       </div>
       <AdminTabs />
+      <form method="get" className="row" role="search" aria-label={t.adminWs.search}>
+        <label className="sr-only" htmlFor="ws-search">
+          {t.adminWs.search}
+        </label>
+        <input id="ws-search" type="search" name="q" className="input" defaultValue={q} placeholder={t.adminWs.searchHint} maxLength={200} style={{ maxWidth: 360 }} />
+        <button type="submit" className="btn">
+          {t.adminWs.search}
+        </button>
+      </form>
+      {!error && rows.length >= 500 && <p className="small muted">{t.adminWs.limited}</p>}
       {error ? (
         <p className="callout callout-warning">{isMissingFunction(error) ? t.admin.unavailable : t.common.errorGeneric}</p>
       ) : (
-        <WorkspacesTable rows={data ?? []} plans={(plans ?? []).map((p) => ({ code: p.code, name: p.name }))} />
+        <WorkspacesTable rows={rows} plans={(plans ?? []).map((p) => ({ code: p.code, name: p.name }))} />
       )}
     </div>
   );

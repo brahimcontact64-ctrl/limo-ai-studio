@@ -18,9 +18,10 @@ Nothing in this document has been run against production.
 | 9 | `20261017200000_limo_video_render_v1` | M7 | additive: tables `video_settings`, `render_jobs`; export/cancel/retry/settings functions for users, claim/progress/complete/fail functions for the worker (service role only); usage ledger entries `render_reserved` / `render_refund` | 4 (`media_assets`, `workspace-assets`, `brand_kits`), 5 (`project_revisions`, script approval), 7 (`content_episodes`) |
 | 8 | `20261017180000_limo_image_studio_v1` | M6 | additive: tables `image_projects`, `image_revisions`, `image_exports`, `social_posts`; save/restore/approve/export/post functions | 4 (`media_assets` metadata, `workspace-assets`), 7 (`content_series`) |
 | 11 | `20261018090000_limo_video_policy_v1` | V1 policy | **behaviour change**: 30 s per video on every plan, one credit per completed video (reserved/consumed/released) instead of one slot per approved revision; identical exports de-duplicated; triggers on `render_jobs` (duration + consistent timeline) and `studio_projects` (approval ≤ 30 s); replaces `limo_charge_render`, `limo_settle_render_charge`, `enqueue_render_job`, `retry_render_job`, `complete_render_job` and the production functions `request_studio_generation` (30 s, no video credits), `fail_content_job`, `refund_generation_usage_once` (skip jobs that never reserved), `normalize_studio_project_slots` (1 credit) | 9 (`render_jobs`), production generation functions |
+| 12 | `20261018120000_limo_ai_generation_v1` | M10 | additive: `media_assets.provenance` + AI kinds (`ai_image`, `ai_video`, `ai_audio`), reuse index, table `generation_proposal_decisions` + `decide_generation_proposal`, read-only `generation_availability`; provider registry rows (Claude, Gemini image, Veo Fast/Lite) **disabled and unverified**; LIMO render/export rows become the (disabled) defaults instead of Shotstack | 11, production generation orchestration |
 | 6 | `20261017140000_limo_character_system_v1` | M4 | design specs (18 seeded as **proposed**), reference assets + review, workspace characters; **replaces `save_studio_project_v2`** (same signature, also accepts `custom:<uuid>` cast ids); **removes direct client writes on `characters`**; updates the `character-library` bucket limits and adds its policies | 3 (`is_platform_admin_mfa`), 4 (v2), 5 only by order |
 
-They must be applied **in this order** (dependencies above); #11 last.
+They must be applied **in this order** (dependencies above); #11 then #12 last.
 
 No migration approves a design spec or marks any character reference as approved. In production every character stays "Reference pending" until real artwork is uploaded and reviewed.
 
@@ -110,7 +111,22 @@ Rollback scripts are in `supabase/rollback/` (one per migration, newest first). 
 If a migration fails halfway: apply each file wrapped in `begin; … commit;` (as was done locally with `psql -1`) so a failure leaves the database at the previous migration. Fix the cause and re-run. The files use `if not exists` / `create or replace` and were re-applied locally without errors.
 
 ## 7. Decisions needed from the owner
-1. Approve applying migrations 1–11 (all, or up to a chosen number; order is fixed; #11 is the V1 video policy).
+1. Approve applying migrations 1–12 (all, or up to a chosen number; order is fixed; #11 is the V1 video policy, #12 the AI generation foundation).
 2. Confirm what the current production deployment uses (impact of #2).
 3. Backup retention and where the manual dump is stored.
 4. Timing: a low-traffic window. Expected duration is seconds (small tables).
+
+### Milestone 10 changes to unapplied files
+- #3 `admin_list_workspaces` takes an optional search (workspace name, owner email or id; `%`/`_` literal): the list is capped at the 500 newest workspaces and older ones could not be found otherwise. The old no-argument version is dropped first (no ambiguous overload); calls without arguments behave as before.
+- #4 creates `media_assets_kind_check` only when it is absent, so re-running #4 after #12 cannot narrow the kind list (first apply in production is unchanged).
+
+### Migration 12 (Milestone 10) — impact, privileges, verification, rollback
+- Data: none changed except that the new registry rows are inserted and the default render/export provider flips to
+  the internal LIMO rows (all disabled). Existing assets keep kind/provenance (provenance null).
+- Privileges: `generation_proposal_decisions` readable by workspace members, writes only via
+  `decide_generation_proposal` (can_edit_org, file must come from that run); `generation_availability` is read-only
+  for members. No new anon grants.
+- Verification (local): applied twice (idempotent); `scripts/e2e-generate.ts` (24 checks), browser
+  `ai-generation.spec.ts`, rollback dry run (12 scripts) and #12 alone.
+- Rollback (`supabase/rollback/20261018120000_down.sql`): drops the decision table and functions, relabels AI files to
+  `other` and drops provenance (files stay), removes the new registry rows and restores the Shotstack defaults.

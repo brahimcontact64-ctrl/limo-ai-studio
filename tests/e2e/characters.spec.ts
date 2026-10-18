@@ -29,7 +29,7 @@ async function uploadFixture(dialog: ReturnType<Page['getByRole']>, view: string
   await dialog.getByLabel('View', { exact: true }).selectOption(view);
   await dialog.getByLabel('Source', { exact: true }).selectOption('uploaded_artwork');
   await dialog.getByLabel('Source note').fill('E2E test fixture, not artwork');
-  await dialog.locator('input[type=file]').setInputFiles({ name: `${view}.png`, mimeType: 'image/png', buffer: PNG });
+  await dialog.locator('input[type=file]:enabled').setInputFiles({ name: `${view}.png`, mimeType: 'image/png', buffer: PNG });
   await dialog.getByRole('button', { name: 'Upload for review' }).click();
 }
 

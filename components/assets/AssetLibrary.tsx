@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
 import { formatBytes } from '@/lib/assets/files';
@@ -23,6 +23,9 @@ export function AssetLibrary({ organizationId, assets, canEdit }: { organization
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [removing, setRemoving] = useState<ClientAsset | null>(null);
   const [busy, setBusy] = useState(false);
+  // The file input stays disabled until the page is interactive: a file chosen before hydration would be lost silently.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => setInteractive(true), []);
 
   const kinds = useMemo(() => ['all', ...new Set(assets.map((x) => x.kind))], [assets]);
   const visible = filter === 'all' ? assets : assets.filter((x) => x.kind === filter);
@@ -84,7 +87,7 @@ export function AssetLibrary({ organizationId, assets, canEdit }: { organization
               multiple
               className="sr-only"
               accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/mp4,audio/wav,audio/webm"
-              disabled={Boolean(progress)}
+              disabled={!interactive || Boolean(progress)}
               onChange={(e) => {
                 void onFiles(e.target.files);
                 e.target.value = '';

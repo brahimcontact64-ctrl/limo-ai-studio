@@ -94,3 +94,10 @@ Templates in `supabase/templates/` link to `/auth/confirm` with `token_hash` (wo
 ## Provider contracts and worker health (Milestone 9)
 - `lib/providers/contracts.ts`: one `CapabilityAdapter` per provider × capability (text, story, image, character_image, video, voice, transcription, translation) with `estimateUsage` and `run` (measured usage + `Provenance`). Pure rules: `operationCost` (verified price sheets), `reservation`, `nextRetryDelay`, `chooseFallback`, `paidCallBlockers`, `validateRequest`. The stage-level `ProviderAdapter` (`lib/generation`) orchestrates these. Meta Graph stays in `lib/social/adapter.ts`.
 - `worker/src/health.ts`: optional `/livez` and `/healthz` for both workers; Docker HEALTHCHECK in both images. Deployment examples in `worker/deploy/`; plan in `docs/WORKER_HOSTING_PLAN.md`.
+
+## AI generation (Milestone 10)
+Web app → database only (`generation_availability`, `request_studio_generation`, `decide_generation_proposal`); no
+provider key in the web app. Generator worker (`worker/src/generator.ts`, service role) → provider adapters via the
+executor (`lib/providers/execute.ts`) → private storage with provenance → `complete_generation_stage`. Modes
+off/mock/live (`lib/providers/registry.ts`); network guard blocks provider hosts outside live mode. Details:
+AI_GENERATION.md.

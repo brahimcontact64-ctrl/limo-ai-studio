@@ -53,3 +53,11 @@ credit count, so reservation, consumption and refunds stay exact without changin
   lease takeover, cancel releases, real 30 s MP4, 31 s saved but not approvable/exportable, legacy 35 s export
   and over-limit retry refused, no credit left, ledger = balance.
 - Browser + HTTP API: `tests/e2e/video-policy.spec.ts` (desktop + phone, English + Arabic).
+
+## AI generation (Milestone 10)
+Implemented as specified in rules 7 and 2.3 of the owner's decision: AI runs reserve and settle an AI budget in
+cents (`request_studio_generation` → `reserve_ai_budget`) and never touch video credits (e2e: "requesting AI
+generation uses no video credit"). Footage is generated once per scene in 9:16 or 16:9 and reused for every export
+format (operation keys exclude the export aspect), so a 1:1 or 4:5 export never triggers a second paid generation;
+if a provider ever had to regenerate, it would be a new run that the customer sees estimated and confirms first.
+The planner and `generation_availability` refuse videos over 30 s. See AI_GENERATION.md.

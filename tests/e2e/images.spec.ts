@@ -71,7 +71,7 @@ test('product ad: mock layouts, layer editing, undo/redo, revisions, approval, r
   await page.getByLabel('Product name').fill('Glow Serum');
   await page.getByLabel('Price', { exact: true }).fill('2 400 DA');
   await page.getByLabel('Call to action').fill('Order now');
-  await page.getByTestId('photo-upload').setInputFiles({ name: 'serum.png', mimeType: 'image/png', buffer: await productPhoto(page) });
+  await page.locator('[data-testid=photo-upload]:enabled').setInputFiles({ name: 'serum.png', mimeType: 'image/png', buffer: await productPhoto(page) });
   await expect(page.getByTestId('picked-photos')).toContainText('serum.png');
 
   // 2. Mock variations: clearly labelled, built only from the user's own photo and text.

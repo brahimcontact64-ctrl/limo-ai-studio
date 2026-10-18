@@ -9,6 +9,7 @@ provisioned, no production secret was used. Config files: `worker/Dockerfile`, `
 |---|---|---|---|
 | Render worker | `node worker/src/index.ts` | FFmpeg/ffprobe (H.264 + AAC), Noto fonts (Latin + Arabic), `@napi-rs/canvas`, temp disk, outbound HTTPS to Supabase | Vercel functions (time limits, no FFmpeg, no persistent temp disk) |
 | Publisher | `node worker/src/publisher.ts` | outbound HTTPS to Supabase only (Facebook domains are blocked inside the process until live publishing is approved) | Vercel functions (it is a long-lived poller) |
+| AI generator (M10) | `node worker/src/generator.ts` | outbound HTTPS to Supabase and, only when live, to the AI providers; provider keys | Vercel functions (long provider calls and polling) |
 
 Both are stateless: all state (queue, leases, schedule, retries) is in the database, so any host can be
 replaced, restarted or scaled without losing work.
@@ -118,3 +119,10 @@ to compare with the video-credit price (one credit per finished video of up to 3
 - **W6** alerts from §8 connected and tested (stop a worker, see the alert).
 - **W7** smoke test: one render and one simulated publication in the production test workspace only.
 - **W8** live Facebook publishing stays off (separate approval: FACEBOOK_INFRASTRUCTURE.md).
+
+## 13. AI generator (Milestone 10)
+Image `worker/Dockerfile.generator` (no FFmpeg), compose service `generator` (example; `LIMO_GENERATION_MODE=off`
+by default — the process idles, claims nothing and calls no provider). Resources: 0.5 vCPU, 512 MB (it waits on
+providers; files up to 200 MB are streamed to storage). Secrets: provider keys only in this service's env file.
+Health `/livez` + `/healthz`. One process is enough for a pilot; video clips are asynchronous (task ids stored in
+the database), so a restart never resubmits. Gate: deploy only with the AI activation checklist (AI_GENERATION.md §5).

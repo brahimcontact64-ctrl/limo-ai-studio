@@ -22,6 +22,7 @@ import { renderSpec } from './render.ts';
 import { RenderError } from './ffmpeg.ts';
 import { checkSpecDuration } from '../../lib/video/policy.ts';
 import { createHealth, serveHealth } from './health.ts';
+import { registerWorker } from './lock.ts';
 
 const URL_ = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,6 +40,13 @@ const ONCE = process.argv.includes('--once');
 const BUCKET = 'workspace-assets';
 
 const db = createClient(URL_, KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+// Visible to test scripts (no orphan may silently take their jobs); test-named workers stay on local databases.
+try {
+  registerWorker('render', URL_, WORKER_ID);
+} catch (e) {
+  console.error(e instanceof Error ? e.message : e);
+  process.exit(2);
+}
 const rpc = (fn: string, args: Record<string, unknown>) => (db.rpc as unknown as (f: string, a: object) => Promise<{ data: unknown; error: { message: string } | null }>)(fn, args);
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), WORKER_ID, ...a);
 const health = createHealth(WORKER_ID, 'render');

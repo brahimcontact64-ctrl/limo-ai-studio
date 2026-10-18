@@ -813,3 +813,39 @@
 .spacer {
   flex: 1;
 }
+
+/* AI scene proposals (Milestone 10) */
+.ai-proposals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ai-proposal {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.ai-proposal.is-rejected {
+  opacity: 0.55;
+}
+.ai-proposal-media img,
+.ai-proposal-media video {
+  width: 96px;
+  aspect-ratio: 9 / 16;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--surface-2);
+  display: block;
+}
+.ai-proposal-media audio {
+  width: 96px;
+}
+@media (max-width: 520px) {
+  .ai-proposal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

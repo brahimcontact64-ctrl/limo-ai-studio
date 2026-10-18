@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
 import { emptyDoc } from '@/lib/images/doc';
@@ -50,6 +50,9 @@ export function NewImage({ organizationId, prefill, hasBrandLogo }: { organizati
   const router = useRouter();
   const id = useId();
   const fileRef = useRef<HTMLInputElement>(null);
+  // Disabled until the page is interactive: a file chosen before hydration would be lost silently.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => setInteractive(true), []);
   const [title, setTitle] = useState(prefill.title);
   const [purpose, setPurpose] = useState<ImagePurpose>(prefill.purpose);
   const [aspect, setAspect] = useState<Aspect>('1:1');
@@ -203,7 +206,7 @@ export function NewImage({ organizationId, prefill, hasBrandLogo }: { organizati
             <label className={`btn btn-sm${busy === 'upload' ? ' is-busy' : ''}`}>
               <Icon name="plus" />
               {busy === 'upload' ? t.common.loading : c.upload}
-              <input ref={fileRef} type="file" accept={UPLOAD_TYPES} className="sr-only" onChange={(e) => void upload(e.target.files)} disabled={busy !== null || photos.length >= 6} data-testid="photo-upload" />
+              <input ref={fileRef} type="file" accept={UPLOAD_TYPES} className="sr-only" onChange={(e) => void upload(e.target.files)} disabled={!interactive || busy !== null || photos.length >= 6} data-testid="photo-upload" />
             </label>
           </div>
           <label className="checkbox">

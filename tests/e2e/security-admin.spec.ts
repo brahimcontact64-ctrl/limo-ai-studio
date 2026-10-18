@@ -65,6 +65,10 @@ test('the admin passes the two-factor gate and changes a workspace plan (audited
   await expect(page.getByRole('table')).toHaveCount(0); // nothing leaks before the second factor
   await passAdminGate(page);
 
+  // The list shows the newest 500 workspaces; search finds any workspace by owner email.
+  await page.getByRole('searchbox', { name: 'Search workspaces' }).fill(USER!);
+  await page.getByRole('button', { name: 'Search workspaces' }).click();
+  await page.waitForURL(/\/admin\/workspaces\?q=/);
   const row = page.locator('tr', { hasText: USER! });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Manage plan' }).click();

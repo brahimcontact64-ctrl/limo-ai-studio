@@ -25,7 +25,7 @@ test('product ad without characters, with an uploaded photo', async ({ page }, i
   await test.step('upload a product photo', async () => {
     await page.goto('/app/assets');
     await page.getByLabel('Type').first().selectOption('product');
-    await page.locator('input[type=file]').setInputFiles({ name: 'serum.png', mimeType: 'image/png', buffer: PNG });
+    await page.locator('input[type=file]:enabled').setInputFiles({ name: 'serum.png', mimeType: 'image/png', buffer: PNG });
     await expect(page.getByText(/1 files? uploaded/)).toBeVisible();
     await expect(page.getByRole('img', { name: 'serum.png' })).toBeVisible();
   });

@@ -11,7 +11,7 @@ import { createServer, type Server } from 'node:http';
 
 export interface HealthState {
   worker: string;
-  kind: 'render' | 'publisher';
+  kind: 'render' | 'publisher' | 'generator';
   startedAt: number;
   lastTick: number;
   lastDbOk: number;

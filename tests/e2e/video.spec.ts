@@ -74,7 +74,7 @@ test('video export: timeline editing, approval, real MP4 rendering, progress, do
 
   // Real sample media in the library.
   await page.goto('/app/assets');
-  await page.locator('input[type=file]').setInputFiles(samples());
+  await page.locator('input[type=file]:enabled').setInputFiles(samples());
   await expect(page.getByText(/4 files? uploaded/)).toBeVisible({ timeout: 30_000 });
 
   // A character-free product ad (5 starter scenes).

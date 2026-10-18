@@ -258,7 +258,15 @@ async function adminHardeningChecks(A: Session, B: Session, ADMIN: Session) {
     return;
   }
   const rows = (probe.data as Array<{ id: string; owner_email: string | null; plan_code: string | null }> | null) ?? [];
-  check('admin lists workspaces with owner emails', !probe.error && rows.some((r) => r.id === A.orgId && !!r.owner_email), probe.error?.message);
+  check('admin lists the newest workspaces (at most 500)', !probe.error && rows.length > 0 && rows.length <= 500, probe.error?.message);
+  const aEmail = (await A.client.auth.getUser()).data.user?.email ?? '';
+  const found = await rpcFor(ADMIN)('admin_list_workspaces', { p_search: aEmail });
+  const fRows = (found.data as Array<{ id: string; owner_email: string | null }> | null) ?? [];
+  check('admin finds any workspace by owner email (search), with the owner email', !found.error && fRows.some((r) => r.id === A.orgId && r.owner_email === aEmail), found.error?.message);
+  const byId = await rpcFor(ADMIN)('admin_list_workspaces', { p_search: A.orgId.slice(0, 8) });
+  check('admin finds a workspace by the start of its id', ((byId.data as Array<{ id: string }> | null) ?? []).some((r) => r.id === A.orgId));
+  const wild = await rpcFor(ADMIN)('admin_list_workspaces', { p_search: '%' });
+  check('search treats % as a literal character (no match-all)', !wild.error && ((wild.data as unknown[] | null) ?? []).length < rows.length, [wild.error?.message, (wild.data as unknown[] | null)?.length, rows.length]);
   const custList = await rpcFor(B)('admin_list_workspaces', {});
   check('customers cannot list workspaces', !!custList.error);
 

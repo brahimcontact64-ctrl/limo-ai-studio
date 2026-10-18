@@ -48,7 +48,7 @@ test('Facebook post: Mock AI draft, editing, review, approval, scheduling, simul
 
   // A product photo and a simulated Page.
   await page.goto('/app/assets');
-  await page.locator('input[type=file]').setInputFiles({ name: 'chicken.png', mimeType: 'image/png', buffer: PNG });
+  await page.locator('input[type=file]:enabled').setInputFiles({ name: 'chicken.png', mimeType: 'image/png', buffer: PNG });
   await expect(page.getByText(/1 files? uploaded/)).toBeVisible();
   await page.goto('/app/social');
   await expect(page.getByRole('button', { name: 'Connect Facebook' })).toBeDisabled();

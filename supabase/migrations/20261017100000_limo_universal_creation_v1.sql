@@ -39,10 +39,16 @@ alter table public.media_assets add column if not exists height integer;
 alter table public.media_assets add column if not exists duration_ms integer;
 alter table public.media_assets add column if not exists label text;
 alter table public.media_assets add column if not exists created_by uuid;
-alter table public.media_assets drop constraint if exists media_assets_kind_check;
-alter table public.media_assets add constraint media_assets_kind_check check (
-  kind in ('product', 'logo', 'background', 'reference', 'photo', 'video', 'audio', 'render', 'design', 'other')
-);
+-- Created once (production has no kind constraint before this file). A later migration (20261018120000) widens the
+-- list; re-running this file must never narrow it again, so the constraint is only added when it is absent.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'media_assets_kind_check' and conrelid = 'public.media_assets'::regclass) then
+    alter table public.media_assets add constraint media_assets_kind_check check (
+      kind in ('product', 'logo', 'background', 'reference', 'photo', 'video', 'audio', 'render', 'design', 'other')
+    );
+  end if;
+end $$;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('workspace-assets', 'workspace-assets', false, 104857600,

@@ -37,3 +37,21 @@ services:
     mem_limit: 256m
     ports: ["127.0.0.1:18082:8080"]
     logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+  # AI generator (Milestone 10). OFF by default: with LIMO_GENERATION_MODE unset or "off" the process exits at once.
+  # Live mode needs LIMO_GENERATION_MODE=live, LIMO_ENABLE_PAID_GENERATION=true, provider keys in the env file
+  # (ANTHROPIC_API_KEY, GEMINI_API_KEY, ELEVENLABS_API_KEY, OPENAI_API_KEY) and the owner's activation in the database.
+  generator:
+    image: limo-generator:<git-sha>
+    build: { context: .., dockerfile: worker/Dockerfile.generator }
+    env_file: /etc/limo/worker.env
+    environment:
+      WORKER_ID: generator-1
+      POLL_MS: "3000"
+      LIMO_GENERATION_MODE: "off"
+    restart: unless-stopped
+    stop_grace_period: 130s
+    cpus: "0.5"
+    mem_limit: 512m
+    ports: ["127.0.0.1:18083:8080"]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }

@@ -12,7 +12,7 @@
 
 import { VIDEO_POLICY, withinVideoLimit } from '../video/policy.ts';
 
-export const CAPABILITIES = ['text', 'story', 'image', 'character_image', 'video', 'voice', 'transcription', 'translation'] as const;
+export const CAPABILITIES = ['text', 'story', 'image', 'character_image', 'video', 'voice', 'transcription', 'translation', 'safety'] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 export type Locale = 'en' | 'fr' | 'ar' | 'de';
 
@@ -70,6 +70,8 @@ export interface PriceSheet {
   source: string;
   verifiedAt: string | null;
   verifiedBy: string | null;
+  /** Date the price was copied from the official page (research), before the owner's verification. */
+  researchedAt?: string;
 }
 
 export class PriceSheetError extends Error {
@@ -123,7 +125,8 @@ export function estimateTokens(text: string, locale: Locale = 'en'): number {
 // Errors, timeouts, retries, fallback
 // ---------------------------------------------------------------------------------------------------
 
-export type ProviderErrorCode = 'rate_limited' | 'timeout' | 'unavailable' | 'quota_exceeded' | 'content_refused' | 'invalid_request' | 'auth' | 'unknown';
+/** `disabled`: the adapter or the network is switched off (never retried, never sent to another provider). */
+export type ProviderErrorCode = 'rate_limited' | 'timeout' | 'unavailable' | 'quota_exceeded' | 'content_refused' | 'invalid_request' | 'auth' | 'disabled' | 'unknown';
 
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;
@@ -161,6 +164,7 @@ export const DEFAULT_RETRY: Record<Capability, RetryPolicy & { pollDeadlineMs?: 
   text: { timeoutMs: 60_000, maxAttempts: 3, baseDelayMs: 2_000, maxDelayMs: 30_000 },
   story: { timeoutMs: 90_000, maxAttempts: 3, baseDelayMs: 2_000, maxDelayMs: 30_000 },
   translation: { timeoutMs: 60_000, maxAttempts: 3, baseDelayMs: 2_000, maxDelayMs: 30_000 },
+  safety: { timeoutMs: 30_000, maxAttempts: 3, baseDelayMs: 2_000, maxDelayMs: 30_000 },
   image: { timeoutMs: 120_000, maxAttempts: 2, baseDelayMs: 5_000, maxDelayMs: 60_000 },
   character_image: { timeoutMs: 120_000, maxAttempts: 2, baseDelayMs: 5_000, maxDelayMs: 60_000 },
   voice: { timeoutMs: 120_000, maxAttempts: 3, baseDelayMs: 3_000, maxDelayMs: 60_000 },
@@ -195,7 +199,7 @@ export interface ProviderOption {
  * provider whose estimate exceeds the approved cap.
  */
 export function chooseFallback(chain: ProviderOption[], failed: string, code: ProviderErrorCode, approvedCapCents: number): ProviderOption | null {
-  if (code === 'content_refused' || code === 'invalid_request') return null;
+  if (code === 'content_refused' || code === 'invalid_request' || code === 'disabled') return null;
   for (const o of chain) {
     if (o.code === failed || !o.enabled || o.circuitOpen) continue;
     if (o.paid && (o.estimateCents === null || o.estimateCents > approvedCapCents)) continue;
@@ -226,10 +230,15 @@ export interface Provenance {
   costMicros: number | null;
   currency: PriceSheet['currency'] | null;
   /** Always disclosed in the UI and in exported metadata. */
-  aiGenerated: true;
+  /** True for real provider output (disclosed in the UI and in exports); false for mock placeholders. */
+  aiGenerated: boolean;
   /** C2PA / SynthID or similar marker reported by the provider, when present. */
   contentCredentials: string | null;
   mock: boolean;
+  /** Provider's own request/operation id, for support and reconciliation. */
+  providerRequestId?: string | null;
+  /** Voice used (voice provenance: the same voice per character keeps series consistent). */
+  voiceId?: string;
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -294,7 +303,7 @@ interface Base {
 
 export interface TextRequest extends Base {
   kind: 'text';
-  task: 'script_draft' | 'rewrite' | 'post_caption' | 'safety_review';
+  task: 'script_draft' | 'rewrite' | 'post_caption' | 'safety_review' | 'scene_prompts';
   instructions: string;
   /** User-entered facts: the model may phrase them but must not add facts (prices, claims, offers). */
   facts: Record<string, string>;
@@ -366,13 +375,26 @@ export interface TranslationRequest extends Base {
   lockedTerms: string[];
 }
 
-export type CapabilityRequest = TextRequest | StoryRequest | ImageRequest | CharacterImageRequest | VideoRequest | VoiceRequest | TranscriptionRequest | TranslationRequest;
+/** Safety pre-check of the text and images a generation will use (moderation provider). */
+export interface SafetyRequest extends Base {
+  kind: 'safety';
+  text: string;
+  imageAssetIds: string[];
+}
+
+export type CapabilityRequest = TextRequest | StoryRequest | ImageRequest | CharacterImageRequest | VideoRequest | VoiceRequest | TranscriptionRequest | TranslationRequest | SafetyRequest;
 
 export interface CapabilityResult {
-  /** Text output, or storage paths of produced files (uploaded by the adapter into workspace-assets). */
+  /** Text output (raw), and the parsed structured output when the task asked for JSON. */
   text?: string;
+  json?: Record<string, unknown>;
+  /** Produced files; the worker stores them in private storage with their provenance (adapters never upload). */
+  files?: Array<{ bytes: Uint8Array; mime: string; role: 'image' | 'video' | 'audio' }>;
+  /** Storage paths after the worker stored `files`. */
   assetPaths?: string[];
   subtitles?: Array<{ startMs: number; endMs: number; text: string }>;
+  /** Validation findings (e.g. invented_facts, locked_term_changed): the result needs review before it is applied. */
+  issues?: Array<{ code: string; detail: string }>;
   usage: Usage;
   provenance: Provenance;
 }
@@ -389,6 +411,24 @@ export interface CapabilityAdapter<R extends CapabilityRequest = CapabilityReque
   /** Runs the call. Must honour `signal`, use `req.requestKey` as the provider's idempotency key where supported,
    *  and report the provider's measured usage (not the estimate). */
   run(req: R, signal: AbortSignal): Promise<CapabilityResult>;
+}
+
+export type PollOutcome = { status: 'running' } | { status: 'succeeded'; outputRef: string } | { status: 'failed'; error: ProviderError };
+
+/**
+ * Asynchronous providers (video): submit returns the provider's task id, which the worker stores
+ * (attach_generation_provider_task) before polling, so a restart never submits — or pays for — the same clip twice.
+ */
+export interface AsyncCapabilityAdapter<R extends CapabilityRequest = CapabilityRequest> {
+  readonly provider: string;
+  readonly model: string;
+  readonly capability: R['kind'];
+  readonly paid: boolean;
+  readonly locales: Locale[];
+  estimateUsage(req: R): Usage;
+  submit(req: R, signal: AbortSignal): Promise<{ taskId: string; pollAfterMs: number; plan: Record<string, string | number> }>;
+  poll(taskId: string, signal: AbortSignal): Promise<PollOutcome>;
+  fetchResult(req: R, outputRef: string, plan: Record<string, string | number>, signal: AbortSignal): Promise<CapabilityResult>;
 }
 
 /** Structural checks done before estimating (cheap, provider-independent). */

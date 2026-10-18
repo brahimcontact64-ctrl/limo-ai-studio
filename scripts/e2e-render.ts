@@ -16,6 +16,7 @@
  *      E2E_A_EMAIL/E2E_A_PASSWORD, E2E_B_EMAIL/E2E_B_PASSWORD, RENDER_OUT (optional: keep the MP4s)
  * Usage: node scripts/e2e-render.ts
  */
+import { assertNoForeignWorkers } from '../worker/src/lock.ts';
 import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -153,6 +154,8 @@ async function job(s: Session, id: string) {
 const key = (tag: string) => `e2e-${tag}-${crypto.randomUUID().slice(0, 8)}`;
 
 async function main() {
+  // Leftover workers (e.g. orphans after stopping a shell on Windows) would take this test's jobs.
+  assertNoForeignWorkers(URL_, ['render', 'generator']);
   const A = await signIn(env('E2E_A_EMAIL'), env('E2E_A_PASSWORD'));
   const B = await signIn(env('E2E_B_EMAIL'), env('E2E_B_PASSWORD'));
   console.log('\nReal MP4 rendering (migration 20261017200000 + render worker)');
