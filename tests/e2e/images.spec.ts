@@ -173,7 +173,7 @@ test('product ad: mock layouts, layer editing, undo/redo, revisions, approval, r
   await page.getByRole('button', { name: 'Save draft' }).click();
   await page.waitForURL(/\/app\/posts\/[0-9a-f-]{36}$/);
   const postUrl = page.url();
-  await expect(page.getByTestId('post-issues')).toContainText('Attach an image.');
+  await expect(page.getByTestId('post-issues')).toContainText('Choose an image.');
   await expect(page.getByRole('button', { name: 'Approve post' })).toBeDisabled();
   await page.getByRole('button', { name: `Attach: Serum ad ${info.project.name}` }).click();
   await expect(page.getByTestId('post-preview').locator('img')).toBeVisible();

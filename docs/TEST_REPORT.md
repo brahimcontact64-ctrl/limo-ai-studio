@@ -2,6 +2,32 @@
 
 Actual results only. Newest first.
 
+## 2026-10-18 — Milestone 8 (Facebook composer, approval, scheduling, safe automation), branch `rebuild/v1`
+Environment: local Supabase replica (production schema dump + pending migrations through `20261017220000`) on ports 564xx; app as a production build on :3200; render worker and publisher (`worker/src/publisher.ts`, MOCK Facebook adapter) running against the local stack with the local service role only. No Facebook request was made: the publisher's network guard reported `blocked facebook calls: 0` on every run and only simulated Pages exist.
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | 103/103 pass (8 new: facts-only composer with blocking placeholders, request instructions not taken as subject, four languages + Arabic, time-zone conversion/DST/weekly slots, automation rules and planning, mock adapter without network + idempotency, Graph error normalization, live adapter refusal, webhook signature/handshake) |
+| Rendering (no database) | `node --test worker/test/render.test.ts` | 6/6 pass |
+| Publishing end to end (database + real publisher) | `node scripts/e2e-publish.ts` (local only) | **63/63 pass** (stable on repeated runs) |
+| Rendering end to end (regression) | `node scripts/e2e-render.ts` (local only) | 55/55 pass |
+| Type check / build | `npm run typecheck`, `npx tsc -p worker`, `npm run build` | pass |
+| Backend e2e | `node scripts/e2e-backend.ts` | 221/221 pass (Milestone 6 social post checks unchanged on the new functions) |
+| Generation gate / spec approval (SQL, rolled back) | `scripts/sql/*.sql` | 4/4, 6/6 |
+| Rollback dry run | `scripts/sql/rollback-dry-run.sh` | all 10 rollbacks pass; the Milestone 8 rollback alone restores the Milestone 6 functions; database unchanged afterwards |
+| Migration re-apply | `psql -1 < 20261017220000_…` three times | clean |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7) | **42/42 pass (2 new: Facebook composer → simulated publishing on desktop and Pixel 7)** |
+
+Publishing end-to-end coverage: drafts and revisions (created/manual/approval); foreign images refused; `[placeholders]` block approval; review request and rejection with a note; stale saves refused; another workspace cannot approve, read posts or revisions, cancel, pause, retry or see jobs; approved posts locked; scheduling needs a connected Page of the workspace, a future time and a valid IANA time zone; the stored instant matches the wall-clock time in Africa/Algiers; one post credit reserved; scheduling twice refused and the database rejects a second live job (unique index); customers cannot insert jobs, call worker functions or read the test-only failure-injection column; a scheduled post is not published early and survives publisher restarts (published by a new process); the simulated publication is recorded once with the approved text; full audit trail; two concurrent schedule requests → exactly one; cancellation withdraws the job and refunds the credit; rate-limit errors retried with back-off then published, each retry audited; content rejection fails at once with explanation and refund, then the post can be edited again; a publisher that dies after publishing is taken over without a duplicate publication (idempotency key); an expired connection fails with "reconnect required" and blocks new scheduling; emergency pause holds queued posts and refuses scheduling, resume publishes; removing a design's approval or the video's script approval withdraws scheduled posts (refunded) and blocks re-approval; a real (non-simulated) Page cannot be scheduled while live publishing is off and even a forced live job is refused without a Graph call; automation is off by default (platform flag), needs explicit confirmation of the exact version by an owner/admin of the workspace, creates one post from an approved design without invented facts, schedules it at a policy slot, audits the policy version; editing rules creates a new version and de-authorises; revoking withdraws its scheduled post and cannot be re-authorised; customers and the platform admin cannot call the Vault token functions; the admin cannot read workspace posts; signed-out users see nothing.
+
+Browser coverage (desktop + Pixel 7): simulated Page added (real "Connect Facebook" disabled, automation unavailable notice); product brief → "Create post" prefilled with the brief's facts; Mock AI drafts with the missing price shown as a blocking `[Price]`; adding the price and regenerating; accepting a proposal does not tick fields the customer edited ("replaces your text"); paragraph rewrite rejected and tone change accepted; library image; preview labelled simulated; save; review → reject with note → approve (locked); revisions show the accepted AI suggestion and the approval; schedule in Africa/Algiers 2 minutes ahead → time passes → the running publisher publishes to the simulated Page ("Nothing was posted on Facebook", payload `published: false`, `simulated: true`); planner list and calendar; emergency stop disables scheduling, resume and "Publish now"; another workspace gets HTTP 404 and refused actions; Arabic RTL composer with Arabic Mock AI drafts and the Arabic missing-price placeholder, no horizontal overflow.
+
+Fixed during verification:
+- Workflow actions refreshed the page and remounted the composer, closing a dialog opened right after (same class of bug as in Milestone 6); state is now applied in place (restore still refreshes).
+- On phones a checkbox could scroll under the sticky top bar (`scroll-padding-top` added) and callouts used as small forms laid their content out in two columns (now one column).
+- The Mock AI composer took the request's own instructions ("… with the price and customer reviews") as the subject and produced hashtags like #with/#price; the instructions are now cut and filler words skipped (regression test).
+- Test timing: the schedule picker works in minutes, so "now + 20 s" is due at once; the test schedules minutes ahead and simulates time passing instead.
+
 ## 2026-10-17 — Milestone 7 (video assembly, rendering and MP4 export), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + pending migrations through `20261017200000`) on ports 564xx; app as a production build (`next build` + `next start` on :3200); render worker `node worker/src/index.ts` with the bundled static FFmpeg 6.0 (libx264, AAC), service role from the local stack only. Real playback checked in Google Chrome (H.264/AAC).
 

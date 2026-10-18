@@ -44,3 +44,15 @@ built or deployed as part of Milestone 7; the worker was verified locally with t
 It assembles the customer's own pictures, clips and audio with the approved script's text. It does
 not generate footage, animate characters or synthesize voices (those need real providers, later
 milestones). Exports say so in their notes.
+
+## Publisher (Milestone 8)
+`node worker/src/publisher.ts` is a second long-lived process (same package, same env) that publishes
+scheduled social posts and runs controlled automation:
+- claims due `publish_jobs` (lease + heartbeat; a dead publisher's job is taken over, and the
+  idempotency key prevents a second publication), skips paused workspaces and Pages over their hourly limit;
+- publishes through `lib/social/adapter.ts`: the MOCK adapter records the publication in the database
+  (simulated Pages); the Meta Graph adapter refuses while `facebook_live_publishing` is off;
+- retries temporary errors with back-off, fails permanent ones with a reason, marks expired connections;
+- blocks every network request to Facebook domains (logged as `blocked facebook calls`);
+- plans automation posts for ACTIVE, authorised policies (`auto_publishing` flag must be on).
+Env: `LEASE_SECONDS` (60), `POLL_MS` (2000), `AUTOMATION_EVERY_MS` (60000); `--once` exits when nothing is due.

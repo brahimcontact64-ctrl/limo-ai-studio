@@ -7,6 +7,7 @@ DB="${1:?local database container name}"
 DIR="$(cd "$(dirname "$0")/../../supabase/rollback" && pwd)"
 {
   echo "begin;"
+  cat "$DIR/20261017220000_down.sql"
   cat "$DIR/20261017200000_down.sql"
   cat "$DIR/20261017180000_down.sql"
   cat "$DIR/20261017160000_down.sql"
@@ -25,6 +26,9 @@ select 'ROLLBACK-CHECK ' || string_agg(name || '=' || present::text, ' ' order b
   union all select 'rate_limit_hits', to_regclass('public.rate_limit_hits') is not null
   union all select 'character_design_specs', to_regclass('public.character_design_specs') is not null
   union all select 'character_reference_assets', to_regclass('public.character_reference_assets') is not null
+  union all select 'publish_jobs', to_regclass('public.publish_jobs') is not null
+  union all select 'automation_policies', to_regclass('public.automation_policies') is not null
+  union all select 'schedule_social_post', exists (select 1 from pg_proc where proname = 'schedule_social_post')
   union all select 'render_jobs', to_regclass('public.render_jobs') is not null
   union all select 'enqueue_render_job', exists (select 1 from pg_proc where proname = 'enqueue_render_job')
   union all select 'image_projects', to_regclass('public.image_projects') is not null

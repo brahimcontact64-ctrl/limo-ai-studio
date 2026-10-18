@@ -152,3 +152,8 @@ ol {
     scroll-behavior: auto !important;
   }
 }
+
+/* Anything scrolled into view (focus, anchors) stays clear of the sticky top bar. */
+html {
+  scroll-padding-top: calc(var(--topbar-h, 64px) + 12px);
+}

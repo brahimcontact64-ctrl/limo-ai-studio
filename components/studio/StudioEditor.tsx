@@ -354,6 +354,12 @@ export function StudioEditor({ initialDraft, status, updatedAt, catalogs, canEdi
               <span className="hide-xs">{t.images.projectButton}</span>
             </Link>
           )}
+          {draft.id && canEdit && IMAGE_MODES.includes(draft.creation_mode) && (
+            <Link className="btn btn-ghost btn-sm" href={`/app/posts/new?project=${draft.id}`} prefetch={false} data-testid="project-create-post">
+              <Icon name="share" />
+              <span className="hide-xs">{t.social.projectButton}</span>
+            </Link>
+          )}
           {draft.id && <ProjectMenu projectId={draft.id} title={draft.title} status={status} canEdit={canEdit} draft={draft} dirty={dirty} />}
           {editable && !locked && (
             <button type="button" className="btn btn-primary" onClick={() => void save('manual')} disabled={saving || conflict || (!dirty && Boolean(draft.id))} title={t.studio.saveShortcut}>

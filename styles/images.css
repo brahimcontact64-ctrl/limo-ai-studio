@@ -596,3 +596,165 @@
   border-radius: var(--r-md);
   background: #000;
 }
+
+/* ---------- Facebook composer and planner (Milestone 8) ---------- */
+.pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.clamp-3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.chip-sm {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+}
+.chip-x {
+  margin-inline-start: 4px;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.status-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+}
+.status-track li {
+  padding: 4px 10px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.status-track li.done {
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+}
+.status-track li.current {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.proposal-list {
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.proposal {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.proposal p {
+  margin: 0;
+}
+.paragraph-tools {
+  padding: var(--sp-3);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+}
+.diff-pair {
+  display: grid;
+  gap: var(--sp-2);
+}
+.diff-pair p {
+  margin: 0;
+}
+.fb-headline {
+  padding-bottom: 0;
+  font-weight: 800;
+}
+.fb-cta {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.video-option {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 180px;
+  border-radius: var(--r-sm);
+  background: #000;
+  object-fit: contain;
+}
+.page-row {
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.calendar-head {
+  padding: 4px;
+  text-align: center;
+}
+.calendar-cell {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-height: 84px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  min-width: 0;
+}
+.calendar-cell.empty {
+  border-style: dashed;
+  background: transparent;
+}
+.calendar-item {
+  display: block;
+  overflow: hidden;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: var(--accent-soft-strong);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar-item.published {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.calendar-item.failed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+@media (max-width: 640px) {
+  .calendar-cell {
+    min-height: 56px;
+  }
+  .calendar-item {
+    font-size: 10px;
+  }
+}
+/* Callouts used as small forms (choices, notes, confirmations) stack their content in one column. */
+.callout.stack-sm,
+.callout.stack {
+  grid-template-columns: minmax(0, 1fr);
+}

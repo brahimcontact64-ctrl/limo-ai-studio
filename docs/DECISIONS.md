@@ -5,6 +5,7 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 ## Owner decisions
 | Date | Decision |
 |---|---|
+| 2026-10-18 | Milestone 7 accepted for continued development; secure push of `3b26d67` authorized and done. Milestone 8 requested: Facebook AI composer, approval, scheduling and safe automation with mock publishing only; no Meta tokens, no real Pages; Milestone 8 must not be pushed without approval; then prepare the real-provider integration plan without activating anything. |
 | 2026-10-17 | Milestone 6 accepted for continued development; secure push of `20583e1` authorized and done. Milestone 7 (real video assembly, rendering and MP4 export) requested: background worker, approved script revision, real verified MP4s, no paid providers; Milestone 7 must not be pushed without approval. |
 | 2026-10-17 | Milestone 5 accepted for continued development; secure push of the four Milestone 5 commits authorized and done (`eb441b2`). Milestone 6 (Image Studio and social post editor) requested: mock generation clearly labelled, no invented product facts, nothing published, characters not approved; Milestone 6 must not be pushed without approval. |
 | 2026-10-17 | Milestone 4 accepted as a technical foundation only; the 18 characters are not visually complete or approved. Secure push of the Milestone 4 commits authorized and done (full-history secret scan clean). Milestone 5 (Story Engine) requested; Milestone 5 commits must not be pushed without approval. |
@@ -29,6 +30,10 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - Paid AI providers, real Facebook/Meta integration, production promotion.
 
 ## Technical decisions
+- **Publishing is a database state machine with a durable queue** (`publish_jobs`): one live job per post (unique index), idempotency key per approved content version, lease takeover and retries in the publisher. A scheduled post survives any process restart because only the database holds the schedule.
+- **AI never publishes on its own**: approval is a person, or an explicitly authorised, versioned automation policy (owner/admin, platform flag on). Posts with missing facts always wait for review.
+- **Simulated Pages instead of fake Facebook calls**: the mock adapter records publications in the database and the publisher blocks Facebook hosts at the network level.
+- **The web app holds no service-role key**; Facebook webhooks are verified but not processed until a reviewed server-side processor exists.
 - **Render jobs freeze the approved timeline in the database** (`spec` built by `enqueue_render_job` from the approved revision); the browser only chooses presentation (format, music, transitions, per-scene media), validated against the workspace's own files.
 - **Rendering runs in a dedicated worker with a lease/heartbeat queue** on Postgres (no extra paid queue service). FFmpeg for video, the Image Studio renderer for text overlays (proper Arabic shaping).
 - **One video slot per approved script revision**: extra formats of the same approved version are free; the slot is refunded when every render of that version fails or is cancelled.
