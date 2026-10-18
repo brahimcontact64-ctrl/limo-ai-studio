@@ -11,6 +11,7 @@ import { RelativeTime } from '@/components/ui/RelativeTime';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/Toast';
 import { useWorkspaceAssets } from './SceneAssets';
+import { LIMITS } from '@/lib/studio/limits';
 
 interface Job {
   id: string;
@@ -246,11 +247,11 @@ export function VideoStep({
                           className="input input-sm ltr dur-input"
                           type="number"
                           min={1}
-                          max={120}
+                          max={LIMITS.sceneDurationMax}
                           value={s.duration_seconds}
                           aria-label={fmt(v.durationOf, { n })}
                           onChange={(e) => {
-                            const val = Math.max(1, Math.min(120, Math.round(Number(e.target.value) || 1)));
+                            const val = Math.max(LIMITS.sceneDurationMin, Math.min(LIMITS.sceneDurationMax, Math.round(Number(e.target.value) || 1)));
                             setDraft((dr) => ({ ...dr, scenes: dr.scenes.map((x, k) => (k === i ? { ...x, duration_seconds: val } : x)) }));
                           }}
                         />

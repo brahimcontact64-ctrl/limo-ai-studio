@@ -33,10 +33,10 @@ export default async function CharactersPage({ searchParams }: { searchParams: P
         </span>
       </div>
       <nav className="tabs admin-tabs" aria-label={t.characters.title} style={{ marginBottom: 24 }}>
-        <Link className="tab" href="/app/characters" aria-selected={tab === 'library'} aria-current={tab === 'library' ? 'page' : undefined}>
+        <Link className="tab" href="/app/characters" aria-current={tab === 'library' ? 'page' : undefined}>
           {t.characters.title}
         </Link>
-        <Link className="tab" href="/app/characters?tab=custom" aria-selected={tab === 'custom'} aria-current={tab === 'custom' ? 'page' : undefined}>
+        <Link className="tab" href="/app/characters?tab=custom" aria-current={tab === 'custom' ? 'page' : undefined}>
           {t.characters.custom.title}
         </Link>
       </nav>

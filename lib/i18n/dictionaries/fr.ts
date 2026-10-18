@@ -157,7 +157,7 @@ const fr: Dictionary = {
       { q: 'Puis-je générer des vidéos dès aujourd’hui ?', a: 'Le studio de planification, de casting et d’écriture est disponible dès maintenant. La génération IA est activée espace par espace, une fois les tarifs et budgets des fournisseurs vérifiés. Vous verrez toujours l’usage estimé avant de confirmer.' },
       { q: 'Comment les personnages restent-ils cohérents ?', a: 'Chacun des 18 personnages possède un identifiant stable et une description visuelle. Chaque prompt de scène les inclut, et la génération est suspendue pour les personnages dont l’image de référence canonique n’a pas été validée.' },
       { q: 'Quelles langues sont prises en charge ?', a: 'Les projets peuvent être produits en arabe, français, anglais et allemand. L’interface est disponible dans ces quatre langues, avec une prise en charge complète de l’écriture de droite à gauche pour l’arabe.' },
-      { q: 'Quelles limites s’appliquent à un projet ?', a: 'Un projet compte de 1 à 18 personnages et de 1 à 25 scènes. Chaque scène dure de 1 à 15 secondes dans la version actuelle.' },
+      { q: 'Quelles limites s’appliquent à un projet ?', a: 'Les projets d’histoire comptent de 1 à 18 personnages ; les projets produit, entreprise et autres peuvent n’en avoir aucun. Un projet compte de 1 à 25 scènes, chacune de 1 à 15 secondes dans la version actuelle.' },
       { q: 'Qui peut voir mes projets ?', a: 'Uniquement les membres de votre espace. Les données sont isolées par espace grâce à la sécurité au niveau des lignes appliquée par la base de données.' },
       { q: 'Comment payer ?', a: 'Pendant le lancement, les offres sont activées après vérification manuelle de votre paiement. Contactez-nous depuis votre espace pour commencer.' },
     ],

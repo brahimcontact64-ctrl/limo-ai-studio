@@ -60,3 +60,7 @@ Approved product and technical decisions, newest first. Owner = project owner. "
 - **Mock providers are visibly labelled** ("Mock AI", "Simulated publish") and never presented as real output.
 - **Heavy rendering runs in a separate worker process** (FFmpeg), never inside a Vercel request. Outputs are stored in private Storage and downloaded through short-lived signed URLs.
 - **Reuse before adding:** `content_series`/`content_episodes`, `media_assets`, `characters`, `social_connections`/`facebook_pages` and vault-backed token storage are extended rather than duplicated.
+- **Unknown prices block paid calls** (Milestone 9): cost per operation is computed only from an owner-verified price sheet (≤ 30 days old); a missing price throws instead of counting as free. No price is hard-coded or assumed in the repository.
+- **No fallback around a safety refusal or across identity** (Milestone 9): a provider's content refusal never triggers another provider; character images and series voices do not fall back to providers not tested against the approved references/voice.
+- **Workers expose health only on request** (`HEALTH_PORT`), bound to localhost by default, counters only — no job contents or secrets.
+- **Accessibility is a gate** (Milestone 9): the axe scan fails the browser suite on serious/critical violations in English and Arabic.

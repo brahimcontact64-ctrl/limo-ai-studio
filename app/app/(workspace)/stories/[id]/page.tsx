@@ -62,7 +62,7 @@ export default async function SeriesPage({ params, searchParams }: { params: Pro
       </div>
       <nav className="tabs admin-tabs" aria-label={series.title}>
         {TABS.map((k) => (
-          <Link key={k} className="tab" href={`/app/stories/${id}?tab=${k}`} aria-selected={tab === k} aria-current={tab === k ? 'page' : undefined}>
+          <Link key={k} className="tab" href={`/app/stories/${id}?tab=${k}`} aria-current={tab === k ? 'page' : undefined}>
             {s.tabs[k]}
           </Link>
         ))}

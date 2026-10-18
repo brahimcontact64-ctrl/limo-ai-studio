@@ -10,13 +10,15 @@
  * real Graph API from this process.
  *
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, WORKER_ID, LEASE_SECONDS (60), POLL_MS (2000),
- *      AUTOMATION_EVERY_MS (60000). Flags: --once (process due jobs and automation once, then exit).
+ *      AUTOMATION_EVERY_MS (60000), HEALTH_PORT / HEALTH_HOST / HEALTH_STALE_MS (optional /livez and
+ *      /healthz, see health.ts). Flags: --once (process due jobs and automation once, then exit).
  */
 import { hostname } from 'node:os';
 import { createClient } from '@supabase/supabase-js';
 import { MetaGraphAdapter, MockFacebookAdapter, PublishError, type PublishingAdapter } from '../../lib/social/adapter.ts';
 import { normalizeRules, planAutomationPost } from '../../lib/social/automation.ts';
 import type { MediaCandidate } from '../../lib/social/types.ts';
+import { createHealth, serveHealth } from './health.ts';
 
 const URL_ = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -30,6 +32,8 @@ const POLL = Number(process.env.POLL_MS || 2000);
 const AUTOMATION_EVERY = Number(process.env.AUTOMATION_EVERY_MS || 60_000);
 const ONCE = process.argv.includes('--once');
 const log = (...a: unknown[]) => console.log(new Date().toISOString(), WORKER_ID, ...a);
+const health = createHealth(WORKER_ID, 'publisher');
+const HEALTH_STALE = Number(process.env.HEALTH_STALE_MS || Math.max(60_000, LEASE * 2000));
 
 // Network guard: no request to Facebook can leave this process in Milestone 8.
 let blockedFacebookCalls = 0;
@@ -65,10 +69,12 @@ async function liveEnabled() {
 async function processJob(job: Job) {
   let lost = false;
   const beat = async () => {
-    const { data } = await rpc('report_publish_heartbeat', { p_job_id: job.id, p_worker_id: WORKER_ID });
+    const { data, error } = await rpc('report_publish_heartbeat', { p_job_id: job.id, p_worker_id: WORKER_ID });
+    health.db(error);
     if (data === 'lost') lost = true;
   };
   const heart = setInterval(() => void beat(), Math.max(3000, (LEASE * 1000) / 6));
+  health.busy(true);
   try {
     const adapter: PublishingAdapter =
       job.adapter === 'mock' ? new MockFacebookAdapter(rpc, WORKER_ID, job.simulate as never, job.attempt_count) : new MetaGraphAdapter({ liveEnabled: await liveEnabled() });
@@ -77,14 +83,17 @@ async function processJob(job: Job) {
     if (lost) return log('lease lost', job.id);
     const { error } = await rpc('complete_publish_job', { p_job_id: job.id, p_worker_id: WORKER_ID, p_external_post_id: result.externalPostId, p_simulated: result.simulated });
     if (error) throw new PublishError({ code: 'temporary', retryable: true, reconnect: false, message: error.message });
+    health.result(true);
     log(result.simulated ? 'simulated publish' : 'published', job.id, result.externalPostId, result.duplicate ? '(already published: idempotent)' : '');
   } catch (e) {
     const n = e instanceof PublishError ? e.normalized : { code: 'unknown', retryable: true, reconnect: false, message: e instanceof Error ? e.message : String(e) };
     if (lost) return log('lease lost', job.id);
+    health.result(false);
     const { data } = await rpc('fail_publish_job', { p_job_id: job.id, p_worker_id: WORKER_ID, p_code: n.code, p_detail: n.message.slice(0, 500), p_retryable: n.retryable });
     log('publish failed', job.id, n.code, `→ ${String(data)}`);
   } finally {
     clearInterval(heart);
+    health.busy(false);
   }
 }
 
@@ -132,6 +141,7 @@ async function runAutomation() {
 
 async function main() {
   log('publisher started', ONCE ? '(once)' : '', `lease ${LEASE}s`);
+  const server = serveHealth(health.state, HEALTH_STALE);
   let stop = false;
   process.on('SIGINT', () => (stop = true));
   process.on('SIGTERM', () => (stop = true));
@@ -142,6 +152,7 @@ async function main() {
       await runAutomation().catch((e) => log('automation error', e instanceof Error ? e.message : e));
     }
     const { data, error } = await rpc('claim_publish_job', { p_worker_id: WORKER_ID, p_lease_seconds: LEASE });
+    health.db(error);
     if (error) log('claim error', error.message);
     const job = (Array.isArray(data) ? data[0] : null) as Job | null;
     if (job) {
@@ -151,6 +162,7 @@ async function main() {
     if (ONCE) break;
     await new Promise((r) => setTimeout(r, POLL));
   }
+  server?.close();
   log('publisher stopped', `blocked facebook calls: ${blockedFacebookCalls}`);
 }
 

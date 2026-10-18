@@ -1,6 +1,6 @@
 # Pending production migration review
 
-Status: **for owner review, not applied.** Prepared 2026-10-17 on branch `rebuild/v1`; updated for Milestone 8 (migration 10).
+Status: **for owner review, not applied.** Prepared 2026-10-17 on branch `rebuild/v1`; updated for Milestone 8 (migration 10) and Milestone 9 (privilege hardening below). The gated rollout procedure is in `PRODUCTION_ROLLOUT_PLAN.md`.
 Production Supabase project: `aevqhgksniqahqrntzxv` (50 migrations applied, last `20261016120000`).
 Nothing in this document has been run against production.
 
@@ -51,6 +51,7 @@ What production currently runs: the Vercel production deployment is 3 days old a
 - #10 New tables: read for workspace members, no client writes; `publish_jobs.simulate` (test-only failure injection) is not readable by customers (column grants). Worker functions (`claim_publish_job`, `report_publish_heartbeat`, `complete_publish_job`, `fail_publish_job`, `mock_facebook_publish`, `automation_create_post`, `record_social_webhook`) are executable by `service_role` only and check the lease holder. Authorising automation requires owner/admin of the workspace and the platform flag. Vault token functions unchanged (service role only).
 - #9 `video_settings`, `render_jobs`: read for workspace members, no client writes (user functions check `can_edit_org`; media must be this workspace's files of the right type). Worker functions are executable by `service_role` only; they check the job's lease holder. No new Storage policy (the worker writes with the service role; users read through signed URLs created with their own session).
 - #8 `image_projects`, `image_revisions`, `image_exports`, `social_posts`: read for workspace members, no client writes (functions check `can_edit_org`). Image layers and post images must be image assets of the same workspace. Exports must be uploaded under `<org>/exports/` (existing `workspace-assets` Storage policies) and match the design size; no new Storage policy.
+- Milestone 9 privilege hardening (appended to the files, re-verified locally): #1 `rate_limit_hits` service_role only; #3 `feature_flags` and #4 `brand_kits` select-only for authenticated, nothing for anon; #7 trigger function `limo_episode_script_unapproved()` not executable by clients. Older production tables keep Supabase's default TRUNCATE/REFERENCES/TRIGGER grants — proposed cleanup `scripts/sql/proposed-grant-cleanup.sql` (separate owner decision).
 - No existing policy is loosened. `anon` gets no new grants.
 
 ## 3. Before applying (backups)

@@ -1,24 +1,26 @@
 # Next steps
 
 ## Exact next action
-Next integration phase (owner decision): real AI text, image, video and voice providers — see `docs/PROVIDER_INTEGRATION_PLAN.md` (capabilities, selection criteria, cost model, quotas, safety, failover, activation checklist). Nothing is activated.
+Milestone 9 (audit) is committed locally; push only with owner approval. Read `docs/AUDIT_M9.md` §4 (blockers before paying customers) and decide the gates in `docs/PRODUCTION_ROLLOUT_PLAN.md` §9 (G1–G10) and `docs/WORKER_HOSTING_PLAN.md` §12 (W1–W8).
+
+Then, in order (each needs owner approval): production rollout (migrations → app promotion → workers → monitoring → restore drill); text provider (first `CapabilityAdapter`, `lib/providers/contracts.ts`); character artwork (`docs/CHARACTER_ARTWORK_PLAN.md`); image/voice/subtitle providers; video clips; live Facebook. Provider details: `docs/PROVIDER_INTEGRATION_PLAN.md` §8–§12. Nothing is activated.
 
 Real Facebook (owner decision, later): Meta app + app review (pages_manage_posts, pages_read_engagement), OAuth callback storing Page tokens in Vault via the service role, webhook processor, then unlock `facebook_live_publishing` for a pilot Page.
 
-Push: the Milestone 8 commit is local; push only after the owner approves.
+Push: `origin/rebuild/v1` is at the Milestone 8 commit `1cd8c20` (pushed in Milestone 9 Phase A, approved). The Milestone 9 commit is local.
 
 ## Video worker hosting (owner decision before production)
-The render worker (`worker/`) must run on a host outside Vercel with FFmpeg (e.g. a small VM or container service), the Supabase service role key in its secret store, and enough temporary disk. `worker/Dockerfile` is prepared but was not built or deployed. Until a worker runs, production exports would stay "Waiting".
+The render worker and the publisher must run on a host outside Vercel. Plan, sizing (measured), secrets, health checks, alerts, scaling, cost variables and gates: `docs/WORKER_HOSTING_PLAN.md`. Images (`worker/Dockerfile`, `worker/Dockerfile.publisher`) and examples (`worker/deploy/`) are prepared but not built or deployed. Until a worker runs, production exports stay "Waiting" and scheduled posts stay "Scheduled".
 
 ## Character artwork (pending, owner decision)
 The character system is complete, but **no reference image or rigged 3D model exists**. No image-generation provider is enabled and no artwork was fabricated. To finish the characters:
-Production guide: `docs/CHARACTER_REFERENCE_GUIDE.md` (one visual direction, deliverables, review checklist, per-character briefs; generated from the canon).
+Production guide: `docs/CHARACTER_REFERENCE_GUIDE.md` (one visual direction, deliverables, review checklist, per-character briefs; generated from the canon). Readiness plan with exact counts (54 required images, 252 for full sheets) and acceptance checklist: `docs/CHARACTER_ARTWORK_PLAN.md`.
 1. The owner reads and approves the 18 written design specs (Admin → Characters → Open → Approve spec).
 2. Artwork is produced outside the app (illustrator/3D artist) or with an image provider the owner approves (Milestone 10).
 3. A platform admin uploads front, side and three-quarter images per character, records the source, opens each file and approves it with the checklist. Only then does a character become ready for generation.
 
 ## Git
-`origin/rebuild/v1` was pushed on 2026-10-18 at `3b26d67` (Milestone 7, owner-authorized, full-history secret scan clean). The GitHub repository is public. Vercel has no Git connection (pushes create no deployments), there are no GitHub Actions, and Supabase branching is off. Later commits are local until the next authorized push. `main` is not touched.
+`origin/rebuild/v1` was pushed on 2026-10-18 at `1cd8c20` (Milestone 8, owner-authorized in Milestone 9 Phase A; earlier `3b26d67` for Milestone 7). The GitHub repository is public. Vercel has no Git connection (pushes create no deployments), there are no GitHub Actions, and Supabase branching is off. Later commits are local until the next authorized push. `main` is not touched.
 
 ## Blockers (owner)
 1. Approve applying pending migrations to production (`20261016140000`, `20261016150000`, `20261017090000`, `20261017100000`, `20261017120000`, `20261017140000`, `20261017160000`, `20261017180000`, `20261017200000`, `20261017220000`); review in `MIGRATION_REVIEW.md`.

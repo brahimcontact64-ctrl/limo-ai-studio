@@ -23,9 +23,9 @@
   /* Type */
   --text: #211e2b;
   --text-2: #4d4858;
-  --text-3: #777180;
+  --text-3: #6c6676; /* ≥4.5:1 on all light surfaces (WCAG AA) */
   --text-4: #a39dab;
-  --eyebrow: #877f92;
+  --eyebrow: #6e6679; /* ≥4.5:1 on white and lavender surfaces */
 
   /* Purple accent */
   --accent: #7157ef;

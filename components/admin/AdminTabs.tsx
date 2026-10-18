@@ -16,7 +16,7 @@ export function AdminTabs() {
   return (
     <nav className="tabs admin-tabs" aria-label={t.nav.admin}>
       {tabs.map((tab) => (
-        <Link key={tab.href} href={tab.href} className="tab" aria-selected={pathname === tab.href} aria-current={pathname === tab.href ? 'page' : undefined}>
+        <Link key={tab.href} href={tab.href} className="tab" aria-current={pathname === tab.href ? 'page' : undefined}>
           {tab.label}
         </Link>
       ))}

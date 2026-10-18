@@ -458,11 +458,11 @@ export function Composer({
           )}
           {editable && (
             <>
-              <div className="segmented" role="tablist">
-                <button type="button" role="tab" aria-selected={mediaTab === 'designs'} aria-checked={mediaTab === 'designs'} onClick={() => setMediaTab('designs')}>
+              <div className="segmented" role="radiogroup" aria-label={s.media}>
+                <button type="button" role="radio" aria-checked={mediaTab === 'designs'} onClick={() => setMediaTab('designs')}>
                   {s.mediaTabs.designs}
                 </button>
-                <button type="button" role="tab" aria-selected={mediaTab === 'videos'} aria-checked={mediaTab === 'videos'} onClick={() => setMediaTab('videos')}>
+                <button type="button" role="radio" aria-checked={mediaTab === 'videos'} onClick={() => setMediaTab('videos')}>
                   {s.mediaTabs.videos}
                 </button>
               </div>

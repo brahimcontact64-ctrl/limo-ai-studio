@@ -636,3 +636,6 @@ begin
     update public.content_series set current_bible_version = 1 where id = v_s.id;
   end loop;
 end $$;
+
+-- Trigger function: never callable directly (Milestone 9 audit).
+revoke all on function public.limo_episode_script_unapproved() from public, anon, authenticated;

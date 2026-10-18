@@ -289,8 +289,9 @@
 .cast-family[data-family='nova'] .cast-family-head h3 {
   color: var(--strawberry);
 }
+/* Darker potato for text: ≥3:1 for large headings (the family colour stays for fills). */
 .cast-family[data-family='adam'] .cast-family-head h3 {
-  color: var(--potato);
+  color: #a07526;
 }
 .cast-family ul {
   display: grid;
@@ -449,7 +450,7 @@
 
 .site-footer {
   padding: 36px var(--gutter) 44px;
-  color: #928b99;
+  color: var(--text-3);
   font-size: var(--fs-sm);
   text-align: center;
 }

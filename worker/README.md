@@ -56,3 +56,14 @@ scheduled social posts and runs controlled automation:
 - blocks every network request to Facebook domains (logged as `blocked facebook calls`);
 - plans automation posts for ACTIVE, authorised policies (`auto_publishing` flag must be on).
 Env: `LEASE_SECONDS` (60), `POLL_MS` (2000), `AUTOMATION_EVERY_MS` (60000); `--once` exits when nothing is due.
+
+## Health checks and deployment (Milestone 9)
+Both processes serve an optional health endpoint when `HEALTH_PORT` is set (`HEALTH_HOST`, default
+`127.0.0.1`; `HEALTH_STALE_MS`, default the lease, at least 60 s):
+- `GET /livez` → 200 while the main loop or the current job's heartbeat ticked recently (for restarts);
+- `GET /healthz` → 200 when live **and** the last database call succeeded recently (for alerts).
+The body holds counters and ages only (`busy`, `done`, `failed`, `last_db_ok_s`, `db_error`).
+
+Prepared, **not built or deployed**: `Dockerfile` (render, with HEALTHCHECK), `Dockerfile.publisher`
+(no FFmpeg), `deploy/docker-compose.example.yml`, `deploy/limo-render.service` (systemd). Sizing,
+secrets, scaling and alerting are in `docs/WORKER_HOSTING_PLAN.md`.

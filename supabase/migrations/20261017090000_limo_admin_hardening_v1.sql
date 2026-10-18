@@ -133,3 +133,8 @@ revoke all on function public.admin_set_subscription(uuid, text, text, integer, 
 grant execute on function public.admin_set_feature_flag(text, boolean) to authenticated;
 grant execute on function public.admin_list_workspaces() to authenticated;
 grant execute on function public.admin_set_subscription(uuid, text, text, integer, text) to authenticated;
+
+-- Least privilege (Milestone 9 audit): signed-in users read flags; changes go through admin_set_feature_flag.
+revoke all on public.feature_flags from anon, authenticated;
+grant select on public.feature_flags to authenticated;
+grant all on public.feature_flags to service_role;

@@ -331,3 +331,8 @@ grant execute on function public.save_studio_project_v2(uuid, uuid, text, text, 
 grant execute on function public.register_media_asset(uuid, text, text, text, bigint, text, integer, integer, integer, text) to authenticated;
 grant execute on function public.delete_media_asset(uuid) to authenticated;
 grant execute on function public.save_brand_kit(uuid, jsonb) to authenticated;
+
+-- Least privilege (Milestone 9 audit): members read brand kits; changes go through save_brand_kit.
+revoke all on public.brand_kits from anon, authenticated;
+grant select on public.brand_kits to authenticated;
+grant all on public.brand_kits to service_role;

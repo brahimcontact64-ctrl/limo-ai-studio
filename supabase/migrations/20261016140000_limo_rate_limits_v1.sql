@@ -45,3 +45,7 @@ $function$;
 
 revoke all on function public.hit_rate_limit(text, integer, integer) from public, anon;
 grant execute on function public.hit_rate_limit(text, integer, integer) to authenticated;
+
+-- Least privilege (Milestone 9 audit): only hit_rate_limit (SECURITY DEFINER) touches this table.
+revoke all on public.rate_limit_hits from anon, authenticated;
+grant all on public.rate_limit_hits to service_role;

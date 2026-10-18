@@ -1,0 +1,39 @@
+# EXAMPLE ONLY (Milestone 9) — not deployed. One render worker and one publisher on a single host.
+# Secrets come from an env file that is NOT in git (chmod 600), or from the platform's secret store:
+#   SUPABASE_URL=https://<project-ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY=<service role key — server only, never in the web app's NEXT_PUBLIC_* env>
+# Health ports are bound to localhost only; point the host's monitor (or an uptime check through a
+# private network) at /healthz.
+services:
+  render:
+    image: limo-render-worker:<git-sha>
+    build: { context: .., dockerfile: worker/Dockerfile }
+    env_file: /etc/limo/worker.env
+    environment:
+      WORKER_ID: render-1
+      LEASE_SECONDS: "120"
+      STEP_TIMEOUT_MS: "300000"
+      POLL_MS: "3000"
+    restart: unless-stopped
+    stop_grace_period: 330s        # finish (or time out) the current FFmpeg step; the lease covers a hard kill
+    cpus: "2"
+    mem_limit: 2g
+    tmpfs: ["/tmp/limo-render:size=4g"]
+    ports: ["127.0.0.1:18081:8080"]
+    logging: { driver: json-file, options: { max-size: "20m", max-file: "5" } }
+
+  publisher:
+    image: limo-publisher:<git-sha>
+    build: { context: .., dockerfile: worker/Dockerfile.publisher }
+    env_file: /etc/limo/worker.env
+    environment:
+      WORKER_ID: publisher-1
+      LEASE_SECONDS: "60"
+      POLL_MS: "2000"
+      AUTOMATION_EVERY_MS: "60000"
+    restart: unless-stopped
+    stop_grace_period: 40s
+    cpus: "0.25"
+    mem_limit: 256m
+    ports: ["127.0.0.1:18082:8080"]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }

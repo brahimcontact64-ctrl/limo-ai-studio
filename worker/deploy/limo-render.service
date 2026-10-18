@@ -1,0 +1,31 @@
+# EXAMPLE ONLY (Milestone 9) — systemd unit for a VM without Docker. Not installed anywhere.
+# Copy the app's lib/images, lib/video and worker/ to /srv/limo, run `npm ci --omit=dev` in worker/,
+# install ffmpeg + fonts-noto-core, and put the secrets in /etc/limo/worker.env (root:limo, 0640).
+# For the publisher, copy this file to limo-publisher.service and change ExecStart/WORKER_ID/limits.
+[Unit]
+Description=LIMO render worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=limo
+Group=limo
+WorkingDirectory=/srv/limo
+EnvironmentFile=/etc/limo/worker.env
+Environment=WORKER_ID=render-%H NODE_ENV=production FFMPEG_PATH=/usr/bin/ffmpeg FFPROBE_PATH=/usr/bin/ffprobe
+Environment=RENDER_TMP=/var/tmp/limo-render HEALTH_PORT=18081
+ExecStart=/usr/bin/node worker/src/index.ts
+Restart=always
+RestartSec=5
+TimeoutStopSec=330
+KillSignal=SIGTERM
+MemoryMax=2G
+CPUQuota=200%
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/tmp/limo-render
+
+[Install]
+WantedBy=multi-user.target

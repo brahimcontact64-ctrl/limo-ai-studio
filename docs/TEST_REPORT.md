@@ -2,6 +2,34 @@
 
 Actual results only. Newest first.
 
+## 2026-10-18 — Milestone 9 (full-system audit, production readiness), branch `rebuild/v1`
+Environment: local Supabase replica (production schema dump + all 10 pending migrations, including the M9 privilege blocks) on ports 564xx; app as a production build on :3200; render worker and publisher against the local stack (local service role only). Production was read only (schema dump, counts). No paid AI call, no Facebook request, no payment activation.
+
+| Suite | Command | Result |
+|---|---|---|
+| Unit | `npm test` | **110/110** (103 + 7 new provider-contract tests) |
+| Worker unit | `node --test worker/test/health.test.ts worker/test/render.test.ts` | **9/9** (3 new health tests + 6 render); render also at 1080p high: 6/6, 4 formats × 9 s in ≈55 s (8 logical cores) |
+| Typecheck | `npx tsc --noEmit -p .` / `-p worker` | clean / clean |
+| Backend e2e | `node scripts/e2e-backend.ts` | **221/221** |
+| Render e2e | `node scripts/e2e-render.ts` | **55/55** |
+| Publish e2e | `node scripts/e2e-publish.ts` | **63/63** (blocked Facebook calls: 0) |
+| SQL | `generation-gate-test.sql` / `character-spec-approval-test.sql` | **4/4** / **6/6** |
+| Migrations | re-apply of all 10 files in order (`psql -1`) | clean |
+| Rollback | `scripts/sql/rollback-dry-run.sh` | 10 rollbacks clean (rolled back) |
+| Proposed grant cleanup | `scripts/sql/proposed-grant-cleanup.sql` in a rolled-back transaction | 0 TRUNCATE/REFERENCES/TRIGGER grants left for anon/authenticated; 61 SELECT grants unchanged |
+| Worker health | `HEALTH_PORT` on both workers, `curl /healthz /livez /x` | 200 / 200 / 404 for each; counters only |
+| Browser, full suite | `npx playwright test` (desktop + Pixel 7, production build) | **49 passed, 1 skipped** (a11y scan is desktop-only by design), 22.7 min |
+
+New browser coverage:
+- `a11y.spec.ts`: axe-core WCAG 2.0/2.1 A + AA on 5 public and 11 workspace pages, English and Arabic → 0 serious/critical violations (before the fixes: colour contrast on tokens/footer/ADAM heading, `aria-selected` on links, `role=tab` with `aria-checked` in the composer).
+- `journeys.spec.ts` (desktop + mobile): product seller, story creator, business owner — see AUDIT_M9.md §2 for what is real, mocked or blocked in each.
+
+Issues found during verification:
+- **Video step allowed 120 s per scene** while the database limit is 15 s (save failed late); the input now uses `LIMITS`. FAQ limits text corrected in four languages.
+- **Replica state, not a product defect:** re-running migration #4 alone restored its older `save_studio_project_v2` (replaced by #6), so one backend check failed ("characters are unavailable"); re-applying #1…#10 in order fixed it. PRODUCTION_ROLLOUT_PLAN §5 now forbids re-running one earlier file alone.
+- **Test environment:** worker processes stopped with TaskStop on Windows kept running and took jobs meant for the e2e scripts' own `--once` workers (first runs: render 44/49 and 47/49, publish 62/63). After killing them by command line, both suites passed in full.
+- Two test-side races in the new journeys (navigation before reading the URL; typing before the Mock AI suggestion loaded), fixed in the spec.
+
 ## 2026-10-18 — Milestone 8 (Facebook composer, approval, scheduling, safe automation), branch `rebuild/v1`
 Environment: local Supabase replica (production schema dump + pending migrations through `20261017220000`) on ports 564xx; app as a production build on :3200; render worker and publisher (`worker/src/publisher.ts`, MOCK Facebook adapter) running against the local stack with the local service role only. No Facebook request was made: the publisher's network guard reported `blocked facebook calls: 0` on every run and only simulated Pages exist.
 

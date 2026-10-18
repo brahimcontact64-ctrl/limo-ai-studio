@@ -19,6 +19,12 @@ COPY worker/src worker/src
 ENV FFMPEG_PATH=/usr/bin/ffmpeg \
     FFPROBE_PATH=/usr/bin/ffprobe \
     RENDER_TMP=/tmp/limo-render \
-    NODE_ENV=production
+    NODE_ENV=production \
+    HEALTH_PORT=8080 \
+    HEALTH_HOST=0.0.0.0
+EXPOSE 8080
 USER node
+# /livez: the main loop or a running job's heartbeat ticked recently (restart when it stops).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/livez').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "worker/src/index.ts"]

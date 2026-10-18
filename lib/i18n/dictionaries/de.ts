@@ -157,7 +157,7 @@ const de: Dictionary = {
       { q: 'Kann ich heute schon Videos generieren?', a: 'Das Studio für Planung, Besetzung und Skript ist jetzt verfügbar. Die KI-Generierung wird Arbeitsbereich für Arbeitsbereich freigeschaltet, sobald Anbieterpreise und Budgets geprüft sind. Vor jeder Bestätigung siehst du die geschätzte Nutzung.' },
       { q: 'Wie bleiben die Figuren konsistent?', a: 'Jede der 18 Figuren hat eine stabile ID und eine Aussehensbeschreibung. Beides steht in jedem Szenen-Prompt, und für Figuren ohne freigegebenes Referenzbild wird die Generierung zurückgehalten.' },
       { q: 'Welche Sprachen werden unterstützt?', a: 'Projekte lassen sich auf Arabisch, Französisch, Englisch und Deutsch produzieren. Die Oberfläche gibt es in denselben vier Sprachen, mit vollständiger Rechts-nach-links-Unterstützung für Arabisch.' },
-      { q: 'Welche Grenzen gelten für ein Projekt?', a: 'Ein Projekt hat 1 bis 18 Figuren und 1 bis 25 Szenen. Jede Szene dauert in der aktuellen Version 1 bis 15 Sekunden.' },
+      { q: 'Welche Grenzen gelten für ein Projekt?', a: 'Story-Projekte besetzen 1 bis 18 Figuren; Produkt-, Unternehmens- und andere Projekte können ohne Figuren auskommen. Ein Projekt hat 1 bis 25 Szenen, jede dauert in der aktuellen Version 1 bis 15 Sekunden.' },
       { q: 'Wer kann meine Projekte sehen?', a: 'Nur Mitglieder deines Arbeitsbereichs. Die Daten sind pro Arbeitsbereich durch Row-Level-Security in der Datenbank isoliert.' },
       { q: 'Wie bezahle ich?', a: 'Während der Startphase werden Tarife nach manueller Prüfung deiner Zahlung aktiviert. Kontaktiere uns aus deinem Arbeitsbereich, um zu starten.' },
     ],

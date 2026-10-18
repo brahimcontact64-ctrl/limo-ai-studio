@@ -6,7 +6,7 @@ Browser ── Next.js 15 (Vercel) ──┬── Supabase Auth (email+password
   React UI, i18n, studio         ├── Postgres (RLS + SECURITY DEFINER functions)   ← security boundary
                                  └── Storage (private buckets, signed URLs)
 Render/publish worker (Node, FFmpeg) ── service-role access to jobs + Storage      [Milestone 7/8]
-Provider adapters (text, image, video, voice, render, Facebook) — mock first        [lib/generation, lib/providers]
+Provider adapters (text, image, video, voice, render, Facebook) — mock first        [lib/generation, lib/providers/contracts.ts]
 ```
 
 ## Request rules
@@ -90,3 +90,7 @@ Templates in `supabase/templates/` link to `/auth/confirm` with `token_hash` (wo
 - Publisher (`worker/src/publisher.ts`, service role, outside Vercel): claims due jobs (skips paused workspaces and Pages over their hourly limit, takes over stale leases, fails expired connections with "reconnect required"), publishes through `PublishingAdapter` (`lib/social/adapter.ts`): mock → `mock_facebook_publish` (idempotent by key; no network); facebook → `MetaGraphAdapter`, which refuses while live publishing is disabled. A process-wide network guard blocks Facebook hosts. Results: `complete_publish_job` / `fail_publish_job` (retry with back-off or final failure with refund; token/permission errors mark the connection expired).
 - Automation: `save_automation_policy` (each save = new version, de-authorised), `authorize_automation_policy` (owner/admin, exact version, explicit confirmation, platform flag `auto_publishing`), `set_automation_policy_state` (pause/revoke withdraws scheduled posts); the publisher's planner (`lib/social/automation.ts`) picks the next approved, unused design/video and the next policy slot, then `automation_create_post` approves within policy or sends to review (missing facts always go to review).
 - Credentials: real Page tokens would be stored with `store_oauth_secret` (Vault) by the OAuth callback running with the service role and read only by the publisher; no customer or admin API returns them. The webhook endpoint (`/api/webhooks/facebook`) verifies `X-Hub-Signature-256` and answers 503 until a Meta app is configured; event processing is deferred to the live integration.
+
+## Provider contracts and worker health (Milestone 9)
+- `lib/providers/contracts.ts`: one `CapabilityAdapter` per provider × capability (text, story, image, character_image, video, voice, transcription, translation) with `estimateUsage` and `run` (measured usage + `Provenance`). Pure rules: `operationCost` (verified price sheets), `reservation`, `nextRetryDelay`, `chooseFallback`, `paidCallBlockers`, `validateRequest`. The stage-level `ProviderAdapter` (`lib/generation`) orchestrates these. Meta Graph stays in `lib/social/adapter.ts`.
+- `worker/src/health.ts`: optional `/livez` and `/healthz` for both workers; Docker HEALTHCHECK in both images. Deployment examples in `worker/deploy/`; plan in `docs/WORKER_HOSTING_PLAN.md`.

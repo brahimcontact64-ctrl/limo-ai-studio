@@ -1,0 +1,21 @@
+# LIMO publisher image (no FFmpeg, no canvas). Build from the app folder:
+#   docker build -f worker/Dockerfile.publisher -t limo-publisher .
+# Run with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from a secret store (never bake them into the image).
+# Prepared in Milestone 9; not built or deployed.
+FROM node:24-bookworm-slim
+
+WORKDIR /srv/app
+COPY worker/package.json worker/package-lock.json worker/
+# Only supabase-js is used at run time; --ignore-scripts skips the static FFmpeg download.
+RUN cd worker && npm ci --omit=dev --ignore-scripts
+COPY lib/social lib/social
+COPY worker/src/publisher.ts worker/src/health.ts worker/src/
+
+ENV NODE_ENV=production \
+    HEALTH_PORT=8080 \
+    HEALTH_HOST=0.0.0.0
+EXPOSE 8080
+USER node
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/livez').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "worker/src/publisher.ts"]

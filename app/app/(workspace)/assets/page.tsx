@@ -29,10 +29,10 @@ export default async function AssetsPage({ searchParams }: { searchParams: Promi
         </div>
       </div>
       <nav className="tabs admin-tabs" aria-label={t.assets.title}>
-        <Link className="tab" href="/app/assets" aria-selected={tab === 'library'} aria-current={tab === 'library' ? 'page' : undefined}>
+        <Link className="tab" href="/app/assets" aria-current={tab === 'library' ? 'page' : undefined}>
           {t.assets.library}
         </Link>
-        <Link className="tab" href="/app/assets?tab=brand" aria-selected={tab === 'brand'} aria-current={tab === 'brand' ? 'page' : undefined}>
+        <Link className="tab" href="/app/assets?tab=brand" aria-current={tab === 'brand' ? 'page' : undefined}>
           {t.assets.brand}
         </Link>
       </nav>

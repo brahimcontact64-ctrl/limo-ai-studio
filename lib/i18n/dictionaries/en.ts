@@ -155,7 +155,7 @@ const en = {
       { q: 'Can I generate videos today?', a: 'The studio for planning, casting and scripting is available now. AI generation is being enabled workspace by workspace once provider pricing and budgets are verified. You will always see the estimated usage before confirming.' },
       { q: 'How do characters stay consistent?', a: 'Each of the 18 characters has a stable ID and an appearance specification. Every scene prompt includes them, and generation is held back for characters whose canonical reference image has not been approved.' },
       { q: 'Which languages are supported?', a: 'Projects can be produced in Arabic, French, English and German. The interface is available in the same four languages, with full right-to-left support for Arabic.' },
-      { q: 'What limits apply to a project?', a: 'A project has 1 to 18 characters and 1 to 25 scenes. Each scene lasts 1 to 15 seconds in the current version.' },
+      { q: 'What limits apply to a project?', a: 'Story projects cast 1 to 18 characters; product, business and other projects can have none. A project has 1 to 25 scenes, each lasting 1 to 15 seconds in the current version.' },
       { q: 'Who can see my projects?', a: 'Only members of your workspace. Data is isolated per workspace with row-level security enforced by the database.' },
       { q: 'How do I pay?', a: 'During launch, plans are activated after manual verification of your payment. Contact us from your workspace to get started.' },
     ],
