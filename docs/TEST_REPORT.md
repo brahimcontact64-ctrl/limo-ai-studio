@@ -2,6 +2,15 @@
 
 Actual results only. Newest first.
 
+## 2026-10-18 — Animation preparation (scenario intake, storyboard planning), branch `rebuild/v1`
+- Pushed first (owner-authorised): `0418ee8..2ff26d1` fast-forward after re-running unit 165/165 and both typechecks at
+  `2ff26d1`; secret scan of the pushed diff clean; no workflows, 0 deployments, Vercel has no Git link; `main` unchanged.
+- New `tests/unit/animation-scenario.test.ts` 6/6: 18 canonical ids, validation (30 s, 4/6/8 s shots, unknown
+  characters, speakers, expressions, aspect; characters optional), warnings (non-English native dialogue,
+  multi-character / multi-speaker shots, words per second), readiness blockers, storyboard ops and planning costs
+  (draft $3.616, final $14.156 per take), clip prompt built only from scenario + canon. Placeholder text only.
+- No provider call, no generation; research from official pages only (sources in ANIMATION_PIPELINE.md).
+
 ## 2026-10-18 — $10 AI pilot preparation (spend guard, kill switch, pilot adapters), branch `rebuild/v1`
 Environment: local replica with migrations #12 and **#13 applied locally only**; no provider key exists, generation
 mode off; **no live or paid provider call was made** (adapters tested against mocked HTTP only).

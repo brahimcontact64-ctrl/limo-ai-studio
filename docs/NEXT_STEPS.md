@@ -1,9 +1,13 @@
 # Next steps
 
 ## Exact next action
-Milestone 10 is pushed (`origin/rebuild/v1` = `0418ee8`, 2026-10-18, owner-authorised). The $10 AI pilot preparation
-(spend guard migration #13, kill switch, Gemini TTS, Claude safety review, pilot runner, plans) is committed
-locally on top — push only with owner approval.
+`origin/rebuild/v1` = `2ff26d1` (M10 + $10 pilot preparation, pushed 2026-10-18, owner-authorised). The animation
+preparation (scenario intake/storyboard, ANIMATION_PIPELINE.md, product-direction docs) is committed locally on top —
+push only with owner approval.
+
+Three tracks (PRODUCT_SPEC §1, premium direction): **A** flagship animated character video — waiting for the owner's
+scenario (template in ANIMATION_PIPELINE.md §9), spec approval and artwork; **B** real AI Facebook posts and images
+(wire existing adapters into the composer and Image Studio behind the gates); **C** production readiness.
 
 Next (owner decisions): (1) approve the $10 pilot plan and its approvals list (`docs/AI_PILOT_PLAN.md` §9) — accounts,
 deposits, keys and every paid step are owner actions; nothing is spent until then; (2) production readiness gates

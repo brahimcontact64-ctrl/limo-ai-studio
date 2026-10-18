@@ -6,7 +6,9 @@ Before editing, read in this order:
 3. `docs/IMPLEMENTATION_STATUS.md` — what is verified to work.
 4. `docs/NEXT_STEPS.md` — the exact next action and blockers.
 5. `docs/ARCHITECTURE.md`, `docs/TEST_REPORT.md`, `docs/MIGRATION_REVIEW.md` and `docs/PRODUCTION_ROLLOUT_PLAN.md` (pending production migrations, backups, rollback) as needed.
-6. AI work: `docs/VIDEO_POLICY.md` (30 s, one credit per completed video), `docs/AI_GENERATION.md` (modes, gates, activation), `docs/AI_PROVIDERS.md` (researched providers, billing caps), `docs/AI_COSTS_AND_PRICING.md`, `docs/AI_PILOT_PLAN.md` ($10 pilot: safeguards, approvals). Production state: `docs/PRODUCTION_READINESS_REVIEW.md`.
+6. AI work: `docs/VIDEO_POLICY.md` (30 s, one credit per completed video), `docs/AI_GENERATION.md` (modes, gates, activation), `docs/AI_PROVIDERS.md` (researched providers, billing caps), `docs/AI_COSTS_AND_PRICING.md`, `docs/AI_PILOT_PLAN.md` ($10 pilot: safeguards, approvals). Production state: `docs/PRODUCTION_READINESS_REVIEW.md`. Animation: `docs/ANIMATION_PIPELINE.md` (providers, architecture, costs, owner scenario template).
+
+Product direction (owner, 2026-10-18; PRODUCT_SPEC §1): premium AI creation platform — genuinely animated talking characters (never a slideshow sold as animation) AND the full platform (ads, storytelling, Image Studio, Facebook Content Studio, subscriptions, admin, four languages). Never reduce scope; never invent the flagship scenario (the owner writes it; `docs/ANIMATION_PIPELINE.md`, `lib/animation/scenario.ts`). Tracks: A animated character video, B real AI Facebook posts/images, C production readiness.
 
 Hard rules (details in the docs):
 - Work on `rebuild/v1`; never merge into `main` or promote to production without explicit owner approval.
