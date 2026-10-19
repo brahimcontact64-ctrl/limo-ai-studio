@@ -5,7 +5,9 @@ import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/Toast';
-import { EXPRESSION_KEYS, type ExpressionKey } from '@/lib/characters/canon';
+import { EXPRESSION_KEYS } from '@/lib/characters/canon';
+import type { SceneExpression } from '@/lib/characters/variants';
+import { characterLabel } from '@/components/characters/labels';
 import { MAX_ATTEMPTS_PER_REVISION, nextAction, type ProjectRow, type ShotRow, type TimelineItem } from '@/lib/animation/storyboard';
 import { parseScenarioJson } from '@/lib/animation/scenario-import';
 import { AssetPicker } from '@/components/assets/AssetPicker';
@@ -19,7 +21,8 @@ interface Data {
   events: Array<{ shot_id: string; event: string; stage: string | null; note: string | null; created_at: string }>;
   readiness: { flags: Record<string, boolean>; characters: Record<string, { gaps: string[]; voice: { provider: string; voice_ref: string } | null }> };
   assets: Record<string, { url: string | null; mime: string; label: string; mock: boolean; ai: boolean }>;
-  references: Array<{ id: string; character: string; view: string | null; url: string | null }>;
+  references: Array<{ id: string; character: string; view: string | null; url: string | null; variant: string | null }>;
+  variants?: Array<{ key: string; version: number; character: string; outfit: string | null; expression: string | null }>;
   can_edit: boolean;
   characters: { canonical: string[]; custom: Array<{ id: string; name: string }> };
   planning: { issues: Issue[]; continuity: Issue[]; blockers: string[]; timeline: TimelineItem[]; cost: { per_take_usd: number; expected_usd: number; seconds: number } | null };
@@ -29,7 +32,7 @@ type Draft = Partial<ShotRow> & { key: string; duration_seconds: 4 | 6 | 8 };
 const MAX_SECONDS = 30;
 const usd = (n: number) => `$${n.toFixed(2)}`;
 const newKey = () => Math.random().toString(36).slice(2);
-const emptyShot = (): Draft => ({ key: newKey(), duration_seconds: 8, description: '', environment: '', camera: '', characters: [], actions: {}, expressions: {}, dialogue: [], narration: '', sound: '', continuity: {}, reference_asset_ids: [], clip_audio: 'keep' });
+const emptyShot = (): Draft => ({ key: newKey(), duration_seconds: 8, description: '', environment: '', camera: '', characters: [], actions: {}, expressions: {}, character_variants: {}, dialogue: [], narration: '', sound: '', continuity: {}, reference_asset_ids: [], clip_audio: 'keep' });
 
 /**
  * Animation Studio storyboard (owner's scenario → shots → approved references → AI keyframe → AI clip → voices →
@@ -80,7 +83,9 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
 
   const total = useMemo(() => shots.reduce((s, x) => s + x.duration_seconds, 0), [shots]);
   const allNames = useMemo(() => ({ ...names, ...Object.fromEntries((data?.characters.custom ?? []).map((c) => [c.id, c.name])) }), [names, data]);
-  const nameOf = (c: string) => allNames[c] ?? c;
+  /** Localized display label (canonical ids: family · variant in the viewer's language); ids are never renamed. */
+  const nameOf = (c: string) => characterLabel(t, c, allNames[c] ?? c);
+  const variantName = (key: string) => (a.variantNames as Record<string, string>)[key] ?? key;
   if (!data || !project) return <p className="muted">{t.common.loading}</p>;
   const editable = data.can_edit;
   const flagOn = data.readiness.flags.animation_generation === true;
@@ -252,7 +257,9 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
         {shots.map((s, i) => {
           const live = saved(s);
           const chars = s.characters ?? [];
-          const refs = data.references.filter((r) => chars.includes(r.character));
+          const looks = s.character_variants ?? {};
+          // Canonical references, plus the files of the variant selected for that character in this shot.
+          const refs = data.references.filter((r) => chars.includes(r.character) && (!r.variant || r.variant === looks[r.character]));
           const action = live && !dirty ? nextAction(live) : null;
           const kf = asset(live?.keyframe_asset_id);
           const clip = asset(live?.clip_asset_id);
@@ -290,15 +297,30 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                 {chars.map((c) => (
                   <div key={c} className="form-grid cols-3" data-testid={`shot-char-${c}`}>
                     <span className="row small"><b>{nameOf(c)}</b>
-                      {editable && <button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={`${a.removeShot}: ${nameOf(c)}`} onClick={() => edit(s.key, { characters: chars.filter((x) => x !== c), dialogue: (s.dialogue ?? []).filter((d) => d.speaker !== c), reference_asset_ids: (s.reference_asset_ids ?? []).filter((r) => data.references.find((x) => x.id === r)?.character !== c) })}><Icon name="x" size={12} /></button>}
+                      {editable && <button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={`${a.removeShot}: ${nameOf(c)}`} onClick={() => edit(s.key, { characters: chars.filter((x) => x !== c), character_variants: Object.fromEntries(Object.entries(looks).filter(([k]) => k !== c)), dialogue: (s.dialogue ?? []).filter((d) => d.speaker !== c), reference_asset_ids: (s.reference_asset_ids ?? []).filter((r) => data.references.find((x) => x.id === r)?.character !== c) })}><Icon name="x" size={12} /></button>}
                     </span>
                     <label className="field"><span className="field-label xsmall">{fmt(a.action, { name: nameOf(c) })}</span>
                       <input className="input input-sm" maxLength={300} value={s.actions?.[c] ?? ''} onChange={(e) => edit(s.key, { actions: { ...(s.actions ?? {}), [c]: e.target.value } })} disabled={!editable} dir="auto" /></label>
                     <label className="field"><span className="field-label xsmall">{fmt(a.expression, { name: nameOf(c) })}</span>
-                      <select className="select select-sm" value={s.expressions?.[c] ?? ''} onChange={(e) => { const x = { ...(s.expressions ?? {}) }; if (e.target.value) x[c] = e.target.value as ExpressionKey; else delete x[c]; edit(s.key, { expressions: x }); }} disabled={!editable}>
+                      <select className="select select-sm" value={s.expressions?.[c] ?? ''} onChange={(e) => { const x = { ...(s.expressions ?? {}) }; if (e.target.value) x[c] = e.target.value as SceneExpression; else delete x[c]; edit(s.key, { expressions: x }); }} disabled={!editable}>
                         <option value="">{a.none}</option>
                         {EXPRESSION_KEYS.map((k) => <option key={k} value={k}>{a.expressions[k]}</option>)}
+                        {(data.variants ?? []).filter((v) => v.key === looks[c] && v.expression && !(EXPRESSION_KEYS as readonly string[]).includes(v.expression)).map((v) => <option key={v.key} value={v.expression!}>{(a.expressions as Record<string, string>)[v.expression!] ?? v.expression} · {a.variant}</option>)}
                       </select></label>
+                    {(data.variants ?? []).some((v) => v.character === c) && (
+                      <label className="field" data-testid={`shot-variant-${c}`}><span className="field-label xsmall">{a.variant}</span>
+                        <select className="select select-sm" value={looks[c] ?? ''} disabled={!editable} onChange={(e) => {
+                          const next = { ...looks };
+                          if (e.target.value) next[c] = e.target.value; else delete next[c];
+                          const x = { ...(s.expressions ?? {}) };
+                          if (x[c] && !(EXPRESSION_KEYS as readonly string[]).includes(x[c]!) && !e.target.value) delete x[c];
+                          const keep = (s.reference_asset_ids ?? []).filter((id) => { const r = data.references.find((y) => y.id === id); return !r || r.character !== c || !r.variant || r.variant === e.target.value; });
+                          edit(s.key, { character_variants: next, expressions: x, reference_asset_ids: keep });
+                        }}>
+                          <option value="">{a.canonicalLook}</option>
+                          {(data.variants ?? []).filter((v) => v.character === c).map((v) => <option key={v.key} value={v.key}>{variantName(v.key)} (v{v.version})</option>)}
+                        </select></label>
+                    )}
                   </div>
                 ))}
                 {editable && chars.length < 5 && (
@@ -317,7 +339,7 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                       {chars.map((c) => <option key={c} value={c}>{nameOf(c)}</option>)}
                     </select>
                     <input className="input input-sm" style={{ flex: 1, minWidth: 0 }} aria-label={a.line} maxLength={400} value={d.text} onChange={(e) => edit(s.key, { dialogue: (s.dialogue ?? []).map((x, k) => (k === n ? { ...x, text: e.target.value } : x)) })} disabled={!editable} dir="auto" />
-                    <select className="select select-sm" aria-label={a.emotion} value={d.emotion ?? ''} onChange={(e) => edit(s.key, { dialogue: (s.dialogue ?? []).map((x, k) => (k === n ? { ...x, emotion: (e.target.value || undefined) as ExpressionKey | undefined } : x)) })} disabled={!editable}>
+                    <select className="select select-sm" aria-label={a.emotion} value={d.emotion ?? ''} onChange={(e) => edit(s.key, { dialogue: (s.dialogue ?? []).map((x, k) => (k === n ? { ...x, emotion: (e.target.value || undefined) as SceneExpression | undefined } : x)) })} disabled={!editable}>
                       <option value="">{a.none}</option>
                       {EXPRESSION_KEYS.map((k) => <option key={k} value={k}>{a.expressions[k]}</option>)}
                     </select>
@@ -401,7 +423,7 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                       {refs.map((r) => {
                         const on = (s.reference_asset_ids ?? []).includes(r.id);
                         return (
-                          <label key={r.id} className="checkbox" title={`${nameOf(r.character)} · ${r.view ?? ''}`}>
+                          <label key={r.id} className="checkbox" title={`${nameOf(r.character)} · ${r.view ?? ''}${r.variant ? ` · ${variantName(r.variant)}` : ''}`} data-variant={r.variant ?? undefined}>
                             <input type="checkbox" checked={on} disabled={!editable || (!on && (s.reference_asset_ids ?? []).length >= 5)} onChange={(e) => edit(s.key, { reference_asset_ids: e.target.checked ? [...(s.reference_asset_ids ?? []), r.id] : (s.reference_asset_ids ?? []).filter((x) => x !== r.id) })} />
                             {r.url ? <img src={r.url} alt={`${nameOf(r.character)} ${r.view ?? ''}`} width={56} height={72} style={{ objectFit: 'cover', borderRadius: 6 }} /> : <span className="xsmall">{nameOf(r.character)} · {r.view}</span>}
                           </label>

@@ -928,6 +928,8 @@ const de: Dictionary = {
       view: 'Ansicht',
       expression: 'Ausdruck',
       outfit: 'Outfit',
+      variant: "Szenenvariante (freigegeben)",
+      variantNone: "— kanonisch —",
       none: '—',
       provenance: 'Quelle',
       provenances: {
@@ -945,6 +947,7 @@ const de: Dictionary = {
         type_not_allowed: 'Dieser Dateityp ist für den gewählten Typ nicht erlaubt.',
         too_large: 'Die Datei ist größer als 100 MB.',
         upload_failed: 'Hochladen fehlgeschlagen. Bitte erneut versuchen.',
+        variant_invalid: "Diese Szenenvariante ist für diese Figur nicht freigegeben, oder Ausdruck/Kleidung gehören nicht dazu.",
         invalid_path: 'Der Speicherort ist ungültig.',
         not_authorized: 'Sie können für diese Figur keine Referenzen hochladen.',
         view_required: 'Wählen Sie eine Ansicht, einen Ausdruck oder ein Outfit.',
@@ -2268,6 +2271,9 @@ const de: Dictionary = {
     addCharacter: "Figur hinzufügen",
     action: "Handlung von {name}",
     expression: "Ausdruck von {name}",
+    variant: "Szenenvariante",
+    canonicalLook: "Kanonisches Aussehen",
+    variantNames: { "adam_man.formal_angry": "Anzug · wütend" },
     expressions: {
       neutral: "Neutral",
       happy: "Fröhlich",
@@ -2277,6 +2283,7 @@ const de: Dictionary = {
       thinking: "Nachdenklich",
       determined: "Entschlossen",
       worried: "Besorgt",
+      angry: "Wütend",
     },
     none: "—",
     dialogue: "Dialog",
@@ -2467,6 +2474,7 @@ const de: Dictionary = {
       overlapping_speech: "Zwei Zeilen überschneiden sich.",
       character_reference_changed: "Eine Figur nutzt andere Referenzen als in der vorigen Einstellung.",
       lighting_changed: "Setzt die vorige Einstellung fort, aber das Licht ist anders.",
+      variant_not_approved: "Diese Variante ist für diese Figur nicht freigegeben.",
     },
     blockerText: {
       spec: "Design-Spezifikation nicht freigegeben",

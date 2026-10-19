@@ -2,7 +2,7 @@
  * Persisted storyboard (migration 20261019090000) ⇄ Scenario (scenario.ts), timelines, continuity and audio mix
  * planning. Pure and shared by the API, the editor and the worker.
  */
-import type { ExpressionKey } from '../characters/canon.ts';
+import type { SceneExpression } from '../characters/variants.ts';
 import type { Locale } from '../providers/contracts.ts';
 import type { TimedOverlay, Transition } from '../video/types.ts';
 import { MAX_WORDS_PER_SECOND, type DialogueLine, type Scenario, type ScenarioScene } from './scenario.ts';
@@ -38,7 +38,9 @@ export interface ShotRow {
   camera: string;
   characters: string[];
   actions: Record<string, string>;
-  expressions: Record<string, ExpressionKey>;
+  expressions: Record<string, SceneExpression>;
+  /** Approved scene variant per character (migration 20261019180000). */
+  character_variants?: Record<string, string>;
   dialogue: DialogueLine[];
   narration: string;
   sound: string;
@@ -86,7 +88,7 @@ export function toScenario(p: Pick<ProjectRow, 'title' | 'language_code' | 'aspe
     title: p.title, language: p.language_code, aspect: p.aspect, music: p.music_note || undefined,
     scenes: [...shots].sort((a, b) => a.shot_number - b.shot_number).map((s): ScenarioScene => ({
       number: s.shot_number, durationSeconds: s.duration_seconds, description: s.description, environment: s.environment, characters: s.characters,
-      actions: s.actions, expressions: s.expressions, camera: s.camera, dialogue: s.dialogue, narration: s.narration || undefined, sound: s.sound || undefined,
+      actions: s.actions, expressions: s.expressions, variants: s.character_variants ?? {}, camera: s.camera, dialogue: s.dialogue, narration: s.narration || undefined, sound: s.sound || undefined,
     })),
   };
 }
@@ -97,7 +99,7 @@ export function toSavePayload(shots: Array<Partial<ShotRow> & Pick<ShotRow, 'dur
     id: s.id ?? null, duration_seconds: s.duration_seconds, description: s.description ?? '', environment: s.environment ?? '', camera: s.camera ?? '',
     characters: s.characters ?? [], actions: s.actions ?? {}, expressions: s.expressions ?? {}, dialogue: s.dialogue ?? [], narration: s.narration ?? '',
     sound: s.sound ?? '', continuity: s.continuity ?? {}, reference_asset_ids: s.reference_asset_ids ?? [], clip_audio: s.clip_audio ?? 'keep',
-    overlays: s.overlays ?? [], freeze_ms: s.freeze_ms ?? 0, transition_out: s.transition_out ?? 'cut',
+    overlays: s.overlays ?? [], freeze_ms: s.freeze_ms ?? 0, transition_out: s.transition_out ?? 'cut', character_variants: s.character_variants ?? {},
   }));
 }
 

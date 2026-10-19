@@ -64,20 +64,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (canUpload) uploadPrefix = `${custom.organization_id}/custom/${t.id}/v${custom.spec_version}/`;
   }
 
-  const assetsRes = await db
+  const assetsOf = (cols: string) => db
     .from('character_reference_assets')
-    .select(ASSET_COLUMNS)
+    .select(cols)
     .eq(t.kind === 'canonical' ? 'catalog_character_id' : 'custom_character_id', t.id)
     .in('status', ['pending_review', 'approved', 'rejected'])
     .order('created_at', { ascending: false })
     .limit(100);
+  // variant_id exists from migration 20261019180000 on; older databases get the files without it.
+  let assetsRes = await assetsOf(`${ASSET_COLUMNS}, variant_id`);
+  if (assetsRes.error && missingTable(assetsRes.error.code)) assetsRes = await assetsOf(ASSET_COLUMNS);
+  // Approved scene variants of this character (costume / expression on the unchanged canonical spec).
+  const variantRes = await db.from('character_variants').select('id, variant_key, version, outfit, expression')
+    .eq(t.kind === 'canonical' ? 'catalog_character_id' : 'custom_character_id', t.id).eq('status', 'approved').order('version', { ascending: false });
+  const variants = ((variantRes.data ?? []) as Array<{ id: string; variant_key: string; version: number; outfit: { key?: string } | null; expression: { key?: string } | null }>)
+    .map((v) => ({ id: v.id, key: v.variant_key, version: v.version, outfit_key: v.outfit?.key ?? null, expression_key: v.expression?.key ?? null }));
   if (assetsRes.error) return json({ error: 'failed' }, 500);
-  const rows = (assetsRes.data ?? []) as Array<ReferenceAsset & { object_path: string }>;
+  const rows = (assetsRes.data ?? []) as unknown as Array<ReferenceAsset & { object_path: string }>;
   const signed = rows.length ? await supabase.storage.from('character-library').createSignedUrls(rows.map((r) => r.object_path), SIGNED_SECONDS) : { data: [] };
   const urls = new Map((signed.data ?? []).filter((s) => s.signedUrl && s.path).map((s) => [s.path as string, s.signedUrl]));
   const assets: ReferenceAsset[] = rows.map(({ object_path, ...a }) => ({ ...a, url: urls.get(object_path) ?? null }));
 
-  return json({ kind: t.kind, spec, custom, assets, can_upload: canUpload, can_review: canReview, upload_prefix: uploadPrefix });
+  return json({ kind: t.kind, spec, custom, assets, variants, can_upload: canUpload, can_review: canReview, upload_prefix: uploadPrefix });
 }
 
 /** Registers a file already uploaded under upload_prefix (the database re-checks path, permissions and type). */
@@ -94,9 +102,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const view = typeof b.view === 'string' && b.view ? b.view : null;
   const expression = typeof b.expression_key === 'string' && b.expression_key ? b.expression_key : null;
   const size = Number(b.size_bytes);
+  // A scene variant's own expression (e.g. "angry") is accepted only together with that APPROVED variant; the
+  // database checks that the variant is approved, belongs to this character and matches the keys.
+  const variantId = typeof b.variant_id === 'string' && /^[0-9a-f-]{36}$/i.test(b.variant_id) ? b.variant_id : null;
+  if (b.variant_id != null && !variantId) return json({ error: 'invalid_request' }, 400);
   if (!['rendered_reference', 'rigged_model', 'turntable_video'].includes(kind) || !mimeAllowedFor(kind, mime)) return json({ error: 'type_not_allowed' }, 400);
   if (view && !(REFERENCE_VIEWS as readonly string[]).includes(view)) return json({ error: 'invalid_request' }, 400);
-  if (expression && !(EXPRESSION_KEYS as readonly string[]).includes(expression)) return json({ error: 'invalid_request' }, 400);
+  if (expression && !variantId && !(EXPRESSION_KEYS as readonly string[]).includes(expression)) return json({ error: 'invalid_request' }, 400);
+  if (expression && !/^[a-z_]{2,40}$/.test(expression)) return json({ error: 'invalid_request' }, 400);
   if (kind === 'rendered_reference' && !view && !expression && !b.outfit_key) return json({ error: 'view_required' }, 400);
   if (!Number.isFinite(size) || size <= 0 || size > REFERENCE_MAX_BYTES) return json({ error: 'too_large' }, 400);
   if (!['uploaded_artwork', 'commissioned', 'ai_generated', '3d_render'].includes(String(b.provenance))) return json({ error: 'provenance_required' }, 400);
@@ -118,12 +131,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     p_provenance: b.provenance,
     p_provenance_note: typeof b.provenance_note === 'string' ? b.provenance_note.slice(0, 500) : null,
     p_model_meta: b.model_meta && typeof b.model_meta === 'object' ? b.model_meta : {},
+    ...(variantId ? { p_variant_id: variantId } : {}),
   });
   if (isMissingFunction(error)) return json({ error: 'unavailable' }, 501);
   if (error || !data) {
     const m = error?.message ?? '';
     if (/not authorized|not found/i.test(m)) return json({ error: 'not_authorized' }, 403);
     if (/uploaded file not found|invalid reference path/i.test(m)) return json({ error: 'invalid_path' }, 400);
+    if (/variant|not canonical/i.test(m)) return json({ error: 'variant_invalid' }, 422);
     return json({ error: 'invalid_request' }, 422);
   }
   return json({ asset_id: data }, 201);

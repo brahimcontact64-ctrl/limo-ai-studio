@@ -134,7 +134,7 @@ plus subscriptions if used (sync.so $5/month; ElevenLabs paid plan for commercia
 | Scenario import | the §9 JSON template fills the storyboard (shape checks + full validation on save); optional continuity, overlays, freezeMs, transitionOut, clipAudio |
 | Owner media as a shot (2026-10-19, migration #15) | screen recordings, product captures, logos, photos from the private library; images/videos only, same workspace, never mock, ≤ 100 MB; goes to review |
 | Post-production (migration #15) | ≤ 5 timed text overlays (caption/price/tagline, Arabic + Latin), freeze frame at the end, per-shot transitions; real FFmpeg tests; Arabic RTL lines now laid out run by run on the server renderer (also fixes studio exports) |
-| Character variants | scene-specific costume/expression on an unchanged canonical spec (`lib/characters/variants.ts`), status proposed until the owner approves |
+| Character variants (migration #16) | versioned scene costume/expression on an unchanged canonical spec (`character_variants`, mirrored in `lib/characters/variants.ts`); approved by admin two-factor or the owner's written decision; upload accepts a variant's own keys only with that approved variant; variant files never count as canonical views; a shot selects a variant per character (its expression allowed), prompts carry the variant text, and generation needs the variant's approved front |
 
 ## 9. What the owner provides with the scenario (template)
 Use this JSON shape (`Scenario` in `lib/animation/scenario.ts`); every field is the owner's own text:

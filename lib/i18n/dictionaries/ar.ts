@@ -928,6 +928,8 @@ const ar: Dictionary = {
       view: 'الزاوية',
       expression: 'التعبير',
       outfit: 'الزي',
+      variant: "نسخة المشهد (معتمدة)",
+      variantNone: "— المظهر الأساسي —",
       none: '—',
       provenance: 'المصدر',
       provenances: {
@@ -945,6 +947,7 @@ const ar: Dictionary = {
         type_not_allowed: 'نوع الملف غير مسموح للنوع المختار.',
         too_large: 'حجم الملف أكبر من 100 ميغابايت.',
         upload_failed: 'فشل الرفع. حاول مجددًا.',
+        variant_invalid: "نسخة المشهد هذه غير معتمدة لهذه الشخصية، أو التعبير/الزي ليس جزءًا منها.",
         invalid_path: 'مكان الرفع غير صالح.',
         not_authorized: 'لا يمكنك رفع مراجع لهذه الشخصية.',
         view_required: 'اختر زاوية أو تعبيرًا أو زيًا.',
@@ -2268,6 +2271,9 @@ const ar: Dictionary = {
     addCharacter: "إضافة شخصية",
     action: "حركة {name}",
     expression: "تعبير {name}",
+    variant: "نسخة المشهد",
+    canonicalLook: "المظهر الأساسي",
+    variantNames: { "adam_man.formal_angry": "بدلة رسمية · غاضب" },
     expressions: {
       neutral: "محايد",
       happy: "سعيد",
@@ -2277,6 +2283,7 @@ const ar: Dictionary = {
       thinking: "متأمل",
       determined: "عازم",
       worried: "قلق",
+      angry: "غاضب",
     },
     none: "—",
     dialogue: "الحوار",
@@ -2467,6 +2474,7 @@ const ar: Dictionary = {
       overlapping_speech: "جملتان متداخلتان.",
       character_reference_changed: "شخصية تستخدم مراجع مختلفة عن اللقطة السابقة.",
       lighting_changed: "تكملة للقطة السابقة لكن الإضاءة مختلفة.",
+      variant_not_approved: "هذه النسخة غير معتمدة لهذه الشخصية.",
     },
     blockerText: {
       spec: "مواصفات التصميم غير معتمدة",

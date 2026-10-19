@@ -39,11 +39,11 @@ export function sheetPrompt(spec: CharacterSpec, kind: SheetKind): string {
     kind.type === 'view'
       ? VIEW_TEXT[kind.view]
       : kind.type === 'expression'
-        ? `Head and shoulders, front view, expression: ${spec.expressions.find((e) => e.key === kind.expression)?.description ?? kind.expression}.`
+        ? `Head and shoulders, front view, expression: ${(spec.expressions.find((e) => e.key === kind.expression)?.description ?? kind.expression).replace(/\.+$/, '')}.`
         : 'Full body, three-quarter view.';
   return [
     spec.consistency.identity_prompt,
-    outfit ? `Outfit: ${outfit.description} (colours ${outfit.colors.join(', ')}).` : '',
+    outfit ? `Outfit: ${outfit.description.replace(/\.+$/, '')} (colours ${outfit.colors.join(', ')}).` : '',
     what,
     kind.type === 'expression' ? '' : 'Neutral expression.',
     SHEET_DIRECTION,

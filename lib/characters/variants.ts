@@ -2,28 +2,42 @@
  * Scene-specific character VARIANTS: a costume and/or an expression for one production, layered on an unchanged
  * canonical spec (identity — head, crown, face, colours, proportions — never changes). A variant starts `proposed` and
  * is used for artwork only after the owner approves it; the canonical spec in canon.ts is never edited by a variant.
+ * The database (migration 20261019180000, table character_variants) is the authority for approval; this file mirrors
+ * the approved rows for prompts and planning. Approving a variant never approves any artwork.
  */
-import { NEGATIVE_PROMPT, canonFor, type CharacterSpec } from './canon.ts';
+import { EXPRESSION_KEYS, NEGATIVE_PROMPT, canonFor, type CharacterSpec, type ExpressionKey } from './canon.ts';
 import { SHEET_DIRECTION } from './artwork.ts';
+
+/** Expressions that exist only inside an approved variant (never one of the 8 canonical sheets). */
+export const VARIANT_EXPRESSION_KEYS = ['angry'] as const;
+/** Expression of a character in a shot: canonical, or the expression of the variant selected for that shot. */
+export type SceneExpression = ExpressionKey | (typeof VARIANT_EXPRESSION_KEYS)[number];
 
 export interface CharacterVariant {
   id: string;
+  /** Database key (character_variants.variant_key) + version. */
+  key: string;
+  version: number;
   character: string;
   /** Canonical spec version the variant is drawn on. */
   baseSpecVersion: number;
   status: 'proposed' | 'approved' | 'rejected';
+  approvalNote?: string;
   purpose: string;
   outfit?: { key: string; description: string; colors: string[]; accessories: string[] };
-  expression?: { key: string; description: string };
+  expression?: { key: SceneExpression; description: string };
 }
 
-/** Flagship #1 "The Supernatural Eye": the wealthy, angry father. PROPOSED — owner review pending. */
+/** Flagship #1 "The Supernatural Eye": the wealthy, angry father. APPROVED by the owner (variant only, no artwork). */
 export const ADAM_MAN_FORMAL_ANGRY: CharacterVariant = {
   id: 'adam_man.formal_angry.v1',
+  key: 'adam_man.formal_angry',
+  version: 1,
   character: 'adam_man',
   baseSpecVersion: 1,
-  status: 'proposed',
-  purpose: 'Flagship #1 "The Supernatural Eye", shot 1–2: wealthy family-drama father.',
+  status: 'approved',
+  approvalNote: 'Approved by the owner in writing on 2026-10-19 (scene variant only; canonical spec unchanged; no artwork approved).',
+  purpose: 'Flagship #1 "The Supernatural Eye", shots 1–2: wealthy family-drama father.',
   outfit: {
     key: 'formal',
     description: 'Tailored charcoal three-piece suit with a crisp white dress shirt, burgundy silk tie and pocket square, gold cufflinks, polished black shoes; elegant and expensive-looking, clean stylized folds',
@@ -37,6 +51,28 @@ export const ADAM_MAN_FORMAL_ANGRY: CharacterVariant = {
 };
 
 export const VARIANTS: readonly CharacterVariant[] = [ADAM_MAN_FORMAL_ANGRY];
+
+/** Approved variant by database key (latest version), optionally only for one character. */
+export function approvedVariant(key: string | undefined, character?: string): CharacterVariant | undefined {
+  if (!key) return undefined;
+  return VARIANTS.filter((v) => v.key === key && v.status === 'approved' && (!character || v.character === character)).sort((a, b) => b.version - a.version)[0];
+}
+
+/** An expression is allowed when it is canonical or it is the expression of the variant selected for the character. */
+export function expressionAllowed(expression: string, variantKey: string | undefined, character: string): boolean {
+  if ((EXPRESSION_KEYS as readonly string[]).includes(expression)) return true;
+  return !!variantKey && approvedVariant(variantKey, character)?.expression?.key === expression;
+}
+
+/** Variant text for clip / keyframe prompts (outfit + expression description); empty without a variant. */
+export function variantSceneText(variantKey: string | undefined, character: string): string {
+  const v = approvedVariant(variantKey, character);
+  if (!v) return '';
+  return [
+    v.outfit ? ` Outfit in this scene (approved variant "${v.outfit.key}"): ${v.outfit.description} (colours ${v.outfit.colors.join(', ')}); ${v.outfit.accessories.join('; ')}.` : '',
+    v.expression ? ` Variant expression "${v.expression.key}": ${v.expression.description}.` : '',
+  ].join('');
+}
 
 const VIEW_TEXT = {
   front: 'Front view, facing the camera, standing pose, arms slightly away from the body (about 15°), feet shoulder width.',

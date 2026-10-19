@@ -16,7 +16,7 @@ function readinessMap(data: NonNullable<Awaited<ReturnType<typeof loadAnimation>
   if (data.unavailable) return {};
   const out: Record<string, CharacterReadiness> = {};
   for (const [id, r] of Object.entries(data.readiness.characters ?? {})) {
-    const refs = data.references.filter((x) => x.character === id);
+    const refs = data.references.filter((x) => x.character === id && !x.variant);
     const view = (v: string) => (r.gaps.includes(`missing_${v}`) ? undefined : refs.find((x) => x.view === v)?.id);
     out[id] = { specApproved: !r.gaps.includes('spec_not_approved'), approvedViews: { front: view('front'), three_quarter: view('three_quarter'), side: view('side') }, voices: r.voice ? { [language]: { provider: r.voice.provider, voiceRef: r.voice.voice_ref } } : {} };
   }

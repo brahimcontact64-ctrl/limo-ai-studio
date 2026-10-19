@@ -35,6 +35,7 @@ Fixed order (dependencies in MIGRATION_REVIEW §1):
 | 13 | `20261018150000_limo_ai_spend_guard_v1` | additive (AI spend guard; pilot scope disabled; see AI_PILOT_PLAN.md) |
 | 14 | `20261019090000_limo_animation_studio_v1` | additive + `render_jobs` source columns nullable (Animation Studio, creative AI jobs; flags off; see ANIMATION_PIPELINE.md) |
 | 15 | `20261019150000_limo_animation_media_overlays_v1` | additive columns + replaces two #14 functions (owner media, overlays, freeze, transitions) |
+| 16 | `20261019180000_limo_character_variants_v1` | new table + 2 columns, replaces 4 functions (approved scene variants: upload, readiness, storyboard, job guard) |
 
 ### Milestone 9 changes to the pending files (privileges)
 The audit found that tables created by four pending migrations inherited Supabase's default grants
@@ -115,7 +116,7 @@ promoted.
 ## 9. Gated checklist
 | Gate | Item | Owner | Status |
 |---|---|---|---|
-| G1 | Written approval to apply migrations 1–15 | owner | open |
+| G1 | Written approval to apply migrations 1–16 | owner | open |
 | G2 | Backup type/restore point confirmed; manual dumps stored encrypted outside git | owner | open |
 | G3 | Restore drill into a scratch project succeeded (verified recovery, not just dry run) | owner + Claude | open |
 | G4 | Confirm the old production deployment does not need direct writes (or accept that its screens fail) | owner | open |

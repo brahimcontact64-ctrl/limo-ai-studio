@@ -1,7 +1,7 @@
 # Production readiness review (rechecked 2026-10-19, quality gate)
 
 Review and procedures only — nothing in production was changed. Production Supabase `aevqhgksniqahqrntzxv` has 50
-migrations (last `20261016120000`); **15 are pending** (MIGRATION_REVIEW.md). Vercel production is an older deploy that
+migrations (last `20261016120000`); **16 are pending** (MIGRATION_REVIEW.md). Vercel production is an older deploy that
 predates `rebuild/v1`; `origin/main` is `2a3f426` (untouched).
 
 ## 1. Verdict
@@ -16,7 +16,8 @@ and infrastructure only the owner can provide (backups/restore on production, ho
 | 13 | `20261018150000_limo_ai_spend_guard_v1` | `ai-spend-guard-test.sql` (23), 20-session concurrency test |
 | 14 | `20261019090000_limo_animation_studio_v1` | `animation-studio-test.sql`, animation e2e, browser specs, render e2e with nullable `render_jobs.project_id` |
 | 15 | `20261019150000_limo_animation_media_overlays_v1` | `animation-studio-test.sql` (54 incl. media/post-production), animation e2e (21), worker render tests (freeze, timed Arabic overlay, fade), browser flow |
-All 15 rollback scripts are dry-run in one transaction (`scripts/sql/rollback-dry-run.sh`). Behaviour changes to review
+| 16 | `20261019180000_limo_character_variants_v1` | `character-variants-test.sql` (24: approval, upload rules, canonical readiness, shot rules, job guard, security), unit tests (variants, flagship scenario, keyframe prompt), browser flow |
+All 16 rollback scripts are dry-run in one transaction (`scripts/sql/rollback-dry-run.sh`). Behaviour changes to review
 before G1: #2 payments via `submit_payment`; #5 approved scripts read-only; #6/#7/#10 direct client writes replaced by
 functions; #11 30 s and credit rules; #14 `render_jobs.project_id` / `script_revision_id` nullable for animation exports
 (check constraint keeps every studio export complete).
@@ -25,7 +26,7 @@ functions; #11 30 s and credit rules; #14 `render_jobs.project_id` / `script_rev
 | Area | State | Needed | Gate |
 |---|---|---|---|
 | Backups + real restore | procedure rehearsed locally (§5); production not done | confirm PITR/backup tier, dump production, restore into a scratch project, run the checks | G2, G3 |
-| Migrations | 15 pending, verified locally | written approval, window, run in order, verify flags off | G1, G7, G9 |
+| Migrations | 16 pending, verified locally | written approval, window, run in order, verify flags off | G1, G7, G9 |
 | App promotion | `rebuild/v1` not deployed | approval; check the old deploy's direct writes | G4, G8 |
 | Workers (render, publisher, generator) | images/examples prepared, nothing hosted | §6 | W1–W7 |
 | Monitoring and alerts | health endpoints + SQL queries exist; nothing connected | §7 | W6 |

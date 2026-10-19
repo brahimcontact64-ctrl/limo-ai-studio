@@ -220,7 +220,7 @@ async function body(A: Session, B: Session, fixture: { character?: string; refs:
   fixture.projects.push(mp);
   await A.rpc('save_animation_shots', { p_project_id: mp, p_expected_revision: null, p_shots: [
     { duration_seconds: 4, description: '[capture]', environment: '[brand]', characters: [], freeze_ms: 1000, transition_out: 'cut' },
-    { duration_seconds: 4, description: '[logo]', environment: '[brand]', characters: [], overlays: [{ text: 'اصنع. برمج. انشر.', start_ms: 1000, end_ms: 4000, position: 'bottom', size: 'large', style: 'tagline' }] },
+    { duration_seconds: 4, description: '[logo]', environment: '[brand]', characters: [], overlays: [{ text: 'تخيّل. صمّم. وجدول.', start_ms: 1000, end_ms: 4000, position: 'bottom', size: 'large', style: 'tagline' }] },
   ] });
   const ownShots = ((await A.db('animation_shots').select('id, shot_number').eq('project_id', mp).order('shot_number')).data ?? []) as Array<{ id: string }>;
   const bMedia = await B.rpc('set_animation_shot_media', { p_shot_id: ownShots[0]!.id, p_asset_id: vidId });

@@ -16,6 +16,8 @@ interface Payload {
   spec: { version: number; status: string; spec: Record<string, unknown>; note: string | null } | null;
   custom: { name: string; description: string; reference_status: string } | null;
   assets: ReferenceAsset[];
+  /** Approved scene variants (migration 20261019180000); absent on older databases. */
+  variants?: Array<{ id: string; key: string; version: number; outfit_key: string | null; expression_key: string | null }>;
   can_upload: boolean;
   can_review: boolean;
   upload_prefix: string | null;
@@ -247,7 +249,7 @@ function Body({ data, characterId, onChanged }: { data: Payload; characterId: st
           </ul>
         </details>
       )}
-      {data.can_upload && data.upload_prefix && <UploadForm characterId={characterId} prefix={data.upload_prefix} outfits={outfitKeys(data)} onDone={onChanged} />}
+      {data.can_upload && data.upload_prefix && <UploadForm characterId={characterId} prefix={data.upload_prefix} outfits={outfitKeys(data)} variants={data.variants ?? []} onDone={onChanged} />}
     </>
   );
 }
@@ -508,7 +510,7 @@ function ApprovedList({ assets, onDone }: { assets: ReferenceAsset[]; onDone: ()
   );
 }
 
-function UploadForm({ characterId, prefix, outfits, onDone }: { characterId: string; prefix: string; outfits: string[]; onDone: () => void }) {
+function UploadForm({ characterId, prefix, outfits, variants, onDone }: { characterId: string; prefix: string; outfits: string[]; variants: NonNullable<Payload['variants']>; onDone: () => void }) {
   const { t } = useI18n();
   const u = t.characters.upload;
   const p = t.characters.preview;
@@ -517,6 +519,8 @@ function UploadForm({ characterId, prefix, outfits, onDone }: { characterId: str
   const [view, setView] = useState<string>('front');
   const [expression, setExpression] = useState('');
   const [outfit, setOutfit] = useState('');
+  const [variantId, setVariantId] = useState('');
+  const variant = variants.find((v) => v.id === variantId) ?? null;
   const [provenance, setProvenance] = useState('');
   const [note, setNote] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -537,6 +541,7 @@ function UploadForm({ characterId, prefix, outfits, onDone }: { characterId: str
       view: kind === 'rigged_model' ? null : view || null,
       expression: kind === 'rendered_reference' ? expression || null : null,
       outfit: outfit || null,
+      variantId: variant?.id ?? null,
       provenance,
       note,
     });
@@ -582,6 +587,26 @@ function UploadForm({ characterId, prefix, outfits, onDone }: { characterId: str
             </select>
           </div>
         )}
+        {kind === 'rendered_reference' && variants.length > 0 && (
+          <div className="field">
+            <label className="field-label" htmlFor={`${uid}-8`}>
+              {u.variant}
+            </label>
+            <select id={`${uid}-8`} className="select" value={variantId} data-testid="upload-variant" onChange={(e) => {
+              const v = variants.find((x) => x.id === e.target.value) ?? null;
+              setVariantId(e.target.value);
+              setOutfit(v?.outfit_key ?? '');
+              setExpression('');
+            }}>
+              <option value="">{u.variantNone}</option>
+              {variants.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {(t.animation.variantNames as Record<string, string>)[v.key] ?? v.key} (v{v.version})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {kind === 'rendered_reference' && (
           <div className="field">
             <label className="field-label" htmlFor={`${uid}-3`}>
@@ -589,7 +614,7 @@ function UploadForm({ characterId, prefix, outfits, onDone }: { characterId: str
             </label>
             <select id={`${uid}-3`} className="select" value={expression} onChange={(e) => setExpression(e.target.value)}>
               <option value="">{u.none}</option>
-              {EXPRESSION_KEYS.map((x) => (
+              {(variant ? (variant.expression_key ? [variant.expression_key] : []) : EXPRESSION_KEYS).map((x) => (
                 <option key={x} value={x}>
                   {x}
                 </option>
@@ -597,14 +622,14 @@ function UploadForm({ characterId, prefix, outfits, onDone }: { characterId: str
             </select>
           </div>
         )}
-        {outfits.length > 0 && (
+        {(outfits.length > 0 || variant?.outfit_key) && (
           <div className="field">
             <label className="field-label" htmlFor={`${uid}-4`}>
               {u.outfit}
             </label>
-            <select id={`${uid}-4`} className="select" value={outfit} onChange={(e) => setOutfit(e.target.value)}>
+            <select id={`${uid}-4`} className="select" value={outfit} onChange={(e) => setOutfit(e.target.value)} disabled={!!variant}>
               <option value="">{u.none}</option>
-              {outfits.map((o) => (
+              {(variant?.outfit_key ? [variant.outfit_key] : outfits).map((o) => (
                 <option key={o} value={o}>
                   {o}
                 </option>

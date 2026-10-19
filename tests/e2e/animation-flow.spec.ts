@@ -158,7 +158,7 @@ test('Animation Studio end to end (mock): import → references → keyframe →
     let s2 = page.getByTestId('shot-2');
     await s2.getByTestId('shot-post').locator('summary').click();
     await s2.getByTestId('add-overlay').click();
-    await s2.getByTestId('shot-overlay').getByRole('textbox', { name: 'Text', exact: true }).fill('اصنع. برمج. انشر.');
+    await s2.getByTestId('shot-overlay').getByRole('textbox', { name: 'Text', exact: true }).fill('تخيّل. صمّم. وجدول.');
     await expect(s2.getByTestId('shot-transition')).toBeDisabled(); // last shot: no transition after it
     await page.getByTestId('anim-save').click();
     await expect(page.getByText('Storyboard saved.')).toBeVisible();

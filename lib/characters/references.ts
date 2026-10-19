@@ -9,6 +9,8 @@ export interface ReferenceAsset {
   view: ReferenceView | null;
   expression_key: string | null;
   outfit_key: string | null;
+  /** Approved scene variant the file belongs to (never counts as a canonical view). */
+  variant_id?: string | null;
   spec_version: number;
   status: ReferenceStatus;
   mime_type: string;
@@ -35,7 +37,7 @@ export interface ViewSlot {
 /** View slots for the current spec version: the approved image wins, then the newest pending one. */
 export function viewSlots(assets: ReferenceAsset[], specVersion: number | null): ViewSlot[] {
   return REFERENCE_VIEWS.map((view) => {
-    const mine = assets.filter((a) => a.asset_kind === 'rendered_reference' && a.view === view && !a.expression_key && a.spec_version === specVersion);
+    const mine = assets.filter((a) => a.asset_kind === 'rendered_reference' && a.view === view && !a.expression_key && !a.outfit_key && !a.variant_id && a.spec_version === specVersion);
     const approved = mine.find((a) => a.status === 'approved') ?? null;
     const pending = mine.filter((a) => a.status === 'pending_review').sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
     return {

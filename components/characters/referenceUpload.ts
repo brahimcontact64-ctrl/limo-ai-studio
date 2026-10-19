@@ -10,6 +10,8 @@ export interface ReferenceUploadInput {
   view: string | null;
   expression: string | null;
   outfit: string | null;
+  /** Approved scene variant the file belongs to (its own expression/outfit keys are allowed only with it). */
+  variantId?: string | null;
   provenance: string;
   note: string;
 }
@@ -43,6 +45,7 @@ export async function uploadReference(input: ReferenceUploadInput): Promise<{ id
       view: input.view,
       expression_key: input.expression,
       outfit_key: input.outfit,
+      ...(input.variantId ? { variant_id: input.variantId } : {}),
       mime_type: mime,
       size_bytes: input.file.size,
       provenance: input.provenance,

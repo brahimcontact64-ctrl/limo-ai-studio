@@ -2,6 +2,24 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — Flagship final prep: character variants (migration #16), demo workspace, adam_boy package
+- Pushed first (owner-authorised): `4e96567..31c44d6` after a fresh, successful `git fetch`; `main` unchanged.
+- Unit **192/192** (new: variant approved + canon unchanged, variant expression only with its approved variant,
+  flagship scenario 30 s / 3 characters / shot-1 variant / new tagline, keyframe prompt carries the variant,
+  `adam_boy` package prompts + manifest in sync). Typecheck app + worker clean; `next build` OK.
+- SQL **129/129**: `character-variants-test.sql` **24/24** (seed approved with note, canonical spec untouched, upload
+  rules, proposed/other-character variants refused, aal1 refused, audit, variant front never counts as canonical,
+  shot rules incl. line emotion, job needs the variant's approved front, customers cannot create/approve) — the first
+  run caught a real bug (NULL comparison let "angry" through without a variant; fixed with `coalesce`); animation
+  54, spend guard 22, spec approval 6, generation gate 4, video policy 19. Rollback dry run of all 16 clean.
+- Worker (real FFmpeg) **13/13**; e2e animation **21/21**, publish **63/63**, render **72/72**, backend **224/224**.
+- Browser (Playwright, production build, desktop + mobile) **41 passed, 1 skipped, 0 failed** (1.4 h).
+- Demo workspace (local): seeded by `scripts/flagship/seed-demo-workspace.ts`; flagship scenario imported (6 shots,
+  30 s, variant on shot 1, tagline «تخيّل. صمّم. وجدول.»); shots 4–6 re-recorded and attached (clip_review). Frames
+  inspected: no loading frames after the ready-mark fix; language segment shows AR → FR only within 2 s (documented).
+- `artwork-sheet.ts` dry runs: front $0.2406, reference-locked sheets ≈ $0.242 (researched price, unverified); live
+  mode refuses without every gate. No paid call, no generation, nothing approved.
+
 ## 2026-10-19 — Flagship decisions + owner media + post-production (migration #15), branch `rebuild/v1`
 - Pushed first (owner-authorised): `6ac1108..4e96567` fast-forward (clean tree, secret scan clean, unit 186/186 +
   typechecks, no workflows / 0 deployments; `main` unchanged). Note: the pre-push `git fetch` hit a transient DNS

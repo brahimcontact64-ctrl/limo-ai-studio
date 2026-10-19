@@ -13,7 +13,8 @@
  *   5. review     continuity check of keyframe/clip against the references + human approval, then the MP4 export
  * Nothing here calls a provider; costs use the researched (unverified) list prices for planning only.
  */
-import { CANON, EXPRESSION_KEYS, canonFor, type ExpressionKey } from '../characters/canon.ts';
+import { CANON, EXPRESSION_KEYS, canonFor } from '../characters/canon.ts';
+import { approvedVariant, expressionAllowed, variantSceneText, type SceneExpression } from '../characters/variants.ts';
 import { VIDEO_POLICY } from '../video/policy.ts';
 import type { Locale } from '../providers/contracts.ts';
 
@@ -28,7 +29,7 @@ export const MAX_WORDS_PER_SECOND = 2.5;
 export interface DialogueLine {
   speaker: string;
   text: string;
-  emotion?: ExpressionKey;
+  emotion?: SceneExpression;
 }
 
 export interface ScenarioScene {
@@ -40,7 +41,9 @@ export interface ScenarioScene {
   characters: string[];
   /** What each character does, in the owner's words: { "limo_man": "…" }. */
   actions: Record<string, string>;
-  expressions?: Record<string, ExpressionKey>;
+  expressions?: Record<string, SceneExpression>;
+  /** Approved scene variant per character (costume / expression on the unchanged canonical spec): { "adam_man": "adam_man.formal_angry" }. */
+  variants?: Record<string, string>;
   camera: string;
   dialogue: DialogueLine[];
   narration?: string;
@@ -94,13 +97,16 @@ export function validateScenario(s: Scenario): ScenarioIssue[] {
     for (const id of sc.characters) if (!sc.actions?.[id]?.trim()) warn('action_missing', `no action for ${id}`, n);
     for (const [id, e] of Object.entries(sc.expressions ?? {})) {
       if (!sc.characters.includes(id)) err('expression_not_in_scene', `${id} has an expression but is not in the scene`, n);
-      if (!(EXPRESSION_KEYS as readonly string[]).includes(e)) err('expression_unknown', `${e} is not one of ${EXPRESSION_KEYS.join(', ')}`, n);
+      if (!expressionAllowed(e, sc.variants?.[id], id)) err('expression_unknown', `${e} is not one of ${EXPRESSION_KEYS.join(', ')} (nor of the selected approved variant)`, n);
+    }
+    for (const [id, key] of Object.entries(sc.variants ?? {})) {
+      if (!sc.characters.includes(id) || !approvedVariant(key, id)) err('variant_not_approved', `${key} is not an approved variant of ${id} in this scene`, n);
     }
     let spoken = words(sc.narration ?? '');
     for (const line of sc.dialogue ?? []) {
       if (!sc.characters.includes(line.speaker)) err('speaker_not_in_scene', `${line.speaker} speaks but is not in the scene`, n);
       if (!line.text?.trim()) err('dialogue_empty', 'empty dialogue line', n);
-      if (line.emotion && !(EXPRESSION_KEYS as readonly string[]).includes(line.emotion)) err('expression_unknown', `${line.emotion} is not a known expression`, n);
+      if (line.emotion && !expressionAllowed(line.emotion, sc.variants?.[line.speaker], line.speaker)) err('expression_unknown', `${line.emotion} is not a known expression`, n);
       spoken += words(line.text ?? '');
     }
     if (spoken > Math.floor(sc.durationSeconds * MAX_WORDS_PER_SECOND)) warn('dialogue_too_long', `${spoken} words in ${sc.durationSeconds} s (natural pace ≤ ${Math.floor(sc.durationSeconds * MAX_WORDS_PER_SECOND)})`, n);
@@ -176,7 +182,7 @@ export function clipPrompt(sc: ScenarioScene, voiceMode: 'native' | 'separate'):
   const who = sc.characters.map((id) => {
     const spec = canonFor(id);
     const expr = sc.expressions?.[id] ? ` Expression: ${sc.expressions[id]}.` : '';
-    return `${spec ? spec.consistency.identity_prompt : id} Action: ${sc.actions?.[id] ?? ''}.${expr}`;
+    return `${spec ? spec.consistency.identity_prompt : id}${variantSceneText(sc.variants?.[id], id)} Action: ${sc.actions?.[id] ?? ''}.${expr}`;
   });
   const talk = voiceMode === 'native'
     ? sc.dialogue.map((d) => `${canonFor(d.speaker)?.character_id ?? d.speaker} says: "${d.text}"`)

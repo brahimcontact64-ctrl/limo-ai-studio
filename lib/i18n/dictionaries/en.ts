@@ -926,6 +926,8 @@ const en = {
       view: 'View',
       expression: 'Expression',
       outfit: 'Outfit',
+      variant: "Scene variant (approved)",
+      variantNone: "— canonical —",
       none: '—',
       provenance: 'Source',
       provenances: {
@@ -943,6 +945,7 @@ const en = {
         type_not_allowed: 'This file type is not allowed for the selected type.',
         too_large: 'The file is larger than 100 MB.',
         upload_failed: 'The upload failed. Try again.',
+        variant_invalid: "This scene variant is not approved for this character, or the expression/outfit is not part of it.",
         invalid_path: 'The upload location is invalid.',
         not_authorized: 'You cannot upload references for this character.',
         view_required: 'Choose a view, expression or outfit.',
@@ -2266,6 +2269,9 @@ const en = {
     addCharacter: "Add a character",
     action: "Action of {name}",
     expression: "Expression of {name}",
+    variant: "Scene variant",
+    canonicalLook: "Canonical look",
+    variantNames: { "adam_man.formal_angry": "Formal suit · angry" },
     expressions: {
       neutral: "Neutral",
       happy: "Happy",
@@ -2275,6 +2281,7 @@ const en = {
       thinking: "Thinking",
       determined: "Determined",
       worried: "Worried",
+      angry: "Angry",
     },
     none: "—",
     dialogue: "Dialogue",
@@ -2465,6 +2472,7 @@ const en = {
       overlapping_speech: "Two lines overlap.",
       character_reference_changed: "A character uses different references than in the previous shot.",
       lighting_changed: "Continues the previous shot, but the lighting differs.",
+      variant_not_approved: "This variant is not approved for this character.",
     },
     blockerText: {
       spec: "design spec not approved",

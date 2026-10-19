@@ -3,7 +3,7 @@
  * types are checked here; the editor then shows the full validation (30 s, 4/6/8 s, speakers, references) and the
  * database enforces it on save. Nothing is invented: missing text stays empty.
  */
-import { EXPRESSION_KEYS, type ExpressionKey } from '../characters/canon.ts';
+import { approvedVariant, expressionAllowed, type SceneExpression } from '../characters/variants.ts';
 import type { DialogueLine } from './scenario.ts';
 import type { Continuity } from './storyboard.ts';
 import type { TimedOverlay, Transition } from '../video/types.ts';
@@ -15,7 +15,9 @@ export interface ImportedShot {
   camera: string;
   characters: string[];
   actions: Record<string, string>;
-  expressions: Record<string, ExpressionKey>;
+  expressions: Record<string, SceneExpression>;
+  /** Approved scene variant per character (checked against the approved variants; the database re-checks). */
+  character_variants: Record<string, string>;
   dialogue: DialogueLine[];
   narration: string;
   sound: string;
@@ -35,7 +37,7 @@ export interface ImportedScenario {
 }
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
-const isExpr = (v: unknown): v is ExpressionKey => typeof v === 'string' && (EXPRESSION_KEYS as readonly string[]).includes(v);
+const isExpr = (v: unknown, variant: string | undefined, character: string): v is SceneExpression => typeof v === 'string' && expressionAllowed(v, variant, character);
 
 function overlaysOf(v: unknown, seconds: number, n: number, errors: string[]): TimedOverlay[] {
   if (!Array.isArray(v)) return [];
@@ -94,9 +96,17 @@ export function parseScenarioJson(text: string): { scenario: ImportedScenario | 
     if (![4, 6, 8].includes(d)) errors.push(`scene ${n}: durationSeconds must be 4, 6 or 8`);
     const characters = Array.isArray(x.characters) ? x.characters.filter((c): c is string => typeof c === 'string').slice(0, 5) : [];
     const actions = x.actions && typeof x.actions === 'object' && !Array.isArray(x.actions) ? Object.fromEntries(Object.entries(x.actions as Record<string, unknown>).filter(([k]) => characters.includes(k)).map(([k, v]) => [k, str(v, 300)])) : {};
-    const expressions = x.expressions && typeof x.expressions === 'object' ? Object.fromEntries(Object.entries(x.expressions as Record<string, unknown>).filter(([k, v]) => characters.includes(k) && isExpr(v))) as Record<string, ExpressionKey> : {};
+    const rawVariants = x.variants ?? x.character_variants;
+    const character_variants: Record<string, string> = {};
+    if (rawVariants && typeof rawVariants === 'object' && !Array.isArray(rawVariants)) {
+      for (const [k, v] of Object.entries(rawVariants as Record<string, unknown>)) {
+        if (characters.includes(k) && typeof v === 'string' && approvedVariant(v, k)) character_variants[k] = v;
+        else errors.push(`scene ${n}: "${String(v)}" is not an approved variant of ${k}`);
+      }
+    }
+    const expressions = x.expressions && typeof x.expressions === 'object' ? Object.fromEntries(Object.entries(x.expressions as Record<string, unknown>).filter(([k, v]) => characters.includes(k) && isExpr(v, character_variants[k], k))) as Record<string, SceneExpression> : {};
     const dialogue: DialogueLine[] = Array.isArray(x.dialogue)
-      ? x.dialogue.filter((l): l is Record<string, unknown> => !!l && typeof l === 'object').map((l) => ({ speaker: str(l.speaker, 80), text: str(l.text, 400), ...(isExpr(l.emotion) ? { emotion: l.emotion } : {}) }))
+      ? x.dialogue.filter((l): l is Record<string, unknown> => !!l && typeof l === 'object').map((l) => ({ speaker: str(l.speaker, 80), text: str(l.text, 400), ...(isExpr(l.emotion, character_variants[str(l.speaker, 80)], str(l.speaker, 80)) ? { emotion: l.emotion } : {}) }))
       : [];
     dialogue.forEach((l) => {
       if (!characters.includes(l.speaker)) errors.push(`scene ${n}: speaker "${l.speaker}" is not in "characters"`);
@@ -104,7 +114,7 @@ export function parseScenarioJson(text: string): { scenario: ImportedScenario | 
     shots.push({
       duration_seconds: ([4, 6, 8].includes(d) ? d : 8) as 4 | 6 | 8,
       description: str(x.description, 2000), environment: str(x.environment, 1000), camera: str(x.camera, 500),
-      characters, actions, expressions, dialogue, narration: str(x.narration, 1000), sound: str(x.sound, 500),
+      characters, actions, expressions, character_variants, dialogue, narration: str(x.narration, 1000), sound: str(x.sound, 500),
       continuity: continuityOf(x.continuity, n > 1),
       clip_audio: x.clipAudio === 'mute' || x.clip_audio === 'mute' ? 'mute' : 'keep',
       overlays: overlaysOf(x.overlays, d, n, errors),

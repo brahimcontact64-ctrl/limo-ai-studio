@@ -1,0 +1,203 @@
+{
+  "id": "adam_boy.artwork.v1",
+  "character": "adam_boy",
+  "specVersion": 1,
+  "model": "gemini-3-pro-image",
+  "registryCode": "google_character_image_v1",
+  "priceKey": "google/gemini-3-pro-image@4K",
+  "researchedUsdPerImage": 0.24,
+  "identityChecklist": [
+    "Head: Oval, gently lumpy potato head, a little taller than wide, with a soft asymmetric bump on the upper left.",
+    "Crown: Two-leaf green sprout growing from the top; the left leaf is larger than the right.",
+    "Face: Small bright eyes with dark brown irises and one white catchlight each, expressive brows, round button nose, friendly wide mouth.",
+    "About 2.6 heads tall; upright, energetic, slight forward lean",
+    "Colours: skin #C99A62, skin_shadow #9A7146, skin_highlight #E3BE8A, spots #8C6A43, crown #6CBF4B, iris #2B2118",
+    "Detail: three potato-eye spots in fixed positions",
+    "Detail: two-leaf sprout, left leaf larger",
+    "Detail: small cap worn backwards on special occasions only",
+    "Four fingers per hand, no hair, no text or logo, family-friendly"
+  ],
+  "reviewChecklist": [
+    "identity_matches_spec",
+    "proportions_match",
+    "palette_matches",
+    "family_friendly",
+    "view_correct",
+    "no_text_or_watermark"
+  ],
+  "sheets": [
+    {
+      "slot": "view:front",
+      "sheet": {
+        "type": "view",
+        "view": "front"
+      },
+      "needsApprovedFront": false,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v1-view-front-22f93f4eda855500",
+        "locale": "en",
+        "prompt": "ADAM young boy: premium stylized 3D anthropomorphic potato character for a family-friendly animated series. Oval, gently lumpy potato head, a little taller than wide, with a soft asymmetric bump on the upper left. Two-leaf green sprout growing from the top; the left leaf is larger than the right. Matte, softly textured skin with three small darker “potato eye” spots: one on the upper left forehead, two on the right cheek. Small bright eyes with dark brown irises and one white catchlight each, expressive brows, round button nose, friendly wide mouth. Small rounded child body, short arms and legs, four-finger cartoon hands, skin-coloured limbs. About 2.6 heads tall; upright, energetic, slight forward lean. Colours: skin #C99A62, crown #6CBF4B, iris #2B2118. Details: three potato-eye spots in fixed positions; two-leaf sprout, left leaf larger; small cap worn backwards on special occasions only.\nOutfit: Striped T-shirt, knee-length shorts and sneakers (colours #3D5A80, #E0A526).\nFront view, facing the camera, relaxed neutral standing pose, arms slightly away from the body (about 15°), feet shoulder width.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #C99A62, crown #6CBF4B, iris #2B2118.\nNever: realistic human skin or human face; hair on the head (the crown replaces hair); more or fewer than four fingers per hand; extra limbs or duplicated features; changing the family colour, crown shape or face layout; text, logos or watermarks; scary, violent or adult content; photorealistic food textures.",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "image",
+        "task": "generate",
+        "inputAssetIds": []
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": "front",
+        "expression_key": null,
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "view:three_quarter",
+      "sheet": {
+        "type": "view",
+        "view": "three_quarter"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v1-view-three_quarter-7eca4e1b664fac40",
+        "locale": "en",
+        "prompt": "ADAM young boy: premium stylized 3D anthropomorphic potato character for a family-friendly animated series. Oval, gently lumpy potato head, a little taller than wide, with a soft asymmetric bump on the upper left. Two-leaf green sprout growing from the top; the left leaf is larger than the right. Matte, softly textured skin with three small darker “potato eye” spots: one on the upper left forehead, two on the right cheek. Small bright eyes with dark brown irises and one white catchlight each, expressive brows, round button nose, friendly wide mouth. Small rounded child body, short arms and legs, four-finger cartoon hands, skin-coloured limbs. About 2.6 heads tall; upright, energetic, slight forward lean. Colours: skin #C99A62, crown #6CBF4B, iris #2B2118. Details: three potato-eye spots in fixed positions; two-leaf sprout, left leaf larger; small cap worn backwards on special occasions only.\nOutfit: Striped T-shirt, knee-length shorts and sneakers (colours #3D5A80, #E0A526).\nThree-quarter view turned 45° to the left, same pose and outfit as the reference.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #C99A62, crown #6CBF4B, iris #2B2118.\nNever: realistic human skin or human face; hair on the head (the crown replaces hair); more or fewer than four fingers per hand; extra limbs or duplicated features; changing the family colour, crown shape or face layout; text, logos or watermarks; scary, violent or adult content; photorealistic food textures.\nThe attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, sprout, potato-eye spots, colours, face layout, proportions, outfit).",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 1,
+            "assetIds": [
+              "approved-front"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": "three_quarter",
+        "expression_key": null,
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "view:side",
+      "sheet": {
+        "type": "view",
+        "view": "side"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v1-view-side-e7120fa496c16d60",
+        "locale": "en",
+        "prompt": "ADAM young boy: premium stylized 3D anthropomorphic potato character for a family-friendly animated series. Oval, gently lumpy potato head, a little taller than wide, with a soft asymmetric bump on the upper left. Two-leaf green sprout growing from the top; the left leaf is larger than the right. Matte, softly textured skin with three small darker “potato eye” spots: one on the upper left forehead, two on the right cheek. Small bright eyes with dark brown irises and one white catchlight each, expressive brows, round button nose, friendly wide mouth. Small rounded child body, short arms and legs, four-finger cartoon hands, skin-coloured limbs. About 2.6 heads tall; upright, energetic, slight forward lean. Colours: skin #C99A62, crown #6CBF4B, iris #2B2118. Details: three potato-eye spots in fixed positions; two-leaf sprout, left leaf larger; small cap worn backwards on special occasions only.\nOutfit: Striped T-shirt, knee-length shorts and sneakers (colours #3D5A80, #E0A526).\nSide view (profile facing left), same pose and outfit as the reference.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #C99A62, crown #6CBF4B, iris #2B2118.\nNever: realistic human skin or human face; hair on the head (the crown replaces hair); more or fewer than four fingers per hand; extra limbs or duplicated features; changing the family colour, crown shape or face layout; text, logos or watermarks; scary, violent or adult content; photorealistic food textures.\nThe attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, sprout, potato-eye spots, colours, face layout, proportions, outfit).",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 1,
+            "assetIds": [
+              "approved-front"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": "side",
+        "expression_key": null,
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "expression:surprised",
+      "sheet": {
+        "type": "expression",
+        "expression": "surprised"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v1-expression-surprised-562afbd1e4804d7f",
+        "locale": "en",
+        "prompt": "ADAM young boy: premium stylized 3D anthropomorphic potato character for a family-friendly animated series. Oval, gently lumpy potato head, a little taller than wide, with a soft asymmetric bump on the upper left. Two-leaf green sprout growing from the top; the left leaf is larger than the right. Matte, softly textured skin with three small darker “potato eye” spots: one on the upper left forehead, two on the right cheek. Small bright eyes with dark brown irises and one white catchlight each, expressive brows, round button nose, friendly wide mouth. Small rounded child body, short arms and legs, four-finger cartoon hands, skin-coloured limbs. About 2.6 heads tall; upright, energetic, slight forward lean. Colours: skin #C99A62, crown #6CBF4B, iris #2B2118. Details: three potato-eye spots in fixed positions; two-leaf sprout, left leaf larger; small cap worn backwards on special occasions only.\nOutfit: Striped T-shirt, knee-length shorts and sneakers (colours #3D5A80, #E0A526).\nHead and shoulders, front view, expression: Eyes wide, brows raised high, small round open mouth.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #C99A62, crown #6CBF4B, iris #2B2118.\nNever: realistic human skin or human face; hair on the head (the crown replaces hair); more or fewer than four fingers per hand; extra limbs or duplicated features; changing the family colour, crown shape or face layout; text, logos or watermarks; scary, violent or adult content; photorealistic food textures.\nThe attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, sprout, potato-eye spots, colours, face layout, proportions, outfit).",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 1,
+            "assetIds": [
+              "approved-front"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": null,
+        "expression_key": "surprised",
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "expression:determined",
+      "sheet": {
+        "type": "expression",
+        "expression": "determined"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v1-expression-determined-0f97cd6ef6a774b8",
+        "locale": "en",
+        "prompt": "ADAM young boy: premium stylized 3D anthropomorphic potato character for a family-friendly animated series. Oval, gently lumpy potato head, a little taller than wide, with a soft asymmetric bump on the upper left. Two-leaf green sprout growing from the top; the left leaf is larger than the right. Matte, softly textured skin with three small darker “potato eye” spots: one on the upper left forehead, two on the right cheek. Small bright eyes with dark brown irises and one white catchlight each, expressive brows, round button nose, friendly wide mouth. Small rounded child body, short arms and legs, four-finger cartoon hands, skin-coloured limbs. About 2.6 heads tall; upright, energetic, slight forward lean. Colours: skin #C99A62, crown #6CBF4B, iris #2B2118. Details: three potato-eye spots in fixed positions; two-leaf sprout, left leaf larger; small cap worn backwards on special occasions only.\nOutfit: Striped T-shirt, knee-length shorts and sneakers (colours #3D5A80, #E0A526).\nHead and shoulders, front view, expression: Brows lowered and angled, focused eyes, firm closed mouth.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #C99A62, crown #6CBF4B, iris #2B2118.\nNever: realistic human skin or human face; hair on the head (the crown replaces hair); more or fewer than four fingers per hand; extra limbs or duplicated features; changing the family colour, crown shape or face layout; text, logos or watermarks; scary, violent or adult content; photorealistic food textures.\nThe attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, sprout, potato-eye spots, colours, face layout, proportions, outfit).",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 1,
+            "assetIds": [
+              "approved-front"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": null,
+        "expression_key": "determined",
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    }
+  ]
+}

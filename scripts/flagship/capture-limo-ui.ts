@@ -3,10 +3,13 @@
  *   shot 4 (6 s)  Animation Studio storyboard of the flagship project, Arabic UI
  *   shot 5 (8 s)  four real screens ≈ 2 s each: shot editor · post composer · calendar · language switch (AR→FR→EN→DE)
  *   shot 6        the approved LIMO mark (components/brand/Logo.tsx paths) + "LIMO AI" wordmark on the brand colours
+ * Captures come from the clean DEMO workspace only (scripts/flagship/seed-demo-workspace.ts: demo account, sample brand
+ * labelled « مثال », simulated Page): no test account, no personal data, no secrets. Disabled AI is never shown as
+ * working — the composer is filled by hand, nothing is generated.
  * The files are uploaded to the signed-in user's private workspace library and set as the shots' media through the
  * normal function (set_animation_shot_media): the shots go to REVIEW — nothing is approved automatically.
  *
- * Env: APP_URL (http://localhost:3200), SUPABASE_URL (local), SUPABASE_ANON_KEY, CAPTURE_EMAIL, CAPTURE_PASSWORD
+ * Env: APP_URL (http://localhost:3200), SUPABASE_URL (local), SUPABASE_ANON_KEY, CAPTURE_EMAIL (demo …@limo.example), CAPTURE_PASSWORD
  * Usage: node scripts/flagship/capture-limo-ui.ts <animation project id> [--out <dir>] [--no-attach]
  */
 import { execFileSync } from 'node:child_process';
@@ -29,6 +32,10 @@ const APP = env('APP_URL', 'http://localhost:3200');
 const SB = env('SUPABASE_URL');
 if (!/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/.test(SB) || !/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/.test(APP)) {
   console.error('Local app and stack only.');
+  process.exit(2);
+}
+if (!/@limo\.example$/.test(env('CAPTURE_EMAIL'))) {
+  console.error('Captures use the demo workspace only (CAPTURE_EMAIL …@limo.example, see seed-demo-workspace.ts).');
   process.exit(2);
 }
 const projectId = process.argv[2];
@@ -56,14 +63,18 @@ async function signedInContext(browser: Browser, dir: string) {
   return { ctx, page };
 }
 
-/** Records one segment; returns the video file and the second at which the useful part starts. */
-async function record(browser: Browser, name: string, run: (p: Page) => Promise<void>): Promise<{ file: string; start: number }> {
+/**
+ * Records one segment; returns the video file and the second at which the useful part starts: the moment the segment
+ * calls ready() (its screen fully loaded), so no loading state ends up in the cut.
+ */
+async function record(browser: Browser, name: string, run: (p: Page, ready: () => void) => Promise<void>): Promise<{ file: string; start: number }> {
   const dir = join(OUT, `raw-${name}`);
   mkdirSync(dir, { recursive: true });
   const t0 = Date.now();
   const { ctx, page } = await signedInContext(browser, dir);
-  const start = (Date.now() - t0) / 1000;
-  await run(page);
+  let start = -1;
+  await run(page, () => (start = (Date.now() - t0) / 1000));
+  if (start < 0) throw new Error(`segment ${name} never became ready`);
   await ctx.close();
   const file = readdirSync(dir).map((f) => join(dir, f)).find((f) => f.endsWith('.webm'))!;
   return { file, start };
@@ -87,39 +98,51 @@ async function main() {
   const browser = await chromium.launch();
   try {
     // Shot 4: the flagship storyboard in Animation Studio (Arabic UI).
-    const s4 = await record(browser, 'shot4', async (p) => {
+    const s4 = await record(browser, 'shot4', async (p, ready) => {
       await p.goto(`${APP}/app/animation/${projectId}`);
       await p.getByTestId('storyboard').waitFor();
+      await p.getByTestId('shot-1').waitFor();
+      ready();
       await p.waitForTimeout(1500);
       await smoothScroll(p, 1400, 6000);
       await p.waitForTimeout(800);
     });
     // Shot 5: four real screens.
-    const a = await record(browser, 'shot5a', async (p) => {
+    const a = await record(browser, 'shot5a', async (p, ready) => {
       await p.goto(`${APP}/app/animation/${projectId}`);
       await p.getByTestId('shot-3').scrollIntoViewIfNeeded();
-      await p.waitForTimeout(3200);
+      await p.waitForTimeout(300);
+      ready();
+      await p.waitForTimeout(2600);
     });
-    const b = await record(browser, 'shot5b', async (p) => {
+    const b = await record(browser, 'shot5b', async (p, ready) => {
       await p.goto(`${APP}/app/posts/new`);
-      await p.getByTestId('ai-panel').waitFor();
-      await p.getByTestId('ai-panel').locator('textarea').first().pressSequentially('منشور لعرض الكسكسي يوم الجمعة', { delay: 40 });
-      await p.waitForTimeout(1500);
+      await p.getByTestId('post-caption').waitFor();
+      await p.getByTestId('post-caption').scrollIntoViewIfNeeded();
+      await p.waitForTimeout(200);
+      ready();
+      await p.getByTestId('post-caption').pressSequentially('كسكسي الجمعة كيما تاع الدار، مرحبا بيكم!', { delay: 45 });
+      await p.waitForTimeout(1200);
     });
-    const c = await record(browser, 'shot5c', async (p) => {
+    const c = await record(browser, 'shot5c', async (p, ready) => {
       await p.goto(`${APP}/app/posts`);
       await p.getByRole('radio').nth(1).click();
-      await p.waitForTimeout(3000);
+      await p.getByTestId('calendar').waitFor();
+      await p.waitForTimeout(200);
+      ready();
+      await p.waitForTimeout(2600);
     });
-    const d = await record(browser, 'shot5d', async (p) => {
+    const d = await record(browser, 'shot5d', async (p, ready) => {
       for (const l of ['ar', 'fr', 'en', 'de']) {
         await p.context().addCookies([{ name: 'limo_locale', value: l, url: APP }]);
         await p.goto(`${APP}/app`);
-        await p.waitForTimeout(700);
+        await p.waitForLoadState('networkidle');
+        if (l === 'ar') ready();
+        await p.waitForTimeout(450);
       }
     });
-    cut(s4, 1.2, 6, join(OUT, 'shot4.mp4'));
-    const parts = [[a, 1.0], [b, 0.6], [c, 1.0], [d, 0.4]] as const;
+    cut(s4, 0.2, 6, join(OUT, 'shot4.mp4'));
+    const parts = [[a, 0], [b, 0], [c, 0], [d, 0]] as const;
     parts.forEach(([src, from], i) => cut(src, from, 2, join(OUT, `shot5-${i}.mp4`)));
     ff('-i', join(OUT, 'shot5-0.mp4'), '-i', join(OUT, 'shot5-1.mp4'), '-i', join(OUT, 'shot5-2.mp4'), '-i', join(OUT, 'shot5-3.mp4'),
       '-filter_complex', '[0:v][1:v][2:v][3:v]concat=n=4:v=1:a=0[v]', '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', join(OUT, 'shot5.mp4'));

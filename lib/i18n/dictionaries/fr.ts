@@ -928,6 +928,8 @@ const fr: Dictionary = {
       view: 'Vue',
       expression: 'Expression',
       outfit: 'Tenue',
+      variant: "Variante de scène (approuvée)",
+      variantNone: "— canonique —",
       none: '—',
       provenance: 'Source',
       provenances: {
@@ -945,6 +947,7 @@ const fr: Dictionary = {
         type_not_allowed: 'Ce type de fichier n’est pas autorisé pour le type choisi.',
         too_large: 'Le fichier dépasse 100 Mo.',
         upload_failed: 'Le téléversement a échoué. Réessayez.',
+        variant_invalid: "Cette variante de scène n’est pas approuvée pour ce personnage, ou l’expression/la tenue n’en fait pas partie.",
         invalid_path: 'L’emplacement de téléversement n’est pas valide.',
         not_authorized: 'Vous ne pouvez pas téléverser de références pour ce personnage.',
         view_required: 'Choisissez une vue, une expression ou une tenue.',
@@ -2268,6 +2271,9 @@ const fr: Dictionary = {
     addCharacter: "Ajouter un personnage",
     action: "Action de {name}",
     expression: "Expression de {name}",
+    variant: "Variante de scène",
+    canonicalLook: "Apparence canonique",
+    variantNames: { "adam_man.formal_angry": "Costume formel · en colère" },
     expressions: {
       neutral: "Neutre",
       happy: "Joyeux",
@@ -2277,6 +2283,7 @@ const fr: Dictionary = {
       thinking: "Pensif",
       determined: "Déterminé",
       worried: "Inquiet",
+      angry: "En colère",
     },
     none: "—",
     dialogue: "Dialogue",
@@ -2467,6 +2474,7 @@ const fr: Dictionary = {
       overlapping_speech: "Deux répliques se chevauchent.",
       character_reference_changed: "Un personnage utilise d’autres références que dans le plan précédent.",
       lighting_changed: "Suite du plan précédent, mais la lumière diffère.",
+      variant_not_approved: "Cette variante n’est pas approuvée pour ce personnage.",
     },
     blockerText: {
       spec: "fiche de conception non approuvée",

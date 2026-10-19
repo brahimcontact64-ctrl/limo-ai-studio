@@ -217,13 +217,16 @@ test('server-canvas bidi: RTL lines are laid out run by run (numbers and Latin k
   assert.deepEqual(rtlVisualRuns('1,200 دج'), [{ text: 'دج', rtl: true }, { text: '1,200', rtl: false }]);
   assert.deepEqual(rtlVisualRuns('LIMO AI… خيالك، يخدم وحدو!'), [{ text: 'خيالك، يخدم وحدو!', rtl: true }, { text: 'LIMO AI…', rtl: false }]);
   assert.deepEqual(rtlVisualRuns('السعر الحقيقي: 1,200 دج'), [{ text: 'دج', rtl: true }, { text: '1,200', rtl: false }, { text: 'السعر الحقيقي:', rtl: true }]);
-  assert.deepEqual(rtlVisualRuns('اصنع. برمج. انشر.'), [{ text: 'اصنع. برمج. انشر.', rtl: true }]);
+  assert.deepEqual(rtlVisualRuns('تخيّل. صمّم. وجدول.'), [{ text: 'تخيّل. صمّم. وجدول.', rtl: true }]);
 });
 
-import { ADAM_MAN_FORMAL_ANGRY, variantPrompt } from '../../lib/characters/variants.ts';
+import { ADAM_MAN_FORMAL_ANGRY, VARIANTS, VARIANT_EXPRESSION_KEYS, approvedVariant, expressionAllowed, variantPrompt, variantSceneText } from '../../lib/characters/variants.ts';
 import { canonFor, EXPRESSION_KEYS } from '../../lib/characters/canon.ts';
-test('father variant is proposed only and never changes the canonical spec', () => {
-  assert.equal(ADAM_MAN_FORMAL_ANGRY.status, 'proposed');
+test('father variant is owner-approved (variant only) and never changes the canonical spec', () => {
+  assert.equal(ADAM_MAN_FORMAL_ANGRY.status, 'approved');
+  assert.match(ADAM_MAN_FORMAL_ANGRY.approvalNote ?? '', /owner.*2026-10-19.*no artwork approved/);
+  assert.equal(ADAM_MAN_FORMAL_ANGRY.key, 'adam_man.formal_angry');
+  assert.match(ADAM_MAN_FORMAL_ANGRY.outfit!.accessories.join(' '), /gold wristwatch on the LEFT wrist/);
   const spec = canonFor('adam_man')!;
   assert.deepEqual(spec.outfits.map((o) => o.key), ['everyday', 'special'], 'canonical outfits unchanged');
   assert.ok(!(EXPRESSION_KEYS as readonly string[]).includes('angry'), 'canonical expressions unchanged');
@@ -233,4 +236,77 @@ test('father variant is proposed only and never changes the canonical spec', () 
   assert.match(front, /scene variant "angry"/);
   assert.match(front, /#C99A62/);
   assert.match(variantPrompt(ADAM_MAN_FORMAL_ANGRY, { view: 'side' }), /Neutral expression/);
+});
+
+test('variants: the variant expression is allowed only with that approved variant and that character', () => {
+  for (const v of VARIANTS) if (v.expression && !(EXPRESSION_KEYS as readonly string[]).includes(v.expression.key)) assert.ok((VARIANT_EXPRESSION_KEYS as readonly string[]).includes(v.expression.key));
+  assert.equal(expressionAllowed('angry', undefined, 'adam_man'), false);
+  assert.equal(expressionAllowed('angry', 'adam_man.formal_angry', 'adam_man'), true);
+  assert.equal(expressionAllowed('angry', 'adam_man.formal_angry', 'adam_boy'), false, 'variant of another character');
+  assert.equal(expressionAllowed('happy', undefined, 'adam_boy'), true);
+  assert.equal(approvedVariant('adam_man.formal_angry', 'limo_boy'), undefined);
+  assert.match(variantSceneText('adam_man.formal_angry', 'adam_man'), /charcoal three-piece suit.*LEFT wrist.*"angry"/);
+  assert.equal(variantSceneText(undefined, 'adam_man'), '');
+});
+
+import { readFileSync as readFlagship } from 'node:fs';
+import { parseScenarioJson as parseFlagship } from '../../lib/animation/scenario-import.ts';
+import { validateScenario as validateFlagship, clipPrompt as clipFlagship } from '../../lib/animation/scenario.ts';
+import { toScenario as toFlagshipScenario, toSavePayload as toFlagshipPayload } from '../../lib/animation/storyboard.ts';
+test('flagship scenario: 30 s, 3 characters, father variant in shot 1, new tagline, valid', () => {
+  const { scenario, errors } = parseFlagship(readFlagship('docs/flagship/supernatural-eye.scenario.json', 'utf8'));
+  assert.deepEqual(errors, []);
+  const shots = scenario!.shots;
+  assert.equal(shots.reduce((a, s) => a + s.duration_seconds, 0), 30);
+  assert.deepEqual([...new Set(shots.flatMap((s) => s.characters))].sort(), ['adam_boy', 'adam_man', 'limo_boy']);
+  assert.deepEqual(shots[0]!.character_variants, { adam_man: 'adam_man.formal_angry' });
+  assert.equal(shots[0]!.expressions.adam_man, 'angry');
+  assert.ok(shots.slice(1).every((s) => Object.keys(s.character_variants).length === 0));
+  assert.equal(shots[5]!.overlays[0]!.text, 'تخيّل. صمّم. وجدول.');
+  const raw = readFlagship('docs/flagship/supernatural-eye.scenario.json', 'utf8');
+  assert.ok(!raw.includes('اصنع. برمج. انشر.'), 'old tagline removed');
+  const rows = shots.map((s, i) => ({ ...s, id: `s${i}`, shot_number: i + 1, status: 'draft' as const, keyframe_asset_id: null, first_frame_asset_id: null, last_frame_asset_id: null, clip_asset_id: null, voice_tracks: [], revision: 1, last_error: null, reference_asset_ids: [] }));
+  const sc = toFlagshipScenario({ title: 't', language_code: 'ar', aspect: '9:16', music_note: '' }, rows);
+  const errs = validateFlagship(sc).filter((x) => x.level === 'error');
+  assert.deepEqual(errs, []);
+  assert.match(clipFlagship(sc.scenes[0]!, 'separate'), /charcoal three-piece suit/);
+  assert.doesNotMatch(clipFlagship(sc.scenes[1]!, 'separate'), /three-piece suit/);
+  assert.deepEqual(toFlagshipPayload(rows)[0]!.character_variants, { adam_man: 'adam_man.formal_angry' });
+  // An unapproved variant or its expression without the variant is rejected.
+  const bad = parseFlagship(JSON.stringify({ scenes: [{ durationSeconds: 4, characters: ['adam_boy'], variants: { adam_boy: 'adam_man.formal_angry' }, expressions: { adam_boy: 'angry' } }] }));
+  assert.ok(bad.errors.some((e) => /not an approved variant/.test(e)));
+  assert.deepEqual(bad.scenario!.shots[0]!.expressions, {});
+});
+
+import { keyframeRequest as kfVariant } from '../../lib/ai/jobs.ts';
+test('generator: the keyframe prompt carries the approved variant of the shot (outfit + expression), canonical otherwise', () => {
+  const shot = { id: 'x', shot_number: 1, duration_seconds: 4 as const, description: '[d]', environment: '[e]', camera: '', characters: ['adam_man'], actions: { adam_man: '[a]' }, expressions: { adam_man: 'angry' as const }, character_variants: { adam_man: 'adam_man.formal_angry' }, dialogue: [], narration: '', sound: '', continuity: {}, reference_asset_ids: ['r1'], status: 'draft' as const, keyframe_asset_id: null, first_frame_asset_id: null, last_frame_asset_id: null, clip_asset_id: null, voice_tracks: [], clip_audio: 'keep' as const, revision: 1, last_error: null };
+  const req = kfVariant(shot, { aspect: '9:16', language_code: 'ar' }, 'org', 'k');
+  assert.match(req.prompt, /charcoal three-piece suit.*gold wristwatch on the LEFT wrist/s);
+  assert.match(req.prompt, /Variant expression "angry"/);
+  const plain = kfVariant({ ...shot, character_variants: {}, expressions: {} }, { aspect: '9:16', language_code: 'ar' }, 'org', 'k');
+  assert.doesNotMatch(plain.prompt, /three-piece suit/);
+});
+
+import { ADAM_BOY_SHEETS, artworkPackage } from '../../lib/generation/artwork-package.ts';
+import { sheetPrompt as canonicalSheetPrompt } from '../../lib/characters/artwork.ts';
+test('adam_boy artwork package: canonical prompts only, front first, others locked to the approved front, manifest in sync', () => {
+  const pkg = artworkPackage('adam_boy', ADAM_BOY_SHEETS, '<workspace id>');
+  assert.deepEqual(pkg.sheets.map((s) => s.slot), ['view:front', 'view:three_quarter', 'view:side', 'expression:surprised', 'expression:determined']);
+  assert.equal(pkg.sheets[0]!.request.kind, 'image');
+  assert.equal(pkg.sheets[0]!.request.prompt, canonicalSheetPrompt(canonFor('adam_boy')!, ADAM_BOY_SHEETS[0]!));
+  for (const s of pkg.sheets.slice(1)) {
+    assert.equal(s.request.kind, 'character_image');
+    assert.ok(s.request.prompt.startsWith(canonicalSheetPrompt(canonFor('adam_boy')!, s.sheet)));
+    assert.equal(s.needsApprovedFront, true);
+  }
+  for (const s of pkg.sheets) {
+    assert.doesNotMatch(s.request.prompt, /\.\.|\. \(colours/, 'no doubled punctuation');
+    assert.equal(s.upload.provenance, 'ai_generated');
+    assert.deepEqual(s.request.size, { width: 2048, height: 2731 });
+  }
+  assert.equal(pkg.priceKey, 'google/gemini-3-pro-image@4K');
+  assert.equal(pkg.researchedUsdPerImage, 0.24);
+  const manifest = JSON.parse(readFlagship('docs/flagship/packages/adam_boy.artwork.v1.json', 'utf8')) as typeof pkg;
+  assert.deepEqual(manifest.sheets.map((s) => [s.slot, s.request.requestKey, s.request.prompt]), pkg.sheets.map((s) => [s.slot, s.request.requestKey, s.request.prompt]), 'manifest regenerated after a prompt change');
 });

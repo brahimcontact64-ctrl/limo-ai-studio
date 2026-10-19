@@ -7,7 +7,7 @@
     {
       "number": 1,
       "durationSeconds": 4,
-      "description": "Luxurious family mansion. The ADAM father stands angrily before his biological son and points at the adopted son standing proudly at his side. The biological son flinches in shock. [CASTING APPROVED 2026-10-19: father adam_man, biological son adam_boy, adopted son limo_boy] [VARIANT PROPOSED: adam_man formal suit + angry expression (adam_man.formal_angry.v1), pending owner review — until approved the canonical \"determined\" expression is used]",
+      "description": "Luxurious family mansion. The ADAM father stands angrily before his biological son and points at the adopted son standing proudly at his side. The biological son flinches in shock. [CASTING APPROVED 2026-10-19: father adam_man, biological son adam_boy, adopted son limo_boy] [VARIANT APPROVED 2026-10-19: adam_man formal three-piece suit, gold watch on the LEFT wrist, angry expression (adam_man.formal_angry v1); canonical spec unchanged]",
       "environment": "Opulent mansion hall, marble floor, gold chandelier, tall dark curtains; dramatic low-key lighting, warm key light from the chandelier, cool rim light from the windows; evening.",
       "characters": [
         "adam_man",
@@ -20,16 +20,19 @@
         "limo_boy": "stands beside the father, chin up, arms crossed, smug half-smile"
       },
       "expressions": {
-        "adam_man": "determined",
+        "adam_man": "angry",
         "adam_boy": "surprised",
         "limo_boy": "neutral"
+      },
+      "variants": {
+        "adam_man": "adam_man.formal_angry"
       },
       "camera": "Medium-wide low angle on the father, slow push-in toward the biological son's face.",
       "dialogue": [
         {
           "speaker": "adam_man",
           "text": "هذاك ربّيناه، بصح نتا ما تسوا والو!",
-          "emotion": "determined"
+          "emotion": "angry"
         }
       ],
       "narration": "",
@@ -170,7 +173,7 @@
       },
       "overlays": [
         {
-          "text": "اصنع. برمج. انشر.",
+          "text": "تخيّل. صمّم. وجدول.",
           "startMs": 800,
           "endMs": 4000,
           "position": "bottom",

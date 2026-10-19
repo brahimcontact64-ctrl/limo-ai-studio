@@ -96,7 +96,7 @@ export function socialRequest(kind: 'social_caption' | 'social_rewrite' | 'socia
 /** Keyframe of one shot: composes the shot's characters from their APPROVED references (identity lock). */
 export function keyframeRequest(shot: ShotRow, project: Pick<ProjectRow, 'aspect' | 'language_code'>, organizationId: string, requestKey: string): ImageRequest | CharacterImageRequest {
   const size = project.aspect === '16:9' ? { width: 1920, height: 1080 } : { width: 1080, height: 1920 };
-  const scene = { number: shot.shot_number, durationSeconds: shot.duration_seconds, description: shot.description, environment: shot.environment, characters: shot.characters, actions: shot.actions, expressions: shot.expressions, camera: shot.camera, dialogue: [] };
+  const scene = { number: shot.shot_number, durationSeconds: shot.duration_seconds, description: shot.description, environment: shot.environment, characters: shot.characters, actions: shot.actions, expressions: shot.expressions, variants: shot.character_variants ?? {}, camera: shot.camera, dialogue: [] };
   const prompt = `${clipPrompt(scene, 'separate').replace('Smooth natural body and facial motion. ', '')}\nThis is the FIRST FRAME of the shot: a single still image, characters in their starting pose.`;
   const base = { organizationId, requestKey, locale: 'en' as const, size, count: 1, prompt };
   if (shot.characters.length && shot.reference_asset_ids.length) {
@@ -108,7 +108,7 @@ export function keyframeRequest(shot: ShotRow, project: Pick<ProjectRow, 'aspect
 
 /** Clip of one shot: Veo image-to-video from the approved first frame (optional last frame). Genuine motion. */
 export function clipRequest(shot: ShotRow, project: Pick<ProjectRow, 'aspect' | 'language_code' | 'settings'>, organizationId: string, requestKey: string, firstFrame: string, lastFrame: string | null, videoTotalSeconds: number): VideoRequest {
-  const scene = { number: shot.shot_number, durationSeconds: shot.duration_seconds, description: shot.description, environment: shot.environment, characters: shot.characters, actions: shot.actions, expressions: shot.expressions, camera: shot.camera, dialogue: shot.dialogue, sound: shot.sound || undefined };
+  const scene = { number: shot.shot_number, durationSeconds: shot.duration_seconds, description: shot.description, environment: shot.environment, characters: shot.characters, actions: shot.actions, expressions: shot.expressions, variants: shot.character_variants ?? {}, camera: shot.camera, dialogue: shot.dialogue, sound: shot.sound || undefined };
   return {
     organizationId, requestKey, locale: project.language_code, kind: 'video', prompt: clipPrompt(scene, project.settings.voice_mode ?? 'separate'),
     firstFrameAssetId: firstFrame, lastFrameAssetId: lastFrame, references: [], durationSeconds: shot.duration_seconds, videoTotalSeconds, aspect: project.aspect, scriptRevisionId: `animation:${shot.id}:${shot.revision}`,
