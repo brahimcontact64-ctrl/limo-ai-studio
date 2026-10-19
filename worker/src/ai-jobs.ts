@@ -18,7 +18,7 @@ import { imageSizeFor } from '../../lib/providers/adapters/gemini-image.ts';
 import { clipRequest, JOB_FLAG, JOB_STAGE, keyframeRequest, placeVoiceLines, socialRequest, voiceLines, type AiJobKind, type SocialInput } from '../../lib/ai/jobs.ts';
 import { firstFrameFor, type ProjectRow, type ShotRow } from '../../lib/animation/storyboard.ts';
 import { clipReview, keyframeReview } from '../../lib/animation/identity.ts';
-import { canonFor } from '../../lib/characters/canon.ts';
+import { specFor } from '../../lib/characters/spec-versions.ts';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 /** Small RGBA sample of an image for the deterministic checks (null if it cannot be decoded). */
@@ -182,7 +182,7 @@ export function aiJobProcessor(d: JobDeps) {
     const id = await store(job, job.request_key, file, ex.result, `keyframe · shot ${shot.shot_number}`);
     const identity = keyframeReview({
       image: await sampleImage(file.bytes), expectedAspect: project.aspect === '16:9' ? 16 / 9 : 9 / 16,
-      characters: shot.characters.map((c) => ({ id: c, lockedColours: hexes(canonFor(c)?.consistency.locked_colors ?? []) })),
+      characters: shot.characters.map((c) => ({ id: c, lockedColours: hexes(specFor(c, shot.character_spec_versions?.[c])?.consistency.locked_colors ?? []) })),
       attachedReferences: shot.reference_asset_ids, usedReferences: ex.result.provenance.referenceAssetIds, mock: ex.result.provenance.mock,
     });
     return complete(job, ex.result.provenance.provider, { mock: ex.result.provenance.mock, provenance: provenanceRecord(ex.result.provenance), identity_check: identity }, [id], cents(ex.estimateMicros), cents(ex.actualMicros));

@@ -2272,6 +2272,8 @@ const ar: Dictionary = {
     action: "حركة {name}",
     expression: "تعبير {name}",
     variant: "نسخة المشهد",
+    specVersion: "مواصفات التصميم",
+    specStatus: { proposed: "مقترحة (غير معتمدة)", approved: "معتمدة", superseded: "مستبدلة" },
     canonicalLook: "المظهر الأساسي",
     variantNames: { "adam_man.formal_angry": "بدلة رسمية · غاضب" },
     expressions: {
@@ -2474,6 +2476,7 @@ const ar: Dictionary = {
       overlapping_speech: "جملتان متداخلتان.",
       character_reference_changed: "شخصية تستخدم مراجع مختلفة عن اللقطة السابقة.",
       lighting_changed: "تكملة للقطة السابقة لكن الإضاءة مختلفة.",
+      spec_version_unknown: "نسخة مواصفات التصميم هذه غير موجودة لهذه الشخصية.",
       variant_not_approved: "هذه النسخة غير معتمدة لهذه الشخصية.",
     },
     blockerText: {

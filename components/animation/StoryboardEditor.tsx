@@ -21,7 +21,8 @@ interface Data {
   events: Array<{ shot_id: string; event: string; stage: string | null; note: string | null; created_at: string }>;
   readiness: { flags: Record<string, boolean>; characters: Record<string, { gaps: string[]; voice: { provider: string; voice_ref: string } | null }> };
   assets: Record<string, { url: string | null; mime: string; label: string; mock: boolean; ai: boolean }>;
-  references: Array<{ id: string; character: string; view: string | null; url: string | null; variant: string | null }>;
+  references: Array<{ id: string; character: string; view: string | null; url: string | null; variant: string | null; spec_version: number }>;
+  specs?: Array<{ character: string; version: number; status: 'proposed' | 'approved' | 'superseded' }>;
   variants?: Array<{ key: string; version: number; character: string; outfit: string | null; expression: string | null }>;
   can_edit: boolean;
   characters: { canonical: string[]; custom: Array<{ id: string; name: string }> };
@@ -86,6 +87,10 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
   /** Localized display label (canonical ids: family · variant in the viewer's language); ids are never renamed. */
   const nameOf = (c: string) => characterLabel(t, c, allNames[c] ?? c);
   const variantName = (key: string) => (a.variantNames as Record<string, string>)[key] ?? key;
+  /** Spec version a character uses in a shot: the stored pin, else the approved version, else the latest proposed (same rule as the database). */
+  const specsOf = (c: string) => (data?.specs ?? []).filter((x) => x.character === c).sort((x, y) => y.version - x.version);
+  const pinOf = (s: Draft, c: string): number | null =>
+    s.character_spec_versions?.[c] ?? specsOf(c).find((x) => x.status === 'approved')?.version ?? specsOf(c).find((x) => x.status !== 'superseded')?.version ?? null;
   if (!data || !project) return <p className="muted">{t.common.loading}</p>;
   const editable = data.can_edit;
   const flagOn = data.readiness.flags.animation_generation === true;
@@ -259,7 +264,7 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
           const chars = s.characters ?? [];
           const looks = s.character_variants ?? {};
           // Canonical references, plus the files of the variant selected for that character in this shot.
-          const refs = data.references.filter((r) => chars.includes(r.character) && (!r.variant || r.variant === looks[r.character]));
+          const refs = data.references.filter((r) => chars.includes(r.character) && (!r.variant || r.variant === looks[r.character]) && (pinOf(s, r.character) === null || r.spec_version === pinOf(s, r.character)));
           const action = live && !dirty ? nextAction(live) : null;
           const kf = asset(live?.keyframe_asset_id);
           const clip = asset(live?.clip_asset_id);
@@ -319,6 +324,16 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                         }}>
                           <option value="">{a.canonicalLook}</option>
                           {(data.variants ?? []).filter((v) => v.character === c).map((v) => <option key={v.key} value={v.key}>{variantName(v.key)} (v{v.version})</option>)}
+                        </select></label>
+                    )}
+                    {specsOf(c).length > 1 && (
+                      <label className="field" data-testid={`shot-spec-${c}`}><span className="field-label xsmall">{a.specVersion}</span>
+                        <select className="select select-sm" value={pinOf(s, c) ?? ''} disabled={!editable} onChange={(e) => {
+                          const v = Number(e.target.value);
+                          const keep = (s.reference_asset_ids ?? []).filter((id) => { const r = data.references.find((y) => y.id === id); return !r || r.character !== c || r.spec_version === v; });
+                          edit(s.key, { character_spec_versions: { ...(s.character_spec_versions ?? {}), [c]: v }, reference_asset_ids: keep });
+                        }}>
+                          {specsOf(c).filter((x) => x.status !== 'superseded' || x.version === pinOf(s, c)).map((x) => <option key={x.version} value={x.version}>v{x.version} · {a.specStatus[x.status]}</option>)}
                         </select></label>
                     )}
                   </div>

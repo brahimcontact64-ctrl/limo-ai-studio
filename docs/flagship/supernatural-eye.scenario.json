@@ -14,6 +14,9 @@
         "adam_boy",
         "limo_boy"
       ],
+      "specVersions": {
+        "adam_boy": 2
+      },
       "actions": {
         "adam_man": "points sharply at the biological son, leaning forward, angry gesture with the other hand toward the adopted son",
         "adam_boy": "steps back in shock, eyes wide, hands half raised",
@@ -52,6 +55,9 @@
       "characters": [
         "adam_boy"
       ],
+      "specVersions": {
+        "adam_boy": 2
+      },
       "actions": {
         "adam_boy": "his eye lights up gold, he leans toward the watch on the father's wrist in the foreground, then whispers"
       },
@@ -94,6 +100,9 @@
       "characters": [
         "adam_boy"
       ],
+      "specVersions": {
+        "adam_boy": 2
+      },
       "actions": {
         "adam_boy": "turns his head to the camera, raises one eyebrow, slight confident smile, freezes on the last syllable"
       },

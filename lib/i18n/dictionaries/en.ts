@@ -2270,6 +2270,8 @@ const en = {
     action: "Action of {name}",
     expression: "Expression of {name}",
     variant: "Scene variant",
+    specVersion: "Design spec",
+    specStatus: { proposed: "proposed (not approved)", approved: "approved", superseded: "superseded" },
     canonicalLook: "Canonical look",
     variantNames: { "adam_man.formal_angry": "Formal suit · angry" },
     expressions: {
@@ -2472,6 +2474,7 @@ const en = {
       overlapping_speech: "Two lines overlap.",
       character_reference_changed: "A character uses different references than in the previous shot.",
       lighting_changed: "Continues the previous shot, but the lighting differs.",
+      spec_version_unknown: "This design spec version does not exist for the character.",
       variant_not_approved: "This variant is not approved for this character.",
     },
     blockerText: {

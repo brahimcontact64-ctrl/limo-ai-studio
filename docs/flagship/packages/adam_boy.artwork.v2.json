@@ -1,0 +1,216 @@
+{
+  "id": "adam_boy.artwork.v2",
+  "character": "adam_boy",
+  "specVersion": 2,
+  "designSource": {
+    "sha256": "6ffe3206a853a35933848c65a549051adbe5ccb3e807c2bbc01576d5301fd20a",
+    "provenance": "ChatGPT Image Generation (OpenAI); supplied by the owner",
+    "limits": "One composite sheet (hero image, small front/three-quarter/side/back panels, detail crops, six expression heads, Arabic labels). Its individual views were NOT generated, reviewed or approved as LIMO reference sheets."
+  },
+  "model": "gemini-3-pro-image",
+  "registryCode": "google_character_image_v1",
+  "priceKey": "google/gemini-3-pro-image@4K",
+  "researchedUsdPerImage": 0.24,
+  "identityChecklist": [
+    "Head: Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette.",
+    "Crown: No sprout, leaves, stem or hair on top of the head.",
+    "Face: Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth.",
+    "About 2.4 heads tall; upright, slightly shy, often holding the backpack straps",
+    "Colours: skin #EC9E50, skin_shadow #CB7839, skin_highlight #F9C685, speckles #A65721, cheeks #E36439, iris #66301D, brows #4B2F21",
+    "Detail: no sprout: smooth egg-shaped head",
+    "Detail: many small natural speckles",
+    "Detail: round rosy cheeks",
+    "Detail: large warm-brown eyes with catchlights",
+    "Detail: brown leather backpack with a small decorative potato emblem",
+    "Four fingers per hand, no hair or sprout, no text or brand logo (backpack potato emblem allowed), family-friendly, never a human child"
+  ],
+  "reviewChecklist": [
+    "identity_matches_spec",
+    "proportions_match",
+    "palette_matches",
+    "family_friendly",
+    "view_correct",
+    "no_text_or_watermark"
+  ],
+  "sheets": [
+    {
+      "slot": "view:front",
+      "sheet": {
+        "type": "view",
+        "view": "front"
+      },
+      "needsApprovedFront": false,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v2-view-front-7ece52f8f5ca4dd4",
+        "locale": "en",
+        "prompt": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nFront view, facing the camera, relaxed neutral standing pose, arms slightly away from the body (about 15°), feet shoulder width.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single front sheet with no text, labels or panels.",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "image",
+        "task": "generate",
+        "inputAssetIds": [
+          "design-source"
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": "front",
+        "expression_key": null,
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "view:three_quarter",
+      "sheet": {
+        "type": "view",
+        "view": "three_quarter"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v2-view-three_quarter-390d0ce04693ed40",
+        "locale": "en",
+        "prompt": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nThree-quarter view turned 45° to the left, same pose and outfit as the reference.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).\nThe second attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single three-quarter sheet with no text, labels or panels.",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 2,
+            "assetIds": [
+              "approved-front",
+              "design-source"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": "three_quarter",
+        "expression_key": null,
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "view:side",
+      "sheet": {
+        "type": "view",
+        "view": "side"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v2-view-side-f090e89af59c6c7f",
+        "locale": "en",
+        "prompt": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nSide view (profile facing left), same pose and outfit as the reference.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).\nThe second attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single side sheet with no text, labels or panels.",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 2,
+            "assetIds": [
+              "approved-front",
+              "design-source"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": "side",
+        "expression_key": null,
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "expression:surprised",
+      "sheet": {
+        "type": "expression",
+        "expression": "surprised"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v2-expression-surprised-df93d0de96cf3439",
+        "locale": "en",
+        "prompt": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nHead and shoulders, front view, expression: Eyes wide, brows raised high, small round open mouth.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).\nThe second attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single surprised sheet with no text, labels or panels.",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 2,
+            "assetIds": [
+              "approved-front",
+              "design-source"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": null,
+        "expression_key": "surprised",
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    },
+    {
+      "slot": "expression:determined",
+      "sheet": {
+        "type": "expression",
+        "expression": "determined"
+      },
+      "needsApprovedFront": true,
+      "request": {
+        "organizationId": "<workspace id>",
+        "requestKey": "artwork-adam_boy-v2-expression-determined-7d0dd8506fc9b39a",
+        "locale": "en",
+        "prompt": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nHead and shoulders, front view, expression: Brows lowered and angled, focused eyes, firm closed mouth.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).\nThe second attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single determined sheet with no text, labels or panels.",
+        "size": {
+          "width": 2048,
+          "height": 2731
+        },
+        "count": 1,
+        "kind": "character_image",
+        "references": [
+          {
+            "character": "adam_boy",
+            "specVersion": 2,
+            "assetIds": [
+              "approved-front",
+              "design-source"
+            ]
+          }
+        ]
+      },
+      "upload": {
+        "asset_kind": "rendered_reference",
+        "view": null,
+        "expression_key": "determined",
+        "outfit_key": null,
+        "provenance": "ai_generated"
+      }
+    }
+  ]
+}

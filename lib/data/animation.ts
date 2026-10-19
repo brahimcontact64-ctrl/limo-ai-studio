@@ -8,7 +8,9 @@ type ServerSupabase = SupabaseClient<any, any, any>;
 export interface AnimationListItem { id: string; title: string; language_code: string; aspect: string; status: string; updated_at: string; shots: number; seconds: number }
 export interface JobRow { id: string; kind: string; shot_id: string | null; status: string; error_code: string | null; output: Record<string, unknown>; output_asset_ids: string[]; created_at: string }
 /** variant: key of the approved scene variant the file belongs to (null = canonical look). */
-export interface ReferenceRow { id: string; character: string; view: string | null; url: string | null; variant: string | null }
+export interface ReferenceRow { id: string; character: string; view: string | null; url: string | null; variant: string | null; spec_version: number }
+/** Design-spec versions of canonical characters (status from the database; approval happens in Admin → Characters). */
+export interface SpecVersionRow { character: string; version: number; status: 'proposed' | 'approved' | 'superseded' }
 /** Approved scene variant a shot can select for a character (migration 20261019180000). */
 export interface VariantRow { key: string; version: number; character: string; outfit: string | null; expression: string | null }
 export interface AssetView { url: string | null; mime: string; label: string; mock: boolean; ai: boolean }
@@ -59,7 +61,7 @@ export async function loadAnimation(supabase: ServerSupabase, id: string) {
   const vlist = (variantRows ?? []) as Array<{ id: string; variant_key: string; version: number; catalog_character_id: string | null; custom_character_id: string | null; outfit: { key?: string } | null; expression: { key?: string } | null }>;
   const variants: VariantRow[] = vlist.map((v) => ({ key: v.variant_key, version: v.version, character: v.catalog_character_id ?? `custom:${v.custom_character_id}`, outfit: v.outfit?.key ?? null, expression: v.expression?.key ?? null }));
   const variantKey = new Map(vlist.map((v) => [v.id, v.variant_key]));
-  const refRows: Array<{ id: string; catalog_character_id: string | null; custom_character_id: string | null; view: string | null; bucket_id: string; object_path: string; variant_id?: string | null; outfit_key?: string | null }> = [];
+  const refRows: Array<{ id: string; catalog_character_id: string | null; custom_character_id: string | null; view: string | null; bucket_id: string; object_path: string; spec_version: number; variant_id?: string | null; outfit_key?: string | null }> = [];
   const refsWhere = async (cols: string) => {
     const rows: typeof refRows = [];
     const base = () => db.from('character_reference_assets').select(cols).eq('status', 'approved').eq('asset_kind', 'rendered_reference').not('view', 'is', null);
@@ -69,13 +71,15 @@ export async function loadAnimation(supabase: ServerSupabase, id: string) {
     }
     return rows;
   };
-  const cols = 'id, catalog_character_id, custom_character_id, view, bucket_id, object_path, outfit_key';
+  const cols = 'id, catalog_character_id, custom_character_id, view, bucket_id, object_path, outfit_key, spec_version';
   refRows.push(...((await refsWhere(`${cols}, variant_id`)) ?? (await refsWhere(cols)) ?? []));
   const refSigned = refRows.length ? ((await supabase.storage.from('character-library').createSignedUrls(refRows.map((r) => r.object_path), 600)).data ?? []) : [];
-  const references: ReferenceRow[] = refRows.map((r, i) => ({ id: r.id, character: r.catalog_character_id ?? `custom:${r.custom_character_id}`, view: r.view, url: refSigned[i]?.signedUrl ?? null, variant: r.variant_id ? (variantKey.get(r.variant_id) ?? 'unapproved') : r.outfit_key ? `outfit:${r.outfit_key}` : null }));
+  const references: ReferenceRow[] = refRows.map((r, i) => ({ id: r.id, character: r.catalog_character_id ?? `custom:${r.custom_character_id}`, view: r.view, url: refSigned[i]?.signedUrl ?? null, variant: r.variant_id ? (variantKey.get(r.variant_id) ?? 'unapproved') : r.outfit_key ? `outfit:${r.outfit_key}` : null, spec_version: r.spec_version }));
+  const { data: specRows } = await db.from('character_design_specs').select('character_id, version, status').limit(500);
+  const specs: SpecVersionRow[] = ((specRows ?? []) as Array<{ character_id: string; version: number; status: SpecVersionRow['status'] }>).map((s) => ({ character: s.character_id, version: s.version, status: s.status }));
 
   return {
     unavailable: false as const, project: p, shots, jobs: (jobs ?? []) as JobRow[], events: (events ?? []) as Array<{ shot_id: string; event: string; stage: string | null; note: string | null; created_at: string }>,
-    readiness: readiness.data ?? { flags: {}, characters: {} }, assets, references, variants,
+    readiness: readiness.data ?? { flags: {}, characters: {} }, assets, references, variants, specs,
   };
 }

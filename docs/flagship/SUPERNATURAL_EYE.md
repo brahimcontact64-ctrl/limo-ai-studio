@@ -246,7 +246,7 @@ stylised child characters (no Pro-specific restriction on people or children is 
 policy applies; a refusal is recorded as `content_refused`, never retried automatically); (5) account-side facts
 (minimum prepay $5, non-refundable, 1-year expiry) come from earlier research, not re-checked today.
 
-**Read-only preview of the first request:** `docs/flagship/packages/adam_boy.view-front.preview.json` (exact prompt,
+**Read-only preview of the first request:** `docs/flagship/packages/adam_boy.v1.view-front.preview.json` (exact prompt,
 exact HTTP body with the key redacted, model, size, estimate lines, blocking gates, upload metadata, identity and review
 checklists). Regenerate: `node scripts/flagship/artwork-sheet.ts --character adam_boy --sheet view:front`.
 
@@ -262,6 +262,9 @@ or "package ≤ $2.70"); (b) account + deposit done by you; (c) the price verifi
 ## 16. Owner-approved `adam_boy` design (2026-10-19)
 The owner approved a 3D potato-boy design sheet as the primary visual reference for `adam_boy` (school blazer, red
 striped tie, backpack, large brown eyes, golden speckled skin). It differs from spec v1 (no sprout, many speckles,
-golden skin, large eyes, school outfit, backpack): a versioned **spec v2 for `adam_boy` only** is required before the
-reference package; the package/preview above are v1 and must be rebuilt from v2. Comparison, import path and exact
-next steps: `docs/flagship/ADAM_BOY_DESIGN_REVIEW.md`. No reference file is generated or approved yet.
+golden skin, large eyes, school outfit, backpack). Owner decisions applied the same day: **`adam_boy` spec v2 proposed**
+(only this character; v1 and the other 17 unchanged; father continuity flagged), spec version pinned per shot
+(migration #17; demo storyboard shots 1–3 → adam_boy v2), **v2 artwork package** with the composite sheet as a design
+source (`packages/adam_boy.artwork.v2.json`, previews `adam_boy.v2.*.preview.json`; front ≈ $0.2658). The v1 package in
+§15 is kept for history only. Review/import steps: `docs/flagship/ADAM_BOY_DESIGN_REVIEW.md` §5. Nothing approved or
+generated.

@@ -75,3 +75,37 @@ It also contradicts spec v1, so "identity matches spec" would be false. Therefor
    voice comparison → optional lip-sync → review (ANIMATION_PIPELINE §10). Estimated ≈ $1.1 (Fast).
 
 Nothing above has been executed; no image generated, no paid API, no spend, no production or `main` change.
+
+## 4. Owner decisions (2026-10-19) and what was implemented
+| Decision | Applied |
+|---|---|
+| Keep the ADAM family as anthropomorphic potatoes; update **only `adam_boy`** to a proposed v2 | `lib/characters/spec-versions.ts` (v2 = owner list: golden speckled skin, no sprout, large warm-brown eyes, rosy cheeks, small potato nose, compact child body, navy blazer, white shirt, red striped tie, brown trousers and shoes, brown backpack with potato emblem; kind, intelligent, sensitive, brave). `canon.ts` v1 of all 18 unchanged |
+| adam_man / other ADAM members unchanged; flag continuity | recorded in the v2 spec (`continuity_flags`): the father (v1) keeps the sprout, three spots, tan skin, small eyes — review later |
+| Keep the decorative potato emblem | in the v2 outfit text; the v2 negative prompt forbids brand logos but explicitly allows this emblem |
+| Provenance: ChatGPT Image Generation; composite approved as design reference; views not separately approved | recorded in the v2 spec (`design_source`) and the proposal note; never described as Gemini output |
+| Image private, outside the public repo | private copy `C:\Users\Privat\Downloads\LIMO_AI_Studio_v1_verification_2026-10-16\private-design-sources\adam_boy_v2_design_sheet.jpg` (outside the Git repository; SHA-256 `6ffe3206…fd20a`) |
+| Each character and each shot uses its correct spec version | migration #17 `20261019210000` (local only): `animation_shots.character_spec_versions`; references must match the pinned version; generation needs the pinned version approved; other characters unaffected |
+| Do not approve silently | v2 is **proposed** on the local replica (audited `character.spec_proposed`); v1 kept; nothing approved |
+
+## 5. Exact review and import steps (local replica, owner)
+1. **Start:** Docker Desktop running (you start it); app at http://localhost:3200 (Claude can start it).
+2. **Sign in as the platform admin** with two-factor → **Admin → Characters** → row **Adam · Boy** → **Open**.
+   The badge shows **"Spec v2 · Proposed, awaiting review"**; the page lists personality, head, crown ("No sprout…"),
+   surface, face, body, proportions, the colour palette (sampled — confirm on the v2 front), signature details, the
+   School and Weekend outfits and the 8 expressions. The exact differences from v1 are in §1 above and in the spec JSON
+   (`changes_from_previous`).
+3. **Upload the composite sheet privately** (same dialog, "Upload a reference"): Type = *Rendered reference*;
+   View = **—** (none); Expression = **—**; Outfit = **school**; Source = **AI-generated**; Source note =
+   "ChatGPT Image Generation — owner-approved composite design sheet (2026-10-19); design source only, not a view";
+   File = `private-design-sources\adam_boy_v2_design_sheet.jpg`. It goes to the private `character-library` bucket
+   under `canonical/adam_boy/v2/`, status *pending review*. **Leave it pending** (it contains text, so the review box
+   "no text or watermark" would be false; it never counts as a front/three-quarter/side view). Note its id (shown in
+   the review list) — the artwork runner needs it as `--design-asset`.
+4. **Approve the written spec v2** with **"Approve spec v2"** only after reading it (two-factor). This approves the text,
+   never artwork; adam_boy stays "not ready" until the v2 front, three-quarter and side images are approved.
+   (Rejecting = leave it proposed and tell Claude what to change → a new proposal.)
+5. **Generation (separate written authorisation; nothing runs before):** account + $5 prepay (auto-reload off), key in
+   the local generator env only, price re-read and recorded in `google_character_image_v1`, `paid_generation` on, then
+   `node scripts/flagship/artwork-sheet.ts --character adam_boy --version 2 --sheet view:front --live --confirm-cents 27 --org <demo workspace id> --design-asset <id from step 3>`
+   → review → approve the front (two-factor, checklist) → the four other sheets with `--front-asset <approved front id>`.
+6. **Shot-3 test** after the three v2 views are approved (the demo storyboard's shots 1–3 are already pinned to v2).

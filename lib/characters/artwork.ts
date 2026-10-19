@@ -13,9 +13,9 @@
  *   4. other variants of the family use the family's approved fronts as style references
  * A rendered 3D-style image is NOT a rigged 3D model; rigs are a separate deliverable (references.ts kinds).
  */
-import { CANON, EXPRESSION_KEYS, NEGATIVE_PROMPT, REQUIRED_VIEWS, canonFor, type CharacterSpec, type ExpressionKey } from './canon.ts';
+import { CANON, EXPRESSION_KEYS, REQUIRED_VIEWS, canonFor, type CharacterSpec, type ExpressionKey } from './canon.ts';
 
-export type SheetKind = { type: 'view'; view: 'front' | 'side' | 'three_quarter' | 'back' } | { type: 'expression'; expression: ExpressionKey } | { type: 'outfit'; outfit: 'everyday' | 'special' };
+export type SheetKind = { type: 'view'; view: 'front' | 'side' | 'three_quarter' | 'back' } | { type: 'expression'; expression: ExpressionKey } | { type: 'outfit'; outfit: CharacterSpec['outfits'][number]['key'] };
 
 /** Light rig, camera, background and format shared by every sheet (CHARACTER_REFERENCE_GUIDE §1). */
 export const SHEET_DIRECTION = [
@@ -34,7 +34,7 @@ const VIEW_TEXT: Record<'front' | 'side' | 'three_quarter' | 'back', string> = {
 };
 
 export function sheetPrompt(spec: CharacterSpec, kind: SheetKind): string {
-  const outfit = kind.type === 'outfit' ? spec.outfits.find((o) => o.key === kind.outfit) : spec.outfits.find((o) => o.key === 'everyday');
+  const outfit = kind.type === 'outfit' ? spec.outfits.find((o) => o.key === kind.outfit) : spec.outfits[0]; // the primary outfit (v1: everyday; adam_boy v2: school)
   const what =
     kind.type === 'view'
       ? VIEW_TEXT[kind.view]
@@ -48,7 +48,7 @@ export function sheetPrompt(spec: CharacterSpec, kind: SheetKind): string {
     kind.type === 'expression' ? '' : 'Neutral expression.',
     SHEET_DIRECTION,
     `Locked colours: ${spec.consistency.locked_colors.join(', ')}.`,
-    `Never: ${NEGATIVE_PROMPT.join('; ')}.`,
+    `Never: ${spec.consistency.negative_prompt.join('; ')}.`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -107,6 +107,6 @@ export function identityChecks(spec: CharacterSpec): string[] {
     `About ${spec.proportions.height_in_heads} heads tall; ${spec.proportions.posture}`,
     `Colours: ${spec.palette.map((p) => `${p.key} ${p.hex}`).join(', ')}`,
     ...spec.signature_details.map((d) => `Detail: ${d}`),
-    'Four fingers per hand, no hair, no text or logo, family-friendly',
+    spec.consistency.final_check ?? 'Four fingers per hand, no hair, no text or logo, family-friendly',
   ];
 }

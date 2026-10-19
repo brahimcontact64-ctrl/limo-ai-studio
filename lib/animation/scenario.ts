@@ -14,6 +14,7 @@
  * Nothing here calls a provider; costs use the researched (unverified) list prices for planning only.
  */
 import { CANON, EXPRESSION_KEYS, canonFor } from '../characters/canon.ts';
+import { specFor } from '../characters/spec-versions.ts';
 import { approvedVariant, expressionAllowed, variantSceneText, type SceneExpression } from '../characters/variants.ts';
 import { VIDEO_POLICY } from '../video/policy.ts';
 import type { Locale } from '../providers/contracts.ts';
@@ -44,6 +45,8 @@ export interface ScenarioScene {
   expressions?: Record<string, SceneExpression>;
   /** Approved scene variant per character (costume / expression on the unchanged canonical spec): { "adam_man": "adam_man.formal_angry" }. */
   variants?: Record<string, string>;
+  /** Design-spec version per canonical character used in this scene ({ "adam_boy": 2 }); absent = version 1. */
+  specVersions?: Record<string, number>;
   camera: string;
   dialogue: DialogueLine[];
   narration?: string;
@@ -98,6 +101,9 @@ export function validateScenario(s: Scenario): ScenarioIssue[] {
     for (const [id, e] of Object.entries(sc.expressions ?? {})) {
       if (!sc.characters.includes(id)) err('expression_not_in_scene', `${id} has an expression but is not in the scene`, n);
       if (!expressionAllowed(e, sc.variants?.[id], id)) err('expression_unknown', `${e} is not one of ${EXPRESSION_KEYS.join(', ')} (nor of the selected approved variant)`, n);
+    }
+    for (const [id, v] of Object.entries(sc.specVersions ?? {})) {
+      if (!sc.characters.includes(id) || (canonFor(id) && !specFor(id, v))) err('spec_version_unknown', `${id} has no design spec version ${v}`, n);
     }
     for (const [id, key] of Object.entries(sc.variants ?? {})) {
       if (!sc.characters.includes(id) || !approvedVariant(key, id)) err('variant_not_approved', `${key} is not an approved variant of ${id} in this scene`, n);
@@ -180,7 +186,7 @@ const VEO_MODEL = { standard: 'veo-3.1-generate-preview', fast: 'veo-3.1-fast-ge
 /** The clip prompt: owner's scene fields + identity text of each character. Dialogue in quotes only for native audio. */
 export function clipPrompt(sc: ScenarioScene, voiceMode: 'native' | 'separate'): string {
   const who = sc.characters.map((id) => {
-    const spec = canonFor(id);
+    const spec = specFor(id, sc.specVersions?.[id]);
     const expr = sc.expressions?.[id] ? ` Expression: ${sc.expressions[id]}.` : '';
     return `${spec ? spec.consistency.identity_prompt : id}${variantSceneText(sc.variants?.[id], id)} Action: ${sc.actions?.[id] ?? ''}.${expr}`;
   });

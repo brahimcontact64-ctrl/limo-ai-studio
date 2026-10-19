@@ -25,13 +25,17 @@ export interface PaletteColor {
   use: string;
 }
 export interface Outfit {
-  key: 'everyday' | 'special';
+  key: 'everyday' | 'special' | 'school';
   name: string;
   description: string;
   colors: string[];
 }
 export interface CharacterSpec {
   character_id: string;
+  /** Set on versions after 1 (lib/characters/spec-versions.ts); absent = version 1. */
+  spec_version?: number;
+  /** Owner-supplied design reference of this version (metadata only; the file stays private). */
+  design_source?: { kind: string; provenance: string; sha256: string; width: number; height: number; approvedByOwner: string; limits: string };
   family: CharacterFamily;
   variant: CharacterVariant;
   species: string;
@@ -50,7 +54,7 @@ export interface CharacterSpec {
   outfits: Outfit[];
   expressions: Array<{ key: ExpressionKey; description: string }>;
   required_views: readonly string[];
-  consistency: { identity_prompt: string; negative_prompt: string[]; locked_colors: string[]; rules: string[] };
+  consistency: { identity_prompt: string; negative_prompt: string[]; locked_colors: string[]; rules: string[]; final_check?: string };
 }
 
 interface FamilyCanon {

@@ -310,3 +310,82 @@ test('adam_boy artwork package: canonical prompts only, front first, others lock
   const manifest = JSON.parse(readFlagship('docs/flagship/packages/adam_boy.artwork.v1.json', 'utf8')) as typeof pkg;
   assert.deepEqual(manifest.sheets.map((s) => [s.slot, s.request.requestKey, s.request.prompt]), pkg.sheets.map((s) => [s.slot, s.request.requestKey, s.request.prompt]), 'manifest regenerated after a prompt change');
 });
+
+import { SPEC_REVISIONS, latestSpecVersion, specFor, specRevision, specVersionsOf } from '../../lib/characters/spec-versions.ts';
+import { CANON as ALL_CANON } from '../../lib/characters/canon.ts';
+import { DESIGN_SOURCE, APPROVED_FRONT } from '../../lib/generation/artwork-package.ts';
+test('spec versions: adam_boy v2 is the only new version; v1 and the other 17 characters are unchanged', () => {
+  assert.deepEqual(Object.keys(SPEC_REVISIONS), ['adam_boy']);
+  assert.equal(ALL_CANON.length, 18);
+  for (const c of ALL_CANON) {
+    assert.equal(specFor(c.character_id), c, 'no version → v1');
+    assert.equal(specFor(c.character_id, 1), c);
+    if (c.character_id !== 'adam_boy') assert.deepEqual(specVersionsOf(c.character_id), [1]);
+  }
+  assert.deepEqual(specVersionsOf('adam_boy'), [1, 2]);
+  assert.equal(latestSpecVersion('adam_boy'), 2);
+  assert.equal(specFor('adam_boy', 3), undefined);
+  const v1 = specFor('adam_boy', 1)!;
+  const v2 = specFor('adam_boy', 2)!;
+  assert.match(v1.crown, /two-leaf green sprout/i, "v1 kept");
+  assert.equal(v2.spec_version, 2);
+  assert.equal(v2.species, 'anthropomorphic potato');
+  assert.match(v2.crown, /No sprout/);
+  assert.match(v2.consistency.identity_prompt, /never a human child/);
+  assert.match(v2.surface, /many small natural darker speckles/);
+  assert.match(v2.face, /Large expressive eyes with warm-brown irises.*rosy cheeks.*small potato-shaped nose/);
+  assert.equal(v2.outfits[0]!.key, 'school');
+  assert.match(v2.outfits[0]!.description, /Navy school blazer.*white shirt.*red tie.*brown trousers.*brown leather shoes.*backpack.*potato emblem/);
+  assert.equal(v2.personality, 'kind, intelligent, sensitive and brave');
+  assert.ok(v2.consistency.negative_prompt.some((n) => /a human child/.test(n)));
+  assert.ok(v2.consistency.negative_prompt.some((n) => /only the small decorative potato emblem/.test(n)));
+  assert.deepEqual(v2.expressions.map((e) => e.key), [...EXPRESSION_KEYS]);
+  const rev = specRevision('adam_boy', 2)!;
+  assert.equal(rev.designSource!.sha256, '6ffe3206a853a35933848c65a549051adbe5ccb3e807c2bbc01576d5301fd20a');
+  assert.match(rev.designSource!.provenance, /ChatGPT Image Generation/);
+  assert.doesNotMatch(rev.designSource!.provenance, /Gemini/);
+  assert.match(rev.designSource!.limits, /NOT generated, reviewed or approved/);
+  assert.ok(rev.changes.some((c) => /^Crown:/.test(c)) && rev.changes.some((c) => /^Outfit:/.test(c)));
+  assert.ok(rev.continuityFlags.some((f) => /adam_man.*v1/.test(f)));
+  assert.equal(specFor('adam_man', 1)!.crown, ALL_CANON.find((c) => c.character_id === 'adam_man')!.crown, 'father untouched');
+});
+
+test('adam_boy v2 artwork package: design sheet as a source image (never a view), approved front first, manifest in sync', () => {
+  const pkg = artworkPackage('adam_boy', ADAM_BOY_SHEETS, '<workspace id>', 2);
+  assert.equal(pkg.id, 'adam_boy.artwork.v2');
+  assert.equal(pkg.specVersion, 2);
+  assert.equal(pkg.designSource!.sha256, '6ffe3206a853a35933848c65a549051adbe5ccb3e807c2bbc01576d5301fd20a');
+  const front = pkg.sheets[0]!;
+  assert.equal(front.request.kind, 'image');
+  assert.deepEqual((front.request as { inputAssetIds: string[] }).inputAssetIds, [DESIGN_SOURCE]);
+  assert.match(front.request.prompt, /owner-approved DESIGN SHEET.*output ONE clean single front sheet with no text/);
+  assert.match(front.request.prompt, /No sprout/);
+  assert.doesNotMatch(front.request.prompt, /two-leaf green sprout/i);
+  assert.equal(front.upload.view, 'front');
+  for (const s of pkg.sheets.slice(1)) {
+    assert.equal(s.request.kind, 'character_image');
+    const refs = (s.request as { references: Array<{ specVersion: number; assetIds: string[] }> }).references;
+    assert.deepEqual(refs, [{ character: 'adam_boy', specVersion: 2, assetIds: [APPROVED_FRONT, DESIGN_SOURCE] }]);
+    assert.match(s.request.prompt, /first attached image is the APPROVED canonical front.*second attached image is the owner-approved DESIGN SHEET/s);
+  }
+  assert.notEqual(front.request.requestKey, artworkPackage('adam_boy', ADAM_BOY_SHEETS, 'x', 1).sheets[0]!.request.requestKey);
+  const manifest = JSON.parse(readFlagship('docs/flagship/packages/adam_boy.artwork.v2.json', 'utf8')) as typeof pkg;
+  assert.deepEqual(manifest.sheets.map((s) => [s.slot, s.request.requestKey, s.request.prompt]), pkg.sheets.map((s) => [s.slot, s.request.requestKey, s.request.prompt]));
+  assert.equal(artworkPackage('adam_boy', ADAM_BOY_SHEETS, 'x', 1).designSource, null, 'v1 has no design source');
+});
+
+test('storyboard spec pins: scenario import, validation, prompts and keyframe requests use each shot\'s version', () => {
+  const imp = parseFlagship(JSON.stringify({ scenes: [{ durationSeconds: 4, description: 'd', environment: 'e', characters: ['adam_boy', 'adam_man'], specVersions: { adam_boy: 2 } }, { durationSeconds: 4, characters: ['adam_boy'], specVersions: { adam_boy: 9 } }] }));
+  assert.deepEqual(imp.scenario!.shots[0]!.character_spec_versions, { adam_boy: 2 });
+  assert.ok(imp.errors.some((e) => /adam_boy has no design spec version 9/.test(e)));
+  const base = { id: 'x', shot_number: 1, duration_seconds: 4 as const, description: '[d]', environment: '[e]', camera: '', characters: ['adam_boy'], actions: { adam_boy: '[a]' }, expressions: {}, dialogue: [], narration: '', sound: '', continuity: {}, reference_asset_ids: ['r1'], status: 'draft' as const, keyframe_asset_id: null, first_frame_asset_id: null, last_frame_asset_id: null, clip_asset_id: null, voice_tracks: [], clip_audio: 'keep' as const, revision: 1, last_error: null };
+  const v2 = kfVariant({ ...base, character_spec_versions: { adam_boy: 2 } }, { aspect: '9:16', language_code: 'ar' }, 'org', 'k');
+  assert.match(v2.prompt, /No sprout/);
+  assert.equal((v2 as { references: Array<{ specVersion: number }> }).references[0]!.specVersion, 2);
+  const v1 = kfVariant(base, { aspect: '9:16', language_code: 'ar' }, 'org', 'k');
+  assert.match(v1.prompt, /two-leaf green sprout/i);
+  assert.equal((v1 as { references: Array<{ specVersion: number }> }).references[0]!.specVersion, 1);
+  const sc = toFlagshipScenario({ title: 't', language_code: 'ar', aspect: '9:16', music_note: '' }, [{ ...base, character_spec_versions: { adam_boy: 7 } }]);
+  assert.ok(validateFlagship(sc).some((i) => i.code === 'spec_version_unknown'));
+  assert.deepEqual(toFlagshipPayload([{ ...base, character_spec_versions: { adam_boy: 2 } }])[0]!.character_spec_versions, { adam_boy: 2 });
+});

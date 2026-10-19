@@ -1,0 +1,118 @@
+{
+  "package": "adam_boy.artwork.v2",
+  "sheet": "view:three_quarter",
+  "mode": "dry-run (nothing sent, no key read)",
+  "model": "gemini-3-pro-image",
+  "registry": "google_character_image_v1",
+  "size": {
+    "width": 2048,
+    "height": 2731
+  },
+  "requestKey": "artwork-adam_boy-v2-view-three_quarter-390d0ce04693ed40",
+  "specVersion": 2,
+  "designSource": {
+    "sha256": "6ffe3206a853a35933848c65a549051adbe5ccb3e807c2bbc01576d5301fd20a",
+    "provenance": "ChatGPT Image Generation (OpenAI); supplied by the owner",
+    "limits": "One composite sheet (hero image, small front/three-quarter/side/back panels, detail crops, six expression heads, Arabic labels). Its individual views were NOT generated, reviewed or approved as LIMO reference sheets."
+  },
+  "needsApprovedFront": true,
+  "usage": {
+    "images": 1,
+    "inputTokens": 1600,
+    "outputTokens": 2000
+  },
+  "planningEstimateUsd": 0.2672,
+  "planningEstimateLines": [
+    {
+      "unit": "input_tokens_1m",
+      "quantity": 0.0016,
+      "usd": 0.0032
+    },
+    {
+      "unit": "output_tokens_1m",
+      "quantity": 0.002,
+      "usd": 0.024
+    },
+    {
+      "unit": "image",
+      "quantity": 1,
+      "usd": 0.24
+    }
+  ],
+  "estimateNotes": [
+    "thinking output is an allowance (always on for Gemini 3 image models, billed as text output; real count unknown until the first call)",
+    "billing of interim thinking images is not documented (unverified)"
+  ],
+  "priceSource": "https://ai.google.dev/gemini-api/docs/pricing",
+  "priceVerified": false,
+  "killSwitch": false,
+  "wouldBlock": [
+    "paid_generation_disabled",
+    "capability_not_approved",
+    "provider_disabled",
+    "price_unverified",
+    "missing_character_reference"
+  ],
+  "upload": {
+    "asset_kind": "rendered_reference",
+    "view": "three_quarter",
+    "expression_key": null,
+    "outfit_key": null,
+    "provenance": "ai_generated"
+  },
+  "identityChecklist": [
+    "Head: Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette.",
+    "Crown: No sprout, leaves, stem or hair on top of the head.",
+    "Face: Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth.",
+    "About 2.4 heads tall; upright, slightly shy, often holding the backpack straps",
+    "Colours: skin #EC9E50, skin_shadow #CB7839, skin_highlight #F9C685, speckles #A65721, cheeks #E36439, iris #66301D, brows #4B2F21",
+    "Detail: no sprout: smooth egg-shaped head",
+    "Detail: many small natural speckles",
+    "Detail: round rosy cheeks",
+    "Detail: large warm-brown eyes with catchlights",
+    "Detail: brown leather backpack with a small decorative potato emblem",
+    "Four fingers per hand, no hair or sprout, no text or brand logo (backpack potato emblem allowed), family-friendly, never a human child"
+  ],
+  "reviewChecklist": [
+    "identity_matches_spec",
+    "proportions_match",
+    "palette_matches",
+    "family_friendly",
+    "view_correct",
+    "no_text_or_watermark"
+  ],
+  "prompt": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nThree-quarter view turned 45° to the left, same pose and outfit as the reference.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).\nThe second attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single three-quarter sheet with no text, labels or panels.",
+  "httpRequest": {
+    "method": "POST",
+    "url": "https://generativelanguage.googleapis.com/v1beta/interactions",
+    "headers": {
+      "content-type": "application/json",
+      "x-goog-api-key": "<GEMINI_API_KEY — not read in a dry run>"
+    },
+    "body": {
+      "model": "gemini-3-pro-image",
+      "input": [
+        {
+          "type": "text",
+          "text": "ADAM young boy (about 10 years old): premium cinematic 3D anthropomorphic potato character for a family-friendly animated series — never a human child. Smooth egg-shaped potato head, clearly taller than wide, softly rounded with gentle natural irregularities; the head is the largest part of the silhouette. No sprout, leaves, stem or hair on top of the head. Golden potato skin, softly matte, covered with many small natural darker speckles and a few tiny potato-eye dimples (head and hands), never covering the eyes or mouth. Large expressive eyes with warm-brown irises, black pupils and white catchlights; thick dark-brown expressive brows; round rosy cheeks; small potato-shaped nose; small gentle mouth. Compact childlike body under the large head, short arms and legs, rounded four-finger cartoon hands with golden potato skin. About 2.4 heads tall; upright, slightly shy, often holding the backpack straps. Colours: skin #EC9E50, cheeks #E36439, iris #66301D. Details: no sprout: smooth egg-shaped head; many small natural speckles; round rosy cheeks; large warm-brown eyes with catchlights; brown leather backpack with a small decorative potato emblem.\nOutfit: Navy school blazer with brown buttons over a white shirt, red tie with darker diagonal stripes, brown trousers, polished brown leather shoes; brown leather backpack worn on both shoulders, with a small decorative potato emblem on the flap (a character illustration, not a commercial logo) (colours #29293D, #FEF1E3, #942027, #613221, #743E2F).\nThree-quarter view turned 45° to the left, same pose and outfit as the reference.\nNeutral expression.\nPremium stylized 3D character render for a family-friendly animated series, clean readable shapes, soft global illumination, no photorealism. Key light 45° camera-left and above, soft fill camera-right at 40 %, rim light from behind; plain neutral grey-lavender background #EFECF7; contact shadow only. 50 mm equivalent lens at chest height, character centred and fully visible with 8 % margin, no perspective exaggeration.\nLocked colours: skin #EC9E50, cheeks #E36439, iris #66301D.\nNever: a human child, realistic human skin or a human face; hair, a sprout, leaves or a stem on the head; more or fewer than four fingers per hand; extra limbs or duplicated features; changing the skin colour, head shape or face layout; text, brand logos or watermarks (only the small decorative potato emblem on the backpack is allowed); scary, violent or adult content; photorealistic food textures.\nThe first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).\nThe second attached image is the owner-approved DESIGN SHEET of this character (a composite with several small views, detail crops, expression heads and text labels): match its character design, outfit, accessories, colours and 3D style exactly, but output ONE clean single three-quarter sheet with no text, labels or panels.\nThe reference images show the approved canonical characters adam_boy (design spec v2). Keep their identity exactly: head shape, crown, colours, face layout, proportions and outfit details. Do not render any words, letters, prices, logos or watermarks in the image; text is added later as editable layers."
+        },
+        {
+          "type": "image",
+          "mime_type": "image/png",
+          "data": "<base64 of the owner-approved front image>"
+        },
+        {
+          "type": "image",
+          "mime_type": "image/png",
+          "data": "<base64 of the owner-approved design sheet, sha256 6ffe3206a853a35933848c65a549051adbe5ccb3e807c2bbc01576d5301fd20a>"
+        }
+      ],
+      "response_format": {
+        "type": "image",
+        "mime_type": "image/jpeg",
+        "aspect_ratio": "3:4",
+        "image_size": "4K"
+      }
+    }
+  }
+}

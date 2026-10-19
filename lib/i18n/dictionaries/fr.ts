@@ -2272,6 +2272,8 @@ const fr: Dictionary = {
     action: "Action de {name}",
     expression: "Expression de {name}",
     variant: "Variante de scène",
+    specVersion: "Fiche de conception",
+    specStatus: { proposed: "proposée (non approuvée)", approved: "approuvée", superseded: "remplacée" },
     canonicalLook: "Apparence canonique",
     variantNames: { "adam_man.formal_angry": "Costume formel · en colère" },
     expressions: {
@@ -2474,6 +2476,7 @@ const fr: Dictionary = {
       overlapping_speech: "Deux répliques se chevauchent.",
       character_reference_changed: "Un personnage utilise d’autres références que dans le plan précédent.",
       lighting_changed: "Suite du plan précédent, mais la lumière diffère.",
+      spec_version_unknown: "Cette version de fiche n’existe pas pour ce personnage.",
       variant_not_approved: "Cette variante n’est pas approuvée pour ce personnage.",
     },
     blockerText: {

@@ -2272,6 +2272,8 @@ const de: Dictionary = {
     action: "Handlung von {name}",
     expression: "Ausdruck von {name}",
     variant: "Szenenvariante",
+    specVersion: "Design-Spezifikation",
+    specStatus: { proposed: "vorgeschlagen (nicht freigegeben)", approved: "freigegeben", superseded: "ersetzt" },
     canonicalLook: "Kanonisches Aussehen",
     variantNames: { "adam_man.formal_angry": "Anzug · wütend" },
     expressions: {
@@ -2474,6 +2476,7 @@ const de: Dictionary = {
       overlapping_speech: "Zwei Zeilen überschneiden sich.",
       character_reference_changed: "Eine Figur nutzt andere Referenzen als in der vorigen Einstellung.",
       lighting_changed: "Setzt die vorige Einstellung fort, aber das Licht ist anders.",
+      spec_version_unknown: "Diese Spezifikationsversion gibt es für die Figur nicht.",
       variant_not_approved: "Diese Variante ist für diese Figur nicht freigegeben.",
     },
     blockerText: {

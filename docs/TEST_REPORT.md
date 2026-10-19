@@ -2,6 +2,24 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — adam_boy spec v2 (owner design), spec version per shot (migration #17), v2 artwork package
+- Git: started clean at `bdac329` (local; remote `614a100`). Nothing pushed.
+- Unit **196/196** (new: spec registry — only adam_boy v2, v1 and other 17 unchanged; v2 content, provenance ChatGPT,
+  never Gemini; v2 package — design sheet as source image, approved front first, manifest in sync; spec pins in
+  import/validation/prompts/keyframe requests). Typecheck app + worker clean. Worker **13/13**.
+- SQL: new `character-spec-pinning-test.sql` **14/14** (independent of DB state); animation 54, variants 24, spend
+  guard 22, spec approval 6, generation gate 4, video policy 19 — all pass. Rollback dry run of all 17 clean.
+- e2e: animation 21/21 (one earlier 20/21 run overlapped the production build; two clean reruns 21/21), generate
+  24/24, publish 63/63, render 72/72, backend 224/224.
+- Browser (production build): characters specs pass (desktop + mobile); animation flow 2/2 after starting the render
+  worker + publisher (the first run had no worker running → export never finished on both viewports — environment,
+  not code).
+- Local replica: adam_boy v2 **proposed** via `scripts/characters/propose-spec.ts` (audited, not approved); v1 kept;
+  no other character changed; 0 canonical references approved. Demo storyboard shots 1–3 pinned to adam_boy v2
+  (shots 4–6 media kept). Screens checked: Admin → Adam · Boy shows "Spec v2 · Proposed, awaiting review"; editor
+  shows the spec selector on adam_boy only.
+- No image generated, no paid call, no approval; the composite sheet is stored privately outside the repository.
+
 ## 2026-10-19 — Final safe artwork preparation (Gemini check, language capture, front preview)
 - Pushed first (owner-authorised): `31c44d6..614a100` fast-forward after a fresh fetch + `ls-remote`; `main` = `2a3f426`.
 - Official docs re-read: `gemini-3-pro-image` Stable; `gemini-2.5-flash-image` shut down 2026-10-02 (not used in LIMO).

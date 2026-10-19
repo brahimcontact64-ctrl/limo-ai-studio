@@ -4,6 +4,7 @@
  * database enforces it on save. Nothing is invented: missing text stays empty.
  */
 import { approvedVariant, expressionAllowed, type SceneExpression } from '../characters/variants.ts';
+import { specFor } from '../characters/spec-versions.ts';
 import type { DialogueLine } from './scenario.ts';
 import type { Continuity } from './storyboard.ts';
 import type { TimedOverlay, Transition } from '../video/types.ts';
@@ -18,6 +19,8 @@ export interface ImportedShot {
   expressions: Record<string, SceneExpression>;
   /** Approved scene variant per character (checked against the approved variants; the database re-checks). */
   character_variants: Record<string, string>;
+  /** Design-spec version per canonical character ({ "adam_boy": 2 }); the database checks it exists. */
+  character_spec_versions: Record<string, number>;
   dialogue: DialogueLine[];
   narration: string;
   sound: string;
@@ -104,6 +107,14 @@ export function parseScenarioJson(text: string): { scenario: ImportedScenario | 
         else errors.push(`scene ${n}: "${String(v)}" is not an approved variant of ${k}`);
       }
     }
+    const rawVersions = x.specVersions ?? x.character_spec_versions;
+    const character_spec_versions: Record<string, number> = {};
+    if (rawVersions && typeof rawVersions === 'object' && !Array.isArray(rawVersions)) {
+      for (const [k, v] of Object.entries(rawVersions as Record<string, unknown>)) {
+        if (characters.includes(k) && Number.isInteger(v) && specFor(k, v as number)) character_spec_versions[k] = v as number;
+        else errors.push(`scene ${n}: ${k} has no design spec version ${String(v)}`);
+      }
+    }
     const expressions = x.expressions && typeof x.expressions === 'object' ? Object.fromEntries(Object.entries(x.expressions as Record<string, unknown>).filter(([k, v]) => characters.includes(k) && isExpr(v, character_variants[k], k))) as Record<string, SceneExpression> : {};
     const dialogue: DialogueLine[] = Array.isArray(x.dialogue)
       ? x.dialogue.filter((l): l is Record<string, unknown> => !!l && typeof l === 'object').map((l) => ({ speaker: str(l.speaker, 80), text: str(l.text, 400), ...(isExpr(l.emotion, character_variants[str(l.speaker, 80)], str(l.speaker, 80)) ? { emotion: l.emotion } : {}) }))
@@ -114,7 +125,7 @@ export function parseScenarioJson(text: string): { scenario: ImportedScenario | 
     shots.push({
       duration_seconds: ([4, 6, 8].includes(d) ? d : 8) as 4 | 6 | 8,
       description: str(x.description, 2000), environment: str(x.environment, 1000), camera: str(x.camera, 500),
-      characters, actions, expressions, character_variants, dialogue, narration: str(x.narration, 1000), sound: str(x.sound, 500),
+      characters, actions, expressions, character_variants, character_spec_versions, dialogue, narration: str(x.narration, 1000), sound: str(x.sound, 500),
       continuity: continuityOf(x.continuity, n > 1),
       clip_audio: x.clipAudio === 'mute' || x.clip_audio === 'mute' ? 'mute' : 'keep',
       overlays: overlaysOf(x.overlays, d, n, errors),

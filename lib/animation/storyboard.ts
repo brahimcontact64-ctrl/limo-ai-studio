@@ -41,6 +41,8 @@ export interface ShotRow {
   expressions: Record<string, SceneExpression>;
   /** Approved scene variant per character (migration 20261019180000). */
   character_variants?: Record<string, string>;
+  /** Design-spec version per character, resolved and stored on save (migration 20261019210000). */
+  character_spec_versions?: Record<string, number>;
   dialogue: DialogueLine[];
   narration: string;
   sound: string;
@@ -88,7 +90,7 @@ export function toScenario(p: Pick<ProjectRow, 'title' | 'language_code' | 'aspe
     title: p.title, language: p.language_code, aspect: p.aspect, music: p.music_note || undefined,
     scenes: [...shots].sort((a, b) => a.shot_number - b.shot_number).map((s): ScenarioScene => ({
       number: s.shot_number, durationSeconds: s.duration_seconds, description: s.description, environment: s.environment, characters: s.characters,
-      actions: s.actions, expressions: s.expressions, variants: s.character_variants ?? {}, camera: s.camera, dialogue: s.dialogue, narration: s.narration || undefined, sound: s.sound || undefined,
+      actions: s.actions, expressions: s.expressions, variants: s.character_variants ?? {}, specVersions: s.character_spec_versions ?? {}, camera: s.camera, dialogue: s.dialogue, narration: s.narration || undefined, sound: s.sound || undefined,
     })),
   };
 }
@@ -100,6 +102,7 @@ export function toSavePayload(shots: Array<Partial<ShotRow> & Pick<ShotRow, 'dur
     characters: s.characters ?? [], actions: s.actions ?? {}, expressions: s.expressions ?? {}, dialogue: s.dialogue ?? [], narration: s.narration ?? '',
     sound: s.sound ?? '', continuity: s.continuity ?? {}, reference_asset_ids: s.reference_asset_ids ?? [], clip_audio: s.clip_audio ?? 'keep',
     overlays: s.overlays ?? [], freeze_ms: s.freeze_ms ?? 0, transition_out: s.transition_out ?? 'cut', character_variants: s.character_variants ?? {},
+    character_spec_versions: s.character_spec_versions ?? {},
   }));
 }
 
