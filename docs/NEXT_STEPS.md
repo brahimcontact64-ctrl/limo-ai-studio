@@ -1,9 +1,14 @@
 # Next steps
 
 ## Exact next action
-`origin/rebuild/v1` = `2ff26d1` (M10 + $10 pilot preparation, pushed 2026-10-18, owner-authorised). The animation
-preparation (scenario intake/storyboard, ANIMATION_PIPELINE.md, product-direction docs) is committed locally on top —
-push only with owner approval.
+`origin/rebuild/v1` = `362b7c0` (animation preparation, pushed 2026-10-19, owner-authorised). Animation Studio +
+Facebook AI integration + production procedures (migration #14) are committed locally on top — push only with owner
+approval.
+
+Owner next: (1) provide the flagship scenario (ANIMATION_PIPELINE.md §9 template) and approve the cast characters'
+specs; (2) decide the artwork route (AI front view via the pilot runner, or commissioned art) — artwork must be
+approved before animation; (3) choose voices per speaking character; (4) approve the controlled real-generation test
+(budget stage, accounts, deposits, keys, verified prices, flags on the local replica only).
 
 Three tracks (PRODUCT_SPEC §1, premium direction): **A** flagship animated character video — waiting for the owner's
 scenario (template in ANIMATION_PIPELINE.md §9), spec approval and artwork; **B** real AI Facebook posts and images
@@ -31,10 +36,10 @@ Production guide: `docs/CHARACTER_REFERENCE_GUIDE.md` (one visual direction, del
 3. A platform admin uploads front, side and three-quarter images per character, records the source, opens each file and approves it with the checklist. Only then does a character become ready for generation.
 
 ## Git
-`origin/rebuild/v1` = `0418ee8` (Milestone 10, pushed 2026-10-18 owner-authorised, fast-forward from `a781322`; earlier pushes M8 `1cd8c20`, M9 + video policy `a781322`). The GitHub repository is public. Vercel has no Git connection (pushes create no deployments), there are no GitHub Actions, and Supabase branching is off. Later commits are local until the next authorized push. `main` is not touched.
+`origin/rebuild/v1` = `362b7c0` (pushed 2026-10-19 owner-authorised; earlier: `2ff26d1` pilot prep, `0418ee8` M10, `a781322` M9 + video policy, `1cd8c20` M8). The GitHub repository is public. Vercel has no Git connection (pushes create no deployments), there are no GitHub Actions, and Supabase branching is off. Later commits are local until the next authorized push. `main` is not touched.
 
 ## Blockers (owner)
-1. Approve applying the 13 pending migrations to production (`20261016140000` … `20261018150000`); review in `MIGRATION_REVIEW.md`.
+1. Approve applying the 14 pending migrations to production (`20261016140000` … `20261019090000`); review in `MIGRATION_REVIEW.md`; restore drill first (PRODUCTION_READINESS_REVIEW.md §5).
 2. Supabase Auth settings: site URL, redirect allow-list (production + previews + `/auth/confirm`), templates from `supabase/templates`, custom SMTP provider choice and credentials. TOTP must stay enabled (default on hosted projects).
 3. The existing platform admin must turn on two-factor authentication (Workspace → Two-factor authentication) before using the admin area once the migrations are live.
 4. Real payment destinations (Admin → Payment methods), after the migration.

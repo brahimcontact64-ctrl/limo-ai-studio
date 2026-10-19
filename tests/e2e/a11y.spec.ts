@@ -9,7 +9,7 @@ import { SERVICE_KEY, SUPABASE_URL, activateSubscription, signUpAndOnboard } fro
 test.skip(!SUPABASE_URL || !SERVICE_KEY, 'E2E_SUPABASE_URL / E2E_SERVICE_ROLE_KEY not set');
 
 const PUBLIC = ['/', '/pricing', '/faq', '/login', '/signup'];
-const APP = ['/app', '/app/create', '/app/projects/new', '/app/stories', '/app/images/new', '/app/posts', '/app/posts/new', '/app/social', '/app/assets', '/app/settings', '/app/billing'];
+const APP = ['/app', '/app/create', '/app/projects/new', '/app/stories', '/app/animation', '/app/images/new', '/app/posts', '/app/posts/new', '/app/social', '/app/assets', '/app/settings', '/app/billing'];
 
 async function scan(page: Page, path: string) {
   await page.goto(path);

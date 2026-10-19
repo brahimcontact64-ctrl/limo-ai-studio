@@ -4,6 +4,7 @@ import { useI18n } from '@/lib/i18n/client';
 import { fmt } from '@/lib/i18n/config';
 import { BUSINESS_TYPES, EMPTY_FACTS, type BusinessType, type ComposeResult, type PostDraftProposal, type PostFacts, type PostLanguage, type PostTone } from '@/lib/social/types';
 import { Icon } from '@/components/ui/Icon';
+import { AiCaptionJob } from './AiCaptionJob';
 
 export type ProposalField = 'headline' | 'caption' | 'hashtags' | 'cta';
 const FIELDS: ProposalField[] = ['headline', 'caption', 'hashtags', 'cta'];
@@ -118,6 +119,17 @@ export function AiPanel({
           {busy ? a.generating : result ? a.regenerate : a.generate}
         </button>
       </div>
+      <AiCaptionJob
+        prompt={prompt}
+        business={business}
+        facts={facts}
+        language={language}
+        tone={tone}
+        caption={current.caption}
+        disabled={disabled}
+        onProposal={startAccept}
+        onRewrite={(text) => onAccept({ variant: 'standard', headline: '', caption: text, hashtags: [], cta: '' }, ['caption'])}
+      />
 
       {result && (
         <div className="stack-sm" data-testid="ai-result">

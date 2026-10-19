@@ -33,6 +33,7 @@ import { collectOperation, executeOperation, OperationBlockedError, settleFailur
 import { buildAdapters, generationMode, safetyProvider, voiceProvider } from '../../lib/providers/registry.ts';
 import type { SpendGuard } from '../../lib/providers/spend.ts';
 import { dbSpendGuard } from '../../lib/providers/spend-db.ts';
+import { aiJobProcessor } from './ai-jobs.ts';
 import { GEMINI_TTS_DEFAULT_VOICE } from '../../lib/providers/adapters/gemini-tts.ts';
 import { sheetFromRegistry, type RegistryRow } from '../../lib/providers/registry-prices.ts';
 import { priceKey } from '../../lib/providers/prices.ts';
@@ -100,6 +101,19 @@ interface Ctx { run: Run; plan: Plan; input: PlanInput; registry: RegistryRow[];
 /** The database spend guard; absent → every paid call is blocked (spend_guard_missing). */
 const SPEND: SpendGuard | undefined = MODE === 'live' && process.env.LIMO_AI_SPEND_SCOPE ? dbSpendGuard(process.env.LIMO_AI_SPEND_SCOPE, rpc, log) : undefined;
 if (MODE === 'live' && !SPEND) log('LIMO_AI_SPEND_SCOPE is not set: every paid call is blocked (spend_guard_missing)');
+
+/** Creative AI jobs (Facebook Content Studio + Animation Studio shots), same gates and budgets. */
+const jobs = aiJobProcessor({
+  mode: MODE, workerId: WORKER_ID, adapters, spend: SPEND, env: process.env, rpc, table, log,
+  upload: async (path, bytes, mime) => {
+    const up = await db.storage.from(BUCKET).upload(path, bytes, { contentType: mime, upsert: true });
+    if (up.error) throw new ProviderError('unavailable', `storage: ${up.error.message}`);
+  },
+  setOrg: (org) => {
+    currentOrg = org;
+  },
+  narratorVoice: process.env.LIMO_NARRATOR_VOICE_ID ?? (voiceProvider(process.env) === 'google' ? GEMINI_TTS_DEFAULT_VOICE : null),
+});
 
 /** Options for one operation: verified price, authorisation gate and the spend guard. */
 const opts = (ctx: Ctx, op: PlannedOp, adapter: { provider: string; model: string }, stage: string): ExecuteOptions => ({ price: priceFor(ctx, op, stage), gate: gateFor(ctx, op, adapter, stage), spend: SPEND });
@@ -456,7 +470,8 @@ async function main() {
       }
     }
     if (polled) continue;
-    if (ONCE && !(await pendingProviderTasks())) break;
+    if (await jobs.tick()) continue;
+    if (ONCE && !(await pendingProviderTasks()) && !(await jobs.pending())) break;
     await new Promise((r) => setTimeout(r, POLL));
   }
   server?.close();

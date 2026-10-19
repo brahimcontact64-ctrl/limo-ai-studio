@@ -45,18 +45,18 @@ Last updated: 2026-10-18 (Milestone 10: AI provider integration foundation — r
 | End-to-end journeys | Verified locally (mock/simulated providers) | Milestone 9 `tests/e2e/journeys.spec.ts`: product seller, story creator, business owner through the UI with the render worker and publisher running. |
 | AI generation pipeline (§6–§11) | Implemented locally in mock mode / Blocked (owner activation, keys, migrations) | Video step "AI scenes": availability + exact estimate, explicit confirmation, run status, per-scene proposals (Mock/AI label) with Use/Reject; generator stages safety → prompts → narration → images → clips → proposal; budget in cents, never a video credit; e2e 24 checks + browser spec. |
 | AI spend safeguards ($10 pilot) | Implemented locally, inactive | Migration #13 spend guard (hard total, per-operation and per-bucket caps, row-locked reservations, unique operation keys, auto-off at the limit, MFA kill switch, reconciliation); executor reserves before every paid call and settles/releases after; `LIMO_AI_KILL_SWITCH`, `LIMO_AI_MAX_ATTEMPTS`; billed refusals recorded; price end dates. Gemini TTS + Claude safety adapters for a two-provider pilot; guarded pilot runner `scripts/ai-pilot.ts` (dry run by default). Plan: AI_PILOT_PLAN.md. Mocked HTTP only — **nothing live-tested, no account or key exists**. |
-| Animated character video (flagship, track A) | Planned + intake implemented / **Blocked** (scenario from the owner, approved artwork, voice identities, accounts) | `lib/animation/scenario.ts`: owner scenario → validation (≤ 30 s, 4/6/8 s shots, canonical characters, speakers, expressions) → readiness (approved spec + front/three-quarter/side + voice per language) → storyboard (keyframe with approved references → Veo 3.1 image-to-video → fixed-voice TTS → experimental lip-sync → continuity review) with planning costs. Not built: storyboard persistence/UI, per-shot run, Veo `lastFrame`, lip-sync/Act-Two adapters, dialogue/SFX mix. Plan: ANIMATION_PIPELINE.md. Nothing generated. |
+| Animated character video (flagship, track A) | Animation Studio implemented locally (mock) / **Blocked** for real generation (owner scenario, approved artwork, voice identities, accounts, migration #14) | `/app/animation`: persisted storyboard (≤ 30 s, 4/6/8 s shots), canonical (18) and workspace characters, approved reference attachment, actions/expressions/camera/dialogue/narration/sound, continuity metadata, first/last frame, dialogue timeline, per-shot keyframe → clip approval/rejection/revision with history, voice jobs, AI job status and errors, export through the render worker (clip sound + voice layers, one credit). Real keyframes/clips/voices run through the generator behind `animation_generation` + paid gates; mock clips are honestly "not animated". Not built: lip-sync/Act-Two adapters, Claude vision continuity review, music ducking. Details: ANIMATION_PIPELINE.md §8a. |
 | Character artwork workflow (§5) | Prepared / **Artwork pending** | `lib/characters/artwork.ts`: canonical sheet prompts and work order (front first, others locked to the approved front), identity checks; generation needs owner authorisation; nothing generated, nothing approved. |
 
 ## Facebook Content Studio (track B) — status by feature (2026-10-18)
 | # | Feature | State |
 |---|---|---|
-| 1 | AI captions, titles, descriptions, hashtags | composer with **Mock AI** drafts (facts only, placeholders); real Claude `post_caption` task exists in the adapter but is **not wired** to the composer |
-| 2 | AI post images / promotional visuals | Image Studio with mock layouts; real Gemini image adapter exists, **not wired** to Image Studio |
+| 1 | AI captions, titles, descriptions, hashtags | **real AI connected behind `ai_social_text` (off)** via the generator worker; Mock AI drafts stay the default |
+| 2 | AI post images / promotional visuals | **real AI connected behind `ai_social_images` (off)** in Image Studio → New image; mock layouts kept |
 | 3 | Product ads, restaurant promotions, offers, announcements | purposes/templates in Image Studio and composer (mock AI) |
 | 4 | Brand Kit (logo, colours, fonts, assets) | implemented (name, tagline, colours, logo, CTA, tone; asset library); brand fonts are not stored in the kit (Image Studio text layers offer a fixed font list) |
 | 5 | Edit / regenerate one post | implemented (per-field accept, paragraph rewrite — mock AI) |
-| 6 | Calendar / bulk planning | month calendar implemented; **bulk planning not implemented** |
+| 6 | Calendar / bulk planning | month calendar implemented; bulk planning **prepared** (job queue), not built |
 | 7 | Approval workflow | implemented (draft → awaiting review → approved, revisions) |
 | 8 | Scheduling | implemented (time-zone aware, durable queue) |
 | 9 | Multi-Page management | data model + mock Pages; real Page connection **blocked** (Meta app review, owner approval) |
@@ -64,4 +64,4 @@ Last updated: 2026-10-18 (Milestone 10: AI provider integration foundation — r
 | 11 | History, statuses, retries, failures | implemented with the mock adapter (lease/heartbeat, back-off, takeover) |
 | 12 | Isolation, quotas, usage, security | implemented (RLS, rate limits, audit); AI usage accounting via budgets + spend guard |
 | 13 | Multilingual ar/fr/en/de | implemented (UI + content language) |
-Next for track B (no paid call until approved): wire `post_caption` and Gemini images behind the same gates/spend guard, bulk planning, Brand Kit fonts.
+Track B details: FACEBOOK_CONTENT_STUDIO.md. Next: bulk planning (after the pilot), Brand Kit fonts.

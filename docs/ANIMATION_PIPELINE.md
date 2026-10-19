@@ -102,12 +102,30 @@ plus subscriptions if used (sync.so $5/month; ElevenLabs paid plan for commercia
 
 ## 8. Step-by-step implementation plan
 1. ✅ Scenario intake, validation, readiness and storyboard costing (`lib/animation/scenario.ts`, tests).
-2. Storyboard persistence (migration, pending) + storyboard UI in the Studio (shots, approvals) — local, mock first.
-3. Generator: keyframe stage with references → human approval → clip stage (existing Veo adapter) → approval.
-4. Veo `lastFrame` support + continuity review op (Claude vision) — mocked-HTTP tests.
-5. Render plan: per-shot dialogue/SFX tracks + music ducking; subtitles from voice timing.
-6. Lip-sync adapter (sync.so) behind the same gates; Act-Two adapter if the owner chooses performance capture.
+2. ✅ Storyboard persistence (migration 20261019090000, pending) + Animation Studio UI (`/app/animation`).
+3. ✅ Generator: keyframe job with approved references → human approval → clip job (Veo, async) → approval;
+   voice job with fixed voice identities; all behind `animation_generation` (off) + paid gates.
+4. ✅ Veo `lastFrame` (first + last frame) in the adapter; continuity checks in the editor. Claude vision review
+   of keyframes vs references: planned (not built).
+5. ✅ Render: per-shot clip sound (Veo native audio) kept or muted + voice lines at their offsets (real FFmpeg test);
+   music track as before. Music ducking and subtitles from voice timing: not built.
+6. Lip-sync adapter (sync.so) / Act-Two adapter: not built (owner decision on the method first).
 7. After approvals: S1 artwork → S2 drafts → S3 finals → S4 mix → review against §10 → record results honestly.
+
+## 8a. Implementation status (2026-10-19) — real, mock, prepared, blocked
+| Piece | State |
+|---|---|
+| Persisted scenario + shots (`animation_projects`, `animation_shots`, events) | **implemented locally** (migration #14 pending for production) |
+| Storyboard editor (shots, 4/6/8 s, ≤ 30 s, characters, actions, expressions, camera, dialogue, narration, sound, continuity, references, reorder) | **implemented**, browser-tested |
+| Canonical (18) + workspace character selection; approved reference attachment (≤ 5, validated server-side) | **implemented**; no canonical artwork exists → canonical characters stay **blocked** |
+| Per-shot keyframe / clip approve, reject with a note, revise (edits send a shot back to draft, revision + 1) | **implemented** |
+| First / last frame (approved keyframe; previous shot's last frame; next shot's keyframe as last frame) | **implemented** (Veo request shape from the docs; not live-tested) |
+| Dialogue / narration timeline (planned → measured), voice jobs with offsets | **implemented** (mock voices); real voices need voice identities per character |
+| Audio mix (clip sound + voice layers) in the render worker | **implemented**, real MP4 test |
+| AI jobs queue, status, errors, quarantine, async polling | **implemented**; mock mode end to end |
+| Export through the existing render worker (one credit, ≤ 30 s) | **implemented**, real MP4 in e2e |
+| Real keyframes / clips / voices | **blocked**: flag off, no accounts/keys, prices unverified, no approved artwork |
+| Mock clip | honest: "no animation was generated", cannot be approved |
 
 ## 9. What the owner provides with the scenario (template)
 Use this JSON shape (`Scenario` in `lib/animation/scenario.ts`); every field is the owner's own text:

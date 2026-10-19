@@ -27,6 +27,7 @@ function useNav(isPlatformAdmin: boolean) {
     { href: '/app/projects', label: t.nav.projects, icon: 'film', mobile: true },
     { href: '/app/create', label: t.nav.create, icon: 'sparkle' },
     { href: '/app/stories', label: t.nav.stories, icon: 'book' },
+    { href: '/app/animation', label: t.nav.animationStudio, icon: 'play' },
     { href: '/app/images', label: t.nav.images, icon: 'brush' },
     { href: '/app/posts', label: t.nav.posts, icon: 'share' },
     { href: '/app/social', label: t.nav.social, icon: 'globe' },

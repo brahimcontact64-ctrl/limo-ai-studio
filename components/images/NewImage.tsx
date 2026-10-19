@@ -11,6 +11,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DocPreview } from './DocPreview';
 import { useLoadedImages } from './canvas';
 import { imageMessage, postJson } from './api';
+import { AiImageJob } from './AiImageJob';
 
 export interface PickedPhoto {
   id: string;
@@ -45,7 +46,7 @@ type Generated = { label: string; variations: ImageDoc[]; urls: Record<string, s
 
 /** New image: describe it, add your own photos and text, then pick one of the mock layouts (or start blank). */
 export function NewImage({ organizationId, prefill, hasBrandLogo }: { organizationId: string; prefill: NewImagePrefill; hasBrandLogo: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const c = t.images.create;
   const router = useRouter();
   const id = useId();
@@ -213,6 +214,14 @@ export function NewImage({ organizationId, prefill, hasBrandLogo }: { organizati
             <input type="checkbox" checked={useBrand} onChange={(e) => setUseBrand(e.target.checked)} />
             <span>{hasBrandLogo ? c.useBrand : c.useBrandColors}</span>
           </label>
+          <AiImageJob
+            language={locale}
+            aspect={aspect}
+            purpose={purpose}
+            initialPrompt={prompt}
+            disabled={busy !== null || photos.length >= 6}
+            onUse={(a) => setPhotos((p) => (p.some((x) => x.id === a.id) ? p : [...p, { id: a.id, url: a.url, name: t.aiContent.imageTitle }].slice(0, 6)))}
+          />
         </section>
 
         {purpose === 'story_illustration' && prefill.characters.length > 0 && (

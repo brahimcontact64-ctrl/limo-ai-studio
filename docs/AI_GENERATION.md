@@ -66,6 +66,7 @@ twice). Stale stages are quarantined by the database.
 | `LIMO_VOICE_PROVIDER` / `LIMO_SAFETY_PROVIDER` | selectors | `elevenlabs` (default) or `google` (Gemini TTS); `openai` (default) or `anthropic` (Claude review) |
 | `LIMO_AI_SPEND_SCOPE` | LIMO | spend-guard scope (`ai_spend_guards`); without it every paid call is blocked |
 | `LIMO_AI_KILL_SWITCH` / `LIMO_AI_MAX_ATTEMPTS` | LIMO | `on` blocks all paid calls of the process; `1` = no paid retries |
+| `LIMO_VEO_RESOLUTION` | LIMO | `720p` (default) or `1080p` for Animation Studio clips (price tier) |
 None is configured anywhere. Do not send keys in chat; put them in the worker host's secret store.
 
 ## 5. Activation checklist (each step is an owner decision)

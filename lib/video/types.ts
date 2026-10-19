@@ -53,6 +53,10 @@ export interface SpecScene {
   fit: 'cover' | 'contain';
   show_text: boolean;
   participants: string[];
+  /** Animation exports: keep the clip's own sound (e.g. Veo native audio) at this volume (0 = mute). */
+  clip_audio?: { volume: number } | null;
+  /** Animation exports: voice lines mixed into the shot at their offsets (ms from the start of the shot). */
+  audio_layers?: Array<SpecMedia & { offset_ms: number; volume: number }>;
 }
 
 export interface RenderSpec {

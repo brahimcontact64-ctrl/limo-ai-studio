@@ -111,6 +111,18 @@ export function mockTextAdapter(): CapabilityAdapter<TextRequest> {
           motion_prompt: 'Slow, steady camera push-in.',
         }));
         json = { scenes };
+      } else if (r.task === 'post_caption') {
+        // Honest mock: only the customer's facts, clearly labelled; never presented as AI writing.
+        const f = r.facts;
+        json = {
+          headline: `[Mock AI] ${f.business_name || f.brand || '[business]'}`,
+          caption: `[Mock AI caption — no AI was used] ${[f.product_name, f.offer, f.price, f.location, f.hours].filter(Boolean).join(' · ') || '[facts]'}`,
+          hashtags: [],
+          cta: f.call_to_action || '',
+        };
+      } else if (r.task === 'rewrite') {
+        const text = r.instructions.split('Text:\n')[1] ?? r.instructions;
+        json = { text: `[Mock rewrite — no AI was used] ${text}` };
       } else json = { text: r.instructions };
       return { text: JSON.stringify(json), json, issues: [], usage: { requests: 1 }, provenance: prov('text', r.requestKey, r.instructions) };
     },

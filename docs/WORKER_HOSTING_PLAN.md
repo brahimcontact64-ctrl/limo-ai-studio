@@ -120,7 +120,7 @@ to compare with the video-credit price (one credit per finished video of up to 3
 - **W7** smoke test: one render and one simulated publication in the production test workspace only.
 - **W8** live Facebook publishing stays off (separate approval: FACEBOOK_INFRASTRUCTURE.md).
 
-## 13. AI generator (Milestone 10)
+## 13. AI generator (Milestone 10; since 2026-10-19 also processes `ai_jobs`: Animation Studio shots and Facebook AI content)
 Image `worker/Dockerfile.generator` (no FFmpeg), compose service `generator` (example; `LIMO_GENERATION_MODE=off`
 by default — the process idles, claims nothing and calls no provider). Resources: 0.5 vCPU, 512 MB (it waits on
 providers; files up to 200 MB are streamed to storage). Secrets: provider keys only in this service's env file.

@@ -356,6 +356,8 @@ export interface VideoRequest extends Base {
   kind: 'video';
   prompt: string;
   firstFrameAssetId: string | null;
+  /** Ending frame (Veo `lastFrame`, interpolation between two frames); requires a first frame. */
+  lastFrameAssetId?: string | null;
   references: CharacterImageRequest['references'];
   durationSeconds: number;
   /** Total length of the video this clip belongs to (V1 policy: at most 30 s, like every export). */
@@ -450,6 +452,7 @@ export function validateRequest(r: CapabilityRequest): string[] {
   if (!r.requestKey) e.push('requestKey required');
   if (r.kind === 'character_image' && (r.references.length === 0 || r.references.some((x) => x.assetIds.length === 0))) e.push('approved character references required');
   if (r.kind === 'video' && (r.durationSeconds < 1 || r.durationSeconds > 15)) e.push('video duration 1–15 s per scene');
+  if (r.kind === 'video' && r.lastFrameAssetId && !r.firstFrameAssetId) e.push('a last frame needs a first frame');
   // V1 policy (lib/video/policy.ts): AI-generated videos obey the same 30 s limit as every export. Provider cost
   // is budgeted separately (paidCallBlockers); the export credit is taken only when the final video is rendered.
   if (r.kind === 'video' && !withinVideoLimit(r.videoTotalSeconds)) e.push(`videos are limited to ${VIDEO_POLICY.maxDurationSeconds} s`);

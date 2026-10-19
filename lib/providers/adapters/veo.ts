@@ -1,6 +1,6 @@
 /**
  * Google Veo 3.1 adapter (Gemini API, documented 2026-10-18). Asynchronous:
- *   submit  POST {base}/models/{model}:predictLongRunning   { instances:[{prompt, image?, referenceImages?}], parameters:{aspectRatio, resolution, durationSeconds, numberOfVideos:1, personGeneration} }
+ *   submit  POST {base}/models/{model}:predictLongRunning   { instances:[{prompt, image?, lastFrame?, referenceImages?}], parameters:{aspectRatio, resolution, durationSeconds, numberOfVideos:1, personGeneration} }
  *           → { name: "<operation>" }
  *   poll    GET  {base}/{operation}                            → { done, response.generateVideoResponse.generatedSamples[0].video.uri, error }
  *   fetch   GET  <video uri> (x-goog-api-key, redirects followed) → MP4 bytes; kept only 2 days by Google, so LIMO copies it at once
@@ -52,6 +52,10 @@ export function veoPlan(r: VideoRequest, cfg: Pick<VeoConfig, 'tier' | 'resoluti
   const refs = r.references.flatMap((x) => x.assetIds);
   if (refs.length > VEO_MAX_REFERENCES) throw new ProviderError('invalid_request', `at most ${VEO_MAX_REFERENCES} reference images`);
   if (refs.length > 0 && tier === 'lite') throw new ProviderError('invalid_request', 'Veo Lite does not accept reference images');
+  // lastFrame "must be used in combination with the image parameter" (docs); combining it with reference images is not
+  // documented, so LIMO does not send both.
+  if (r.lastFrameAssetId && !r.firstFrameAssetId) throw new ProviderError('invalid_request', 'a last frame needs a first frame');
+  if (r.lastFrameAssetId && refs.length > 0) throw new ProviderError('invalid_request', 'use either reference images or first + last frame');
   const resolution = cfg.resolution ?? '720p';
   const seconds = veoDuration(r.durationSeconds, refs.length > 0 || resolution !== '720p');
   return { model: VEO_MODELS[tier], tier, aspect: veoAspect(r.aspect), resolution, seconds, refs };
@@ -77,6 +81,7 @@ export function veoAdapter(cfg: VeoConfig): AsyncCapabilityAdapter<VideoRequest>
       const p = veoPlan(r, cfg);
       const instance: Record<string, unknown> = { prompt: r.prompt };
       if (r.firstFrameAssetId) instance.image = imageField(await cfg.loadAsset(r.firstFrameAssetId));
+      if (r.lastFrameAssetId) instance.lastFrame = imageField(await cfg.loadAsset(r.lastFrameAssetId));
       if (p.refs.length) instance.referenceImages = await Promise.all(p.refs.map(async (id) => ({ image: imageField(await cfg.loadAsset(id)), referenceType: 'asset' })));
       const parameters = {
         aspectRatio: p.aspect, resolution: p.resolution, durationSeconds: String(p.seconds), numberOfVideos: 1,
@@ -104,7 +109,7 @@ export function veoAdapter(cfg: VeoConfig): AsyncCapabilityAdapter<VideoRequest>
       const file = await requestBytes(cfg.fetch, outputRef, { method: 'GET', headers: { 'x-goog-api-key': cfg.apiKey }, timeoutMs: cfg.timeoutMs ?? 120_000, signal }, cfg.maxBytes ?? 200 * 1024 * 1024);
       const prov: Provenance = {
         capability: 'video', provider: GEMINI_PROVIDER, model: String(plan.model), modelVersion: null, requestKey: r.requestKey, promptSha256: sha256(r.prompt),
-        inputAssetIds: r.firstFrameAssetId ? [r.firstFrameAssetId] : [], referenceAssetIds: r.references.flatMap((x) => x.assetIds),
+        inputAssetIds: [r.firstFrameAssetId, r.lastFrameAssetId].filter((x): x is string => !!x), referenceAssetIds: r.references.flatMap((x) => x.assetIds),
         characterSpecVersions: Object.fromEntries(r.references.map((x) => [x.character, x.specVersion])), approvedBy: null,
         createdAt: new Date().toISOString(), costMicros: null, currency: null, aiGenerated: true, contentCredentials: 'SynthID', mock: false, providerRequestId: null,
       };

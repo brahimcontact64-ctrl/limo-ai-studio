@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, copyFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -124,6 +124,31 @@ test('V1 policy: exactly 30 s renders a real 30 s MP4; over 30 s is refused befo
     (e: Error & { code?: string; retryable?: boolean }) => e.code === 'over_duration_limit' && e.retryable === false && /limited to 30 seconds/.test(e.message),
   );
   assert.equal(fetched, 0, 'nothing downloaded for a refused video');
+});
+
+/** Mean loudness (dB) of a time window, from FFmpeg's volumedetect (-91 dB = digital silence). */
+function meanVolume(file: string, start: number, dur: number): number {
+  const r = spawnSync(FFMPEG, ['-hide_banner', '-ss', String(start), '-t', String(dur), '-i', file, '-af', 'volumedetect', '-vn', '-f', 'null', '-'], { encoding: 'utf8' });
+  const m = /mean_volume:\s*(-?[\d.]+) dB/.exec(r.stderr);
+  return m ? Number(m[1]) : -999;
+}
+
+test('animation export audio: clip sound kept or muted per shot, voice lines mixed at their offsets', async () => {
+  // Two 4 s shots from the same clip (which has its own 330 Hz sound); shot 2 mutes the clip and carries a voice line at 1.5 s.
+  const shot = (n: number, start: number, extra: Partial<RenderSpec['scenes'][number]>) => ({ scene_number: n, title: `Shot ${n}`, duration_ms: 4000, start_ms: start, on_screen_text: '', narration: '', dialogue: '', transition: 'cut' as const, visual: media('b', 'b', 'video', 'video/mp4'), audio: null, fit: 'cover' as const, show_text: false, participants: [], ...extra });
+  const s = spec('9:16', { music: null, logo: null, subtitles: 'off', fps: 24, scenes: [
+    shot(1, 0, { clip_audio: { volume: 1 } }),
+    shot(2, 4000, { clip_audio: { volume: 0 }, audio_layers: [{ ...media('v', 'v', 'audio', 'audio/wav'), offset_ms: 1500, volume: 1 }] }),
+  ] });
+  const out = await renderSpec(s, join(work, 'animation-audio'), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 1e8 });
+  assert.ok(Math.abs(out.probe.duration - 8) < 0.25, `duration ${out.probe.duration}`);
+  const clipSound = meanVolume(out.file, 0.3, 1.2);
+  const mutedGap = meanVolume(out.file, 4.3, 1.0);
+  const voice = meanVolume(out.file, 5.8, 1.2);
+  assert.ok(clipSound > -40, `clip audio kept in shot 1 (${clipSound} dB)`);
+  assert.ok(mutedGap < -70, `clip muted in shot 2 before the line (${mutedGap} dB)`);
+  assert.ok(voice > -40, `voice line audible at its offset (${voice} dB)`);
+  results.push(`animation audio: clip ${clipSound} dB, muted ${mutedGap} dB, voice ${voice} dB`);
 });
 
 test.after(() => {

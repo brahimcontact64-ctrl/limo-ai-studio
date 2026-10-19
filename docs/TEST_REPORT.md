@@ -2,6 +2,32 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — Animation Studio, Facebook AI integration, production procedures (migration #14), branch `rebuild/v1`
+Environment: local replica with migrations #12–#14 applied **locally only**; production build on :3200; render worker
+and publisher running for the browser suite. No provider key exists; generator only in mock mode. **No live or paid
+provider call, no real Facebook call.**
+- Pushed first (owner-authorised): `2ff26d1..362b7c0` fast-forward after clean tree, unchanged remote, secret scan,
+  unit 171/171 + typechecks at `362b7c0`, no workflows / 0 deployments; `main` unchanged.
+- Unit **180/180** (new `animation-studio.test.ts` 9: storyboard ⇄ scenario, timeline, continuity, audio mix plan,
+  first/last frame, segment audio graph, Veo `lastFrame` request + refusals, job builders, social jobs + labelled
+  mocks, error codes). Typecheck app + worker clean; `next build` compiles (fixed: a client component imported
+  `node:crypto` through `lib/ai/jobs.ts` → client-safe `lib/ai/constants.ts`).
+- Worker **11/11** (new: real FFmpeg render of an animation export — clip sound kept −24 dB, muted shot −91 dB, voice
+  line at its offset −24 dB).
+- SQL: `animation-studio-test.sql` **37/37** (fixed a real bug it found: `animation_character_gaps` appended text to
+  an array without `array_append`); spend guard 23/23 + concurrency PASS; generation gate 4/4; character spec 6/6;
+  video policy 20/20; rollback dry run of **14** scripts clean.
+- E2E (local, mock): animation **15/15** (keyframe from approved fixture references, voices with offsets, mock clip
+  "not animated" and not approvable, simulated provider clip fixture approved, export → render worker → real 8 s MP4
+  with clip sound + voice layers, one credit; caption/rewrite/image jobs with provenance; isolation; flags/fixtures
+  restored); generate 24/24; backend 224/224; render 72/72; publish 63/63.
+- Restore drill (`scripts/sql/restore-drill.sh`, local): dump 2.0 MB → scratch DB → 19 table counts identical, 7 key
+  functions, RLS on every public table, pilot guard intact → **PASS** (8 s).
+- Browser (production build, both viewports): full suite **55 passed, 1 skipped** (mobile a11y by design), 23.3 min;
+  includes new `animation-studio.spec.ts` (storyboard write/save/reload, 30 s limit, generation refused while the flag
+  is off, Facebook AI hooks off by default, mock caption reviewed and applied) and `/app/animation` in the a11y scan
+  (EN + AR, 0 serious/critical).
+
 ## 2026-10-18 — Animation preparation (scenario intake, storyboard planning), branch `rebuild/v1`
 - Pushed first (owner-authorised): `0418ee8..2ff26d1` fast-forward after re-running unit 165/165 and both typechecks at
   `2ff26d1`; secret scan of the pushed diff clean; no workflows, 0 deployments, Vercel has no Git link; `main` unchanged.

@@ -114,6 +114,30 @@ export function musicLoops(totalSeconds: number, musicSeconds: number): number {
   return Math.max(0, Math.ceil(totalSeconds / musicSeconds) - 1);
 }
 
+/**
+ * Audio of one segment: the scene's main audio (input 2: narration file or silence), optionally the visual clip's own
+ * sound (input 0) and voice layers delayed to their offsets, mixed without normalisation and cut to the segment.
+ * Produces [aout].
+ */
+export function segmentAudioGraph(length: number, o: { clipAudioVolume: number | null; layers: Array<{ input: number; offset_ms: number; volume: number }> }): string {
+  const fmt = 'aresample=48000,aformat=channel_layouts=stereo';
+  const tail = `apad,atrim=0:${length},asetpts=PTS-STARTPTS`;
+  const parts = [`[2:a]${fmt},${tail}[main]`];
+  const labels = ['[main]'];
+  if (o.clipAudioVolume !== null && o.clipAudioVolume > 0) {
+    parts.push(`[0:a]${fmt},volume=${o.clipAudioVolume},${tail}[clip]`);
+    labels.push('[clip]');
+  }
+  o.layers.forEach((l, i) => {
+    const d = Math.max(0, Math.round(l.offset_ms));
+    parts.push(`[${l.input}:a]${fmt},volume=${l.volume},adelay=${d}|${d},${tail}[l${i}]`);
+    labels.push(`[l${i}]`);
+  });
+  if (labels.length === 1) return `[2:a]${fmt},${tail}[aout]`;
+  parts.push(`${labels.join('')}amix=inputs=${labels.length}:duration=first:normalize=0,atrim=0:${length}[aout]`);
+  return parts.join(';');
+}
+
 /** Parses `-progress` output lines ("out_time_us=1234567") into seconds. */
 export function progressSeconds(line: string): number | null {
   const m = /^out_time_(?:us|ms)=(\d+)/.exec(line.trim());
