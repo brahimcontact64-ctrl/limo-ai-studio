@@ -2,6 +2,15 @@
 
 Actual results only. Newest first.
 
+## 2026-10-20 — adam_boy v2 review (owner approved the visual direction), no push
+- Push of `bdac329` + `d5d3110` NOT done: a fast-forward would also publish `63ee54b` (not yet approved). Fresh
+  `ls-remote`: rebuild/v1 = `614a100`, main = `2a3f426`; tree clean; no secrets, images or env files in the range.
+- Stored spec v2 (local replica) is byte-identical to the code (UTF-8 comparison); status proposed, not approved.
+- Private sheet re-hashed: `6ffe3206…fd20a` (outside the repository).
+- `character-spec-pinning-test.sql` **16/16** (new: the composite registers as a pending v2 "school" reference with
+  no view/expression; even approved it fills no front/three-quarter/side slot). Variants 24, animation 54, unit
+  196/196, typecheck clean. v2 runner live mode refused without every gate incl. `--design-asset`.
+
 ## 2026-10-19 — adam_boy spec v2 (owner design), spec version per shot (migration #17), v2 artwork package
 - Git: started clean at `bdac329` (local; remote `614a100`). Nothing pushed.
 - Unit **196/196** (new: spec registry — only adam_boy v2, v1 and other 17 unchanged; v2 content, provenance ChatGPT,

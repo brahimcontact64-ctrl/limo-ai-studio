@@ -44,6 +44,21 @@ begin
   perform public.save_animation_shots(v_p, jsonb_build_array(boy || jsonb_build_object('id', v_s, 'character_spec_versions', jsonb_build_object('adam_boy', 2))), null);
   raise notice 'PIN changing the version is an identity change (revision + 1, draft): %', (select revision = v_rev + 1 and status = 'draft' from public.animation_shots where id = v_s);
 
+  -- The owner's composite design sheet is registered as a v2 "school" outfit reference without view or expression:
+  -- even if it were approved by mistake it never counts as the canonical front / three-quarter / side.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated', 'aal', 'aal2')::text, true);
+  perform set_config('request.jwt.claim.sub', v_admin::text, true);
+  v_path := 'canonical/adam_boy/v2/sqltest-design-sheet.jpg';
+  insert into storage.objects(bucket_id, name, owner) values ('character-library', v_path, v_admin);
+  v_ref := public.register_character_reference('adam_boy', null, v_path, 'rendered_reference', null, null, 'school', 'image/jpeg', 240424, 1145, 1374, 'ai_generated', 'ChatGPT Image Generation — owner-approved composite design sheet; design source only, not a view', '{}'::jsonb);
+  raise notice 'SOURCE composite registered as pending v2 school-outfit reference, no view: %', (select status = 'pending_review' and spec_version = 2 and view is null and expression_key is null and outfit_key = 'school' and provenance = 'ai_generated' from public.character_reference_assets where id = v_ref);
+  perform public.record_character_reference_view(v_ref);
+  perform public.review_character_reference(v_ref, true, null, checklist);
+  raise notice 'SOURCE even if approved, it fills no view slot (front/three-quarter/side still missing for v2): %', (select array['missing_front', 'missing_three_quarter', 'missing_side'] <@ public.animation_character_gaps(v_org, 'adam_boy', 2));
+  update public.character_reference_assets set status = 'pending_review', reviewed_at = null where id = v_ref;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_a, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claim.sub', v_a::text, true);
+
   -- Generation needs the pinned version approved.
   update public.feature_flags set enabled = true where key = 'animation_generation';
   begin perform public.request_animation_job(v_s, 'animation_keyframe', 'sqltest-pin-1', 0); ok := false; exception when others then ok := sqlerrm like '%spec_v2_not_approved%'; end;
