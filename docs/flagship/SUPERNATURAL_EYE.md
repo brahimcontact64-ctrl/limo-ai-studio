@@ -182,8 +182,9 @@ are localized. Attached as **your media, in review** (nothing approved automatic
 Result 2026-10-19 (frames checked): shot 4 storyboard 6 s (localized names, variant selector, honest "not enabled"
 notice); shot 5 = shot 3 editor → composer with the caption being typed → calendar (4 « مثال » posts, Oct 23/25/28/30)
 → language switch; shot 6 logo card. Each segment is cut from the moment its screen is loaded (no loading frames).
-**Known limit:** within its 2 s the language segment shows AR → FR only (EN/DE not reached); if the "4 languages"
-narration needs all four on screen, give that segment its own ≈ 0.5 s per language cut (small script change).
+Fixed 2026-10-19: the language segment is now four separate 0.5 s cuts, one loaded overview per language —
+«نظرة عامة» → «Vue d'ensemble» → «Overview» → «Übersicht» (frames checked). Every cut has an exact frame count:
+shot 4 = 144 frames (6.00 s), shot 5 = 192 frames (8.00 s); the 30 s storyboard is unchanged.
 
 ## 14. First real animation test (planned, NOT authorised)
 Shot 3, 4 seconds, `adam_boy` close-up — only after the `adam_boy` package (front, three-quarter, side, surprised,
@@ -212,17 +213,48 @@ Characters (provenance "AI-generated") and approve it with the checklist — nev
 4. Local replica (admin, two-factor): registry row `google_character_image_v1` → enter the price you read on the
    official page that day + `verified_at`, then enable it; feature flag `paid_generation` on; spend scope with a cap
    ≤ $5 in total.
-5. Run `node scripts/flagship/artwork-sheet.ts --character adam_boy --sheet view:front --live --confirm-cents 25
-   --org <demo workspace id>`; stop and review the image.
+5. Run `node scripts/flagship/artwork-sheet.ts --character adam_boy --sheet view:front --live --confirm-cents 27
+   --org <demo workspace id>` (27 ¢ = the estimate; the guard refuses a lower confirmation); stop and review the image.
 
-**Verified price status:** the per-image price used for planning, **$0.24 (4K) / $0.134 (1K–2K)**, was *researched* on
-2026-10-18 from ai.google.dev/gemini-api/docs/pricing and is **NOT verified**. It must be re-read on the official page
-on the day of generation and recorded in the registry row; until then every live call is refused (`price_unverified`).
+**Model check (2026-10-19, official docs re-read):** the runner uses **`gemini-3-pro-image`** (Nano Banana Pro), listed
+as *Stable* on the models page; it is not the retired Gemini 2.5 Flash Image (`gemini-2.5-flash-image`, shut down
+2026-10-02 per the pricing page — not used anywhere in LIMO), so no model migration is needed. Endpoint: Interactions
+API `POST https://generativelanguage.googleapis.com/v1beta/interactions`; `response_format` = `{type:"image",
+mime_type, aspect_ratio, image_size}`; `3:4` and `4K` are documented enum values; up to 5 character + 6 object + 3 style
+reference images for Pro; every image carries SynthID. Fixed on that check: the adapter asked for `image/png`, but the
+API reference lists only `image/jpeg` (now JPEG); thinking is always on for Gemini 3 image models and billed as
+text output ($12 / 1M tokens for Pro) — it is now in the estimate (2,000-token allowance), in the actual-cost
+accounting (`total_thought_tokens` + non-image output tokens; image tokens are not counted twice) and in the price
+sheets/registry seeds (`usd_per_1m_output_tokens`); the reference-locked adapter now records token usage, and the raw
+provider usage is saved next to each image so the first bill can be compared.
 
-**Cost:** one pass of the package = 5 × $0.24 ≈ **$1.20** (dry-run estimate $0.2406 for the front, ≈ $0.242 for each
-reference-locked sheet incl. input tokens); with one retry each ≈ $2.42 — inside the $5 cap. Spending authorisation
-today: **$0**.
+**Price status:** official pricing page (last updated 2026-10-16, re-read 2026-10-19): Pro image **$0.24 (4K)**, $0.134
+(1K/2K); input $2 / 1M tokens (image input 560 tokens ≈ $0.0011); text + thinking output $12 / 1M. These match the
+researched values, but they are **NOT owner-verified**: the owner re-reads the page on the day and records the price
+in `google_character_image_v1` (`usd_per_image`, `usd_per_1m_input_tokens`, `usd_per_1m_output_tokens`, `verified_at`);
+until then every live call is refused (`price_unverified`).
 
-**Approval required before the first call:** (a) your written authorisation of the amount (e.g. "front only, ≤ $0.25",
-or "package ≤ $2.50"); (b) account + deposit done by you; (c) the price verified by you on the day; (d) approval of the
+**Cost (planning):** front ≈ **$0.2646** ($0.24 image + $0.024 thinking allowance + $0.0006 input); each
+reference-locked sheet ≈ $0.266; one package pass ≈ **$1.33**; with one retry each ≈ $2.66 — inside the $5 cap.
+Spending authorisation today: **$0**.
+
+**Unverified (explicitly):** (1) the real thinking-token count per image (allowance 2,000; measured on the first call);
+(2) whether the up to two *interim* thinking images are billed — not documented; if they were billed as images the
+worst case for one front would be ≈ $0.75; (3) the exact output pixel size for 3:4 at 4K (requested 2048 × 2731; the
+page gives 4096 px for the long side of 1:1) — the stored file records the real size; (4) how the model treats
+stylised child characters (no Pro-specific restriction on people or children is documented; Google's prohibited-use
+policy applies; a refusal is recorded as `content_refused`, never retried automatically); (5) account-side facts
+(minimum prepay $5, non-refundable, 1-year expiry) come from earlier research, not re-checked today.
+
+**Read-only preview of the first request:** `docs/flagship/packages/adam_boy.view-front.preview.json` (exact prompt,
+exact HTTP body with the key redacted, model, size, estimate lines, blocking gates, upload metadata, identity and review
+checklists). Regenerate: `node scripts/flagship/artwork-sheet.ts --character adam_boy --sheet view:front`.
+
+**Output review criteria (owner):** the 9-point identity checklist in the prompts file (oval potato head with the
+upper-left bump, two-leaf sprout with the larger left leaf, three potato-eye spots in place, brown irises with one
+catchlight, 2.6 heads tall, colours #C99A62 / #6CBF4B / #2B2118, striped T-shirt + shorts + sneakers, four fingers,
+no hair/text/logo) + the six review boxes; reject on any drift; the image stays unapproved until you approve it.
+
+**Approval required before the first call:** (a) your written authorisation of the amount (e.g. "front only, ≤ $0.30",
+or "package ≤ $2.70"); (b) account + deposit done by you; (c) the price verified by you on the day; (d) approval of the
 `adam_boy` spec v1 (can follow the front review; needed before the sheets count for animation).

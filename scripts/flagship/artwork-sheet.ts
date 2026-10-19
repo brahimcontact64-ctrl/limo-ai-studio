@@ -69,12 +69,24 @@ async function main() {
     const a = adapterFor(sheet.needsApprovedFront, blockedFetch(), 'dry-run', noAssets);
     const usage = a.estimateUsage(sheet.request as never);
     const researched = RESEARCHED_PRICES[pkg.priceKey];
-    const est = researched ? operationCost({ ...researched, verifiedAt: new Date().toISOString(), verifiedBy: 'planning-estimate' }, usage).micros / 1e6 : null;
+    const cost = researched ? operationCost({ ...researched, verifiedAt: new Date().toISOString(), verifiedBy: 'planning-estimate' }, usage) : null;
+    // Exact HTTP request the adapter would send, captured by a fetch that never touches the network (no key read).
+    let httpRequest: { method?: string; url: string; headers: Record<string, string>; body: unknown } | null = null;
+    const capture = adapterFor(sheet.needsApprovedFront, async (url, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}')) as { input?: Array<Record<string, unknown>> };
+      body.input = body.input?.map((p) => (p.type === 'image' ? { ...p, data: '<base64 of the owner-approved front image>' } : p));
+      httpRequest = { method: init?.method, url, headers: { 'content-type': 'application/json', 'x-goog-api-key': '<GEMINI_API_KEY — not read in a dry run>' }, body };
+      throw new Error('dry run: request captured, nothing sent');
+    }, 'dry-run', async () => ({ bytes: new Uint8Array([0]), mime: 'image/png' }));
+    await capture.run(sheet.request as never, new AbortController().signal).catch(() => undefined);
     console.log(JSON.stringify({
-      package: pkg.id, sheet: sheet.slot, mode: 'dry-run', model: pkg.model, registry: pkg.registryCode, size: sheet.request.size, requestKey: sheet.request.requestKey,
-      needsApprovedFront: sheet.needsApprovedFront, usage, planningEstimateUsd: est, priceSource: researched?.source ?? null, priceVerified: false, killSwitch: killSwitchOn(env),
+      package: pkg.id, sheet: sheet.slot, mode: 'dry-run (nothing sent, no key read)', model: pkg.model, registry: pkg.registryCode, size: sheet.request.size, requestKey: sheet.request.requestKey,
+      needsApprovedFront: sheet.needsApprovedFront, usage,
+      planningEstimateUsd: cost ? cost.micros / 1e6 : null, planningEstimateLines: cost?.lines.map((l) => ({ unit: l.unit, quantity: l.quantity, usd: l.micros / 1e6 })) ?? null,
+      estimateNotes: ['thinking output is an allowance (always on for Gemini 3 image models, billed as text output; real count unknown until the first call)', 'billing of interim thinking images is not documented (unverified)'],
+      priceSource: researched?.source ?? null, priceVerified: false, killSwitch: killSwitchOn(env),
       wouldBlock: paidCallBlockers({ env, capability: a.capability as never, capabilityApproved: false, providerEnabledInRegistry: false, priceVerified: false, estimateCents: null, remainingBudgetCents: 0, confirmAboveCents: 0, userConfirmedCents: null, missingReferences: sheet.needsApprovedFront ? ['approved front'] : [], sourceApproved: true }),
-      upload: sheet.upload, prompt: sheet.request.prompt,
+      upload: sheet.upload, identityChecklist: pkg.identityChecklist, reviewChecklist: pkg.reviewChecklist, prompt: sheet.request.prompt, httpRequest,
     }, null, 2));
     return;
   }
@@ -123,7 +135,7 @@ async function main() {
     });
     mkdirSync(out, { recursive: true });
     const base = join(out, `${character}-${sheet.slot.replace(':', '-')}-${sheet.request.requestKey.slice(-16)}`);
-    writeFileSync(`${base}.json`, JSON.stringify({ package: pkg.id, sheet: sheet.slot, upload: sheet.upload, usage: ex.result.usage, actualUsd: ex.actualMicros / 1e6, reservedCents: ex.reservedCents, provenance: ex.result.provenance, identityChecklist: pkg.identityChecklist, reviewChecklist: pkg.reviewChecklist }, null, 2));
+    writeFileSync(`${base}.json`, JSON.stringify({ package: pkg.id, sheet: sheet.slot, upload: sheet.upload, usage: ex.result.usage, providerUsage: ex.result.json?.providerUsage ?? null, actualUsd: ex.actualMicros / 1e6, reservedCents: ex.reservedCents, provenance: ex.result.provenance, identityChecklist: pkg.identityChecklist, reviewChecklist: pkg.reviewChecklist }, null, 2));
     ex.result.files?.forEach((f, i) => writeFileSync(`${base}-${i}.${f.mime === 'image/png' ? 'png' : f.mime.split('/')[1]}`, f.bytes));
     log('done', sheet.slot, `actual $${(ex.actualMicros / 1e6).toFixed(4)}`, `→ ${base}.*  (owner review required; upload it in Admin → Characters only if it passes the checklist)`);
   } catch (e) {

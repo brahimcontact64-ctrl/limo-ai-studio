@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { ProviderError } from '../../lib/providers/contracts.ts';
 import { blockedFetch, isProviderHost, NetworkBlockedError, type FetchLike } from '../../lib/providers/http.ts';
 import { claudeStoryAdapter, claudeTextAdapter, claudeTranslationAdapter, inventedNumbers } from '../../lib/providers/adapters/anthropic.ts';
-import { geminiAspect, geminiCharacterAdapter, geminiImageAdapter, imagesOf } from '../../lib/providers/adapters/gemini-image.ts';
+import { billableTokens, geminiAspect, geminiCharacterAdapter, geminiImageAdapter, imagesOf, THINKING_ALLOWANCE_TOKENS } from '../../lib/providers/adapters/gemini-image.ts';
 import { veoAdapter, veoDuration, veoPlan } from '../../lib/providers/adapters/veo.ts';
 import { cuesFromAlignment, elevenLabsAdapter } from '../../lib/providers/adapters/elevenlabs.ts';
 import { moderationDecision, openAIModerationAdapter, openAITranscriptionAdapter } from '../../lib/providers/adapters/openai.ts';
@@ -138,7 +138,7 @@ test('Gemini image: Interactions request (model, key header, input parts, respon
   assert.match(body.input[0].text, /Do not render any words/);
   assert.equal(body.input[1].type, 'image');
   assert.equal(body.input[1].mime_type, 'image/png');
-  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/png', aspect_ratio: '4:5', image_size: '2K' });
+  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '4:5', image_size: '2K' });
   assert.equal(r.files?.length, 1);
   assert.deepEqual([...r.files![0]!.bytes], [...PNG]);
   assert.equal(r.provenance.contentCredentials, 'SynthID');
@@ -275,4 +275,23 @@ test('OpenAI transcription: whisper-1 multipart with word timestamps → subtitl
   const big = async () => ({ bytes: new Uint8Array(26 * 1024 * 1024), mime: 'audio/mpeg' });
   await assert.rejects(openAITranscriptionAdapter({ apiKey: 'o', fetch, loadAsset: big }).run({ ...base, kind: 'transcription', audioAssetId: 'a1', durationSeconds: 2, wantWordTimings: true }, signal), /25 MB/);
   assert.equal(calls.length, 1);
+});
+
+test('Gemini 3 Pro Image character sheet: 3:4 4K, JPEG, references attached, thinking tokens billed, image tokens not double-counted', async () => {
+  const usage = { total_input_tokens: 1_700, total_output_tokens: 2_000, total_thought_tokens: 850, output_tokens_by_modality: [{ modality: 'image', tokens: 2_000 }] };
+  const { fetch, calls } = fakeFetch(() => json({ ...interaction(Buffer.from(PNG).toString('base64')), usage }));
+  const a = geminiCharacterAdapter({ apiKey: 'k', fetch, loadAsset });
+  assert.equal(a.model, 'gemini-3-pro-image');
+  const req = { ...base, kind: 'character_image' as const, prompt: 'three-quarter view', references: [{ character: 'adam_boy', specVersion: 1, assetIds: ['front-1'] }], size: { width: 2048, height: 2731 }, count: 1 };
+  assert.deepEqual(a.estimateUsage(req), { images: 1, inputTokens: 1_000, outputTokens: THINKING_ALLOWANCE_TOKENS });
+  const r = await a.run(req, signal);
+  const body = calls[0]!.body as Record<string, any>;
+  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '3:4', image_size: '4K' });
+  assert.equal(body.input.filter((p: { type: string }) => p.type === 'image').length, 1, 'the approved front is the only reference');
+  assert.deepEqual(r.usage, { images: 1, inputTokens: 1_700, outputTokens: 850 });
+  assert.deepEqual((r.json as { providerUsage: unknown[] }).providerUsage, [usage]);
+  // Text output besides the image is billed with thinking; without a breakdown only thoughts count.
+  assert.deepEqual(billableTokens({ total_output_tokens: 2_100, total_thought_tokens: 10, output_tokens_by_modality: [{ modality: 'image', tokens: 2_000 }, { modality: 'text', tokens: 100 }] }), { inputTokens: 0, outputTokens: 110 });
+  assert.deepEqual(billableTokens({ total_input_tokens: 5, total_output_tokens: 2_000 }), { inputTokens: 5, outputTokens: 0 });
+  await assert.rejects(a.run({ ...req, references: [] }, signal), (e: unknown) => e instanceof ProviderError && e.code === 'invalid_request');
 });

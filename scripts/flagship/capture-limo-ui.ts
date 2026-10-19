@@ -46,6 +46,8 @@ if (!projectId || !/^[0-9a-f-]{36}$/.test(projectId)) {
 const outArg = process.argv.indexOf('--out');
 const OUT = outArg > 0 ? process.argv[outArg + 1]! : join(tmpdir(), `limo-flagship-capture-${Date.now()}`);
 const FFMPEG = createRequire(join(process.cwd(), 'package.json'))('./worker/node_modules/ffmpeg-static') as string;
+/** The four supported UI languages, all shown in shot 5. */
+const LANGS = ['ar', 'fr', 'en', 'de'] as const;
 const W = 720;
 const H = 1280;
 const ff = (...a: string[]) => execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', ...a]);
@@ -90,7 +92,8 @@ async function smoothScroll(page: Page, px: number, ms: number) {
 
 /** Cuts `seconds` of usable video (after page load) into a 24 fps, 720×1280, silent H.264 clip. */
 function cut(src: { file: string; start: number }, from: number, seconds: number, dest: string) {
-  ff('-ss', String(src.start + from), '-i', src.file, '-t', String(seconds), '-vf', `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},fps=24,format=yuv420p`, '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', dest);
+  // Exact frame count (seeking can drop a frame or two; the last frame is held if the source runs short).
+  ff('-ss', String(src.start + from), '-i', src.file, '-vf', `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},fps=24,tpad=stop_mode=clone:stop_duration=1,format=yuv420p`, '-frames:v', String(Math.round(seconds * 24)), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', dest);
 }
 
 async function main() {
@@ -132,20 +135,24 @@ async function main() {
       ready();
       await p.waitForTimeout(2600);
     });
-    const d = await record(browser, 'shot5d', async (p, ready) => {
-      for (const l of ['ar', 'fr', 'en', 'de']) {
+    // Language switch: one loaded overview per supported language (AR, FR, EN, DE), 0.5 s each in the final cut.
+    const langs: Array<{ file: string; start: number }> = [];
+    for (const l of LANGS) {
+      langs.push(await record(browser, `shot5d-${l}`, async (p, ready) => {
         await p.context().addCookies([{ name: 'limo_locale', value: l, url: APP }]);
         await p.goto(`${APP}/app`);
         await p.waitForLoadState('networkidle');
-        if (l === 'ar') ready();
-        await p.waitForTimeout(450);
-      }
-    });
+        await p.locator(`html[lang="${l}"]`).waitFor({ state: "attached" });
+        ready();
+        await p.waitForTimeout(900);
+      }));
+    }
     cut(s4, 0.2, 6, join(OUT, 'shot4.mp4'));
-    const parts = [[a, 0], [b, 0], [c, 0], [d, 0]] as const;
-    parts.forEach(([src, from], i) => cut(src, from, 2, join(OUT, `shot5-${i}.mp4`)));
-    ff('-i', join(OUT, 'shot5-0.mp4'), '-i', join(OUT, 'shot5-1.mp4'), '-i', join(OUT, 'shot5-2.mp4'), '-i', join(OUT, 'shot5-3.mp4'),
-      '-filter_complex', '[0:v][1:v][2:v][3:v]concat=n=4:v=1:a=0[v]', '-map', '[v]', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', join(OUT, 'shot5.mp4'));
+    // 8 s = editor 2 s + composer 2 s + calendar 2 s + four languages × 0.5 s (the 30 s storyboard is unchanged).
+    const parts: Array<[{ file: string; start: number }, number]> = [[a, 2], [b, 2], [c, 2], ...langs.map((l): [{ file: string; start: number }, number] => [l, 0.5])];
+    parts.forEach(([src, seconds], i) => cut(src, 0, seconds, join(OUT, `shot5-${i}.mp4`)));
+    const inputs = parts.flatMap((_, i) => ['-i', join(OUT, `shot5-${i}.mp4`)]);
+    ff(...inputs, '-filter_complex', `${parts.map((_, i) => `[${i}:v]`).join('')}concat=n=${parts.length}:v=1:a=0[v]`, '-map', '[v]', '-t', '8', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p', join(OUT, 'shot5.mp4'));
     // Shot 6: the approved mark (paths read from components/brand/Logo.tsx) + wordmark, 1080×1920.
     const logo = readFileSync('components/brand/Logo.tsx', 'utf8');
     const svg = /<svg[\s\S]*?<\/svg>/.exec(logo)![0].replace(/\{size\}/g, '420').replace(/className=\{className\}/, '').replace(/aria-hidden="true"/, '').replace(/strokeWidth/g, 'stroke-width').replace(/strokeLinecap/g, 'stroke-linecap').replace(/\{[^}]*\}/g, '');

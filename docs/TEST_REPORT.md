@@ -2,6 +2,21 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — Final safe artwork preparation (Gemini check, language capture, front preview)
+- Pushed first (owner-authorised): `31c44d6..614a100` fast-forward after a fresh fetch + `ls-remote`; `main` = `2a3f426`.
+- Official docs re-read: `gemini-3-pro-image` Stable; `gemini-2.5-flash-image` shut down 2026-10-02 (not used in LIMO).
+  Fixes: JPEG output (PNG is not a documented response MIME type), billed thinking tokens in estimate/actual/price
+  sheets/registry seeds, usage recorded for reference-locked sheets, raw provider usage saved.
+- Unit **193/193** (new: Pro character sheet request 3:4/4K/JPEG, one reference, thinking billed, image tokens not
+  double-counted, empty references refused). Typecheck app + worker clean. Worker **13/13**. e2e generate **24/24**,
+  animation **21/21**. SQL spend guard 22, generation gate 4, character variants 24 — all pass.
+- Captures re-recorded in the demo workspace: shot 5 shows AR, FR, EN and DE (frames checked); shot 4 = 144 frames,
+  shot 5 = 192 frames; storyboard still 30 s; shots 4–6 in review (not approved).
+- Read-only front preview generated (no network, no key read): estimate $0.2646; blocked by 4 gates.
+- Browser suite not re-run (no UI change since the 41-pass run of `614a100`).
+- State checks: specs `adam_boy`/`adam_man`/`limo_boy` v1 proposed; 0 canonical references approved (103 approved rows
+  are custom-character test fixtures).
+
 ## 2026-10-19 — Flagship final prep: character variants (migration #16), demo workspace, adam_boy package
 - Pushed first (owner-authorised): `4e96567..31c44d6` after a fresh, successful `git fetch`; `main` unchanged.
 - Unit **192/192** (new: variant approved + canon unchanged, variant expression only with its approved variant,

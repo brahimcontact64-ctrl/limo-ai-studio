@@ -28,12 +28,13 @@ export const RESEARCHED_PRICES: Record<string, PriceSheet> = {
   'anthropic/claude-sonnet-5-5': sheet('anthropic', 'claude-sonnet-5-5', { input_tokens_1m: usd(2), output_tokens_1m: usd(10) }, CLAUDE),
   'anthropic/claude-haiku-5-5': sheet('anthropic', 'claude-haiku-5-5', { input_tokens_1m: usd(0.1), output_tokens_1m: usd(0.5) }, CLAUDE),
   // Images (per image, plus input tokens for prompts and reference images).
-  'google/gemini-nano-banana-2.1@1K': sheet('google', 'gemini-nano-banana-2.1', { image: usd(0.0336), input_tokens_1m: usd(1.5) }, GEMINI),
-  'google/gemini-nano-banana-2.1@2K': sheet('google', 'gemini-nano-banana-2.1', { image: usd(0.0504), input_tokens_1m: usd(1.5) }, GEMINI),
-  'google/gemini-nano-banana-2.1@4K': sheet('google', 'gemini-nano-banana-2.1', { image: usd(0.113), input_tokens_1m: usd(1.5) }, GEMINI),
-  'google/gemini-3-pro-image@1K': sheet('google', 'gemini-3-pro-image', { image: usd(0.134), input_tokens_1m: usd(2) }, GEMINI),
-  'google/gemini-3-pro-image@2K': sheet('google', 'gemini-3-pro-image', { image: usd(0.134), input_tokens_1m: usd(2) }, GEMINI),
-  'google/gemini-3-pro-image@4K': sheet('google', 'gemini-3-pro-image', { image: usd(0.24), input_tokens_1m: usd(2) }, GEMINI),
+  // output_tokens_1m = text + thinking output (always on for Gemini 3 image models); re-read 2026-10-19 (page updated 2026-10-16).
+  'google/gemini-nano-banana-2.1@1K': sheet('google', 'gemini-nano-banana-2.1', { image: usd(0.0336), input_tokens_1m: usd(1.5), output_tokens_1m: usd(7.5) }, GEMINI),
+  'google/gemini-nano-banana-2.1@2K': sheet('google', 'gemini-nano-banana-2.1', { image: usd(0.0504), input_tokens_1m: usd(1.5), output_tokens_1m: usd(7.5) }, GEMINI),
+  'google/gemini-nano-banana-2.1@4K': sheet('google', 'gemini-nano-banana-2.1', { image: usd(0.113), input_tokens_1m: usd(1.5), output_tokens_1m: usd(7.5) }, GEMINI),
+  'google/gemini-3-pro-image@1K': sheet('google', 'gemini-3-pro-image', { image: usd(0.134), input_tokens_1m: usd(2), output_tokens_1m: usd(12) }, GEMINI),
+  'google/gemini-3-pro-image@2K': sheet('google', 'gemini-3-pro-image', { image: usd(0.134), input_tokens_1m: usd(2), output_tokens_1m: usd(12) }, GEMINI),
+  'google/gemini-3-pro-image@4K': sheet('google', 'gemini-3-pro-image', { image: usd(0.24), input_tokens_1m: usd(2), output_tokens_1m: usd(12) }, GEMINI),
   // Video (per second of generated video; Veo always generates audio and these are the with-audio prices).
   'google/veo-3.1-generate-preview@720p': sheet('google', 'veo-3.1-generate-preview', { video_second: usd(0.4) }, GEMINI, { video_second: 4 }),
   'google/veo-3.1-generate-preview@1080p': sheet('google', 'veo-3.1-generate-preview', { video_second: usd(0.4) }, GEMINI, { video_second: 8 }),
