@@ -140,7 +140,12 @@ async function body(A: Session, B: Session, fixture: { character?: string; refs:
   const s1 = (await A.db('animation_shots').select('status, keyframe_asset_id').eq('id', shotId).single()).data;
   const kfAsset = s1?.keyframe_asset_id ? (await A.db('media_assets').select('kind, provenance, label').eq('id', s1.keyframe_asset_id).single()).data : null;
   check('keyframe generated from the approved references (mock, labelled) and waiting for review', !k1.error && s1?.status === 'keyframe_review' && kfAsset?.kind === 'ai_image' && kfAsset?.provenance?.mock === true && (kfAsset?.provenance?.reference_asset_ids ?? []).length === 2 && /^Mock/.test(kfAsset?.label ?? ''), [k1.error?.message, s1, kfAsset, log1.slice(-500)]);
-  await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'keyframe', p_decision: 'approve', p_note: null });
+  const review = (await A.db('animation_shots').select('identity_review').eq('id', shotId).single()).data?.identity_review?.keyframe?.automated;
+  const codes = Object.fromEntries(((review?.checks ?? []) as Array<{ code: string; status: string }>).map((c) => [c.code, c.status]));
+  check('automated keyframe checks are stored and honest: mock flagged, blank mock image fails, verdict needs a human', review?.verdict === 'needs_human_review' && codes.mock_output === 'warn' && codes.not_blank === 'fail' && codes.references_used === 'pass' && /do not prove/.test(review?.disclaimer ?? ''), review);
+  const noConfirm = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'keyframe', p_decision: 'approve', p_note: null, p_identity_confirmed: false });
+  const kfOk = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'keyframe', p_decision: 'approve', p_note: null, p_identity_confirmed: true });
+  check('a shot with a character is approved only with the owner’s identity confirmation', /Confirm the character identity/.test(noConfirm.error?.message ?? '') && !kfOk.error, [noConfirm.error?.message, kfOk.error?.message]);
 
   // ---- voices --------------------------------------------------------------------------------------------------
   await A.rpc('request_animation_job', { p_shot_id: shotId, p_kind: 'animation_voice', p_request_key: key('voice'), p_confirmed_cents: 0 });
@@ -153,7 +158,7 @@ async function body(A: Session, B: Session, fixture: { character?: string; refs:
   await generator();
   const s2 = (await A.db('animation_shots').select('status, clip_asset_id').eq('id', shotId).single()).data;
   const clipJob = (await A.db('ai_jobs').select('output, status').eq('shot_id', shotId).eq('kind', 'animation_clip').order('created_at', { ascending: false }).limit(1).single()).data;
-  const appr = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'approve', p_note: null });
+  const appr = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'approve', p_note: null, p_identity_confirmed: true });
   check('mock clip: job completes with "not animated", no file, and approval is refused', s2?.status === 'clip_review' && s2?.clip_asset_id === null && clipJob?.output?.animated === false && !!appr.error, [s2, clipJob, appr.error?.message]);
   await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'reject', p_note: 'needs real motion' });
 
@@ -162,13 +167,21 @@ async function body(A: Session, B: Session, fixture: { character?: string; refs:
   ff('-f', 'lavfi', '-i', 'testsrc2=s=720x1280:r=24:d=8', '-f', 'lavfi', '-i', 'sine=f=330:d=8', '-shortest', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', mp4);
   const clipPath = `${A.orgId}/generated/e2e/${crypto.randomUUID()}.mp4`;
   await admin.storage.from('workspace-assets').upload(clipPath, readFileSync(mp4), { contentType: 'video/mp4' });
-  const { data: clipRow } = await A_('media_assets').insert({ organization_id: A.orgId, bucket_id: 'workspace-assets', object_path: clipPath, media_type: 'video', source: 'generated', kind: 'ai_video', mime_type: 'video/mp4', size_bytes: readFileSync(mp4).length, duration_ms: 8000, label: 'E2E simulated provider clip (test fixture)', provenance: { mock: true, ai_generated: false, label: 'E2E test fixture' } }).select('id').single();
-  await A.rpc('request_animation_job', { p_shot_id: shotId, p_kind: 'animation_clip', p_request_key: key('clip2'), p_confirmed_cents: 0 });
-  const claim = await admin.rpc('claim_ai_jobs', { p_worker_id: 'e2e-sim-provider', p_limit: 1 });
-  const simJob = (claim.data as Array<{ id: string }>)[0]!;
-  await admin.rpc('complete_ai_job', { p_job_id: simJob.id, p_worker_id: 'e2e-sim-provider', p_provider: 'e2e-fixture', p_output: { animated: true, fixture: true }, p_asset_ids: [clipRow.id], p_estimate_cents: 0, p_actual_cost_cents: 0 });
-  const ok = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'approve', p_note: null });
-  check('a clip with a real video file can be approved; the shot is approved', !ok.error && ok.data?.status === 'approved', ok.error?.message);
+  const fixtureClip = async (provenance: Record<string, unknown>) => {
+    const { data: row } = await A_('media_assets').insert({ organization_id: A.orgId, bucket_id: 'workspace-assets', object_path: `${clipPath}-${crypto.randomUUID().slice(0, 6)}.mp4`, media_type: 'video', source: 'generated', kind: 'ai_video', mime_type: 'video/mp4', size_bytes: readFileSync(mp4).length, duration_ms: 8000, label: 'E2E simulated provider clip (test fixture)', provenance }).select('id, object_path').single();
+    await admin.storage.from('workspace-assets').upload(row.object_path, readFileSync(mp4), { contentType: 'video/mp4' });
+    await A.rpc('request_animation_job', { p_shot_id: shotId, p_kind: 'animation_clip', p_request_key: key('clip'), p_confirmed_cents: 0 });
+    const claim = await admin.rpc('claim_ai_jobs', { p_worker_id: 'e2e-sim-provider', p_limit: 1 });
+    const simJob = (claim.data as Array<{ id: string }>)[0]!;
+    await admin.rpc('complete_ai_job', { p_job_id: simJob.id, p_worker_id: 'e2e-sim-provider', p_provider: 'e2e-fixture', p_output: { fixture: true }, p_asset_ids: [row.id], p_estimate_cents: 0, p_actual_cost_cents: 0 });
+  };
+  await fixtureClip({ mock: true, ai_generated: false, label: 'mock video file' });
+  const mockAppr = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'approve', p_note: null, p_identity_confirmed: true });
+  check('a video file labelled mock is never approved as animation', /Mock clips cannot be approved/.test(mockAppr.error?.message ?? ''), mockAppr.error?.message ?? 'approved');
+  await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'reject', p_note: 'mock' });
+  await fixtureClip({ mock: false, ai_generated: false, fixture: true, label: 'E2E test fixture (simulated provider output, not AI)' });
+  const ok = await A.rpc('decide_animation_shot', { p_shot_id: shotId, p_stage: 'clip', p_decision: 'approve', p_note: null, p_identity_confirmed: true });
+  check('a clip with a real video file is approved with the identity confirmation; the shot is approved', !ok.error && ok.data?.status === 'approved', ok.error?.message);
 
   // ---- export through the render worker -------------------------------------------------------------------------
   const before = ((await A.db('usage_balances').select('used_video_slots').eq('organization_id', A.orgId).single()).data as { used_video_slots: number }).used_video_slots;
@@ -185,6 +198,9 @@ async function body(A: Session, B: Session, fixture: { character?: string; refs:
     vol = { clip: meanVolume(f, 0.05, 0.2), voice: meanVolume(f, (tracks[1]!.offset_ms + 100) / 1000, 0.5) };
   }
   const after = ((await A.db('usage_balances').select('used_video_slots').eq('organization_id', A.orgId).single()).data as { used_video_slots: number }).used_video_slots;
+  const again = await A.rpc('enqueue_animation_render', { p_project_id: projectId, p_idempotency_key: key('export-again'), p_resolution: 480, p_quality: 'draft' });
+  const afterAgain = ((await A.db('usage_balances').select('used_video_slots').eq('organization_id', A.orgId).single()).data as { used_video_slots: number }).used_video_slots;
+  check('exporting the identical video again returns the finished MP4 without a second credit', again.data?.duplicate === true && again.data?.id === exp.data?.id && afterAgain === after, [again.error?.message, again.data, after, afterAgain]);
   check('export: the render worker produces a real 8 s MP4 from the approved clip with its sound and the voice layers; one credit', job?.status === 'completed' && job?.charge_state === 'consumed' && Math.abs(duration - 8) <= 0.25 && (job?.spec?.scenes?.[0]?.audio_layers ?? []).length === 2 && vol.clip > -50 && vol.voice > -50 && after === before + 1, [exp.error?.message, job?.status, job?.error_code, job?.charge_state, duration, vol, before, after]);
 
   // ---- Facebook Content Studio AI jobs ---------------------------------------------------------------------------

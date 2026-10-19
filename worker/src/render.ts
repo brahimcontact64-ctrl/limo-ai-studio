@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import { renderDoc, type Ctx2D, type LoadedImage } from '../../lib/images/render.ts';
-import { assemblyGraph, fitFilter, musicLoops, planRender, QUALITY_PRESET, segmentAudioGraph } from '../../lib/video/plan.ts';
+import { assemblyGraph, duckFilter, fitFilter, musicLoops, planRender, QUALITY_PRESET, segmentAudioGraph, speechWindows } from '../../lib/video/plan.ts';
 import { sceneOverlay, type OverlayFonts } from '../../lib/video/overlay.ts';
 import type { RenderSpec, SpecMedia } from '../../lib/video/types.ts';
 import { checkSpecDuration } from '../../lib/video/policy.ts';
@@ -118,7 +118,8 @@ export async function renderSpec(spec: RenderSpec, dir: string, fetchMedia: Fetc
     const loops = musicLoops(plan.total, (await probe(file)).duration);
     args.push('-stream_loop', String(loops), '-i', file);
   }
-  args.push('-filter_complex', assemblyGraph(plan, spec.music ? { volume: spec.music.volume } : null), '-map', '[vout]', '-map', '[aout]', '-t', String(plan.total));
+  // Music ducks automatically under narration and dialogue.
+  args.push('-filter_complex', assemblyGraph(plan, spec.music ? { volume: spec.music.volume, duck: duckFilter(speechWindows(spec)) } : null), '-map', '[vout]', '-map', '[aout]', '-t', String(plan.total));
   args.push('-r', String(fps), '-c:v', 'libx264', '-preset', q.preset, '-crf', String(q.crf), '-pix_fmt', 'yuv420p', '-profile:v', 'high');
   args.push('-c:a', 'aac', '-b:a', q.audio, '-ar', '48000', '-ac', '2', '-movflags', '+faststart', final);
   await runFfmpeg(args, { timeoutMs: limits.stepTimeoutMs, signal, onProgress: (s) => void onProgress(80 + Math.min(1, s / plan.total) * 15, 'assembling') });

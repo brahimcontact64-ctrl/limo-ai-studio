@@ -130,3 +130,74 @@ test('database errors map to stable API codes', () => {
   assert.deepEqual(animationError('No generated clip to approve'), { code: 'nothing_to_review', status: 409 });
   assert.deepEqual(animationError('something odd'), { code: 'unavailable', status: 500 });
 });
+
+// ---- quality gate (2026-10-19) ----------------------------------------------------------------------------------------
+import { clipReview, keyframeReview, lumaSpread, paletteCoverage } from '../../lib/animation/identity.ts';
+import { parseScenarioJson } from '../../lib/animation/scenario-import.ts';
+import { assemblyGraph, duckFilter, planRender, speechWindows } from '../../lib/video/plan.ts';
+
+const px = (w: number, h: number, f: (x: number, y: number) => [number, number, number]) => {
+  const a = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) a.set([...f(x, y), 255], (y * w + x) * 4);
+  return a;
+};
+
+test('identity checks are deterministic and never a verdict: blank, aspect, palette, references, mock', () => {
+  const tomato = px(90, 160, (x) => (x < 45 ? [232, 65, 44] : [62, 155, 63]));
+  assert.ok(paletteCoverage(tomato, ['#E8412C'])['#E8412C']! > 0.45);
+  assert.equal(lumaSpread(px(10, 10, () => [9, 9, 9])), 0);
+  const ok = keyframeReview({ image: { width: 1080, height: 1920, rgba: tomato }, expectedAspect: 9 / 16, characters: [{ id: 'limo_man', lockedColours: ['#E8412C', '#3E9B3F'] }], attachedReferences: ['a', 'b'], usedReferences: ['a', 'b'], mock: false });
+  assert.equal(ok.verdict, 'needs_human_review', 'even when every check passes, a person decides');
+  assert.ok(ok.checks.every((c) => c.status === 'pass'));
+  assert.match(ok.disclaimer, /do not prove/);
+  const bad = keyframeReview({ image: { width: 1920, height: 1080, rgba: px(16, 9, () => [20, 20, 200]) }, expectedAspect: 9 / 16, characters: [{ id: 'limo_man', lockedColours: ['#E8412C'] }, { id: 'custom:x', lockedColours: [] }], attachedReferences: ['a'], usedReferences: [], mock: true });
+  const st = Object.fromEntries(bad.checks.map((c) => [c.code, c.status]));
+  assert.deepEqual(st, { mock_output: 'warn', not_blank: 'fail', aspect_matches_shot: 'fail', 'palette:limo_man': 'warn', 'palette:custom:x': 'not_applicable', references_used: 'warn' });
+  assert.equal(keyframeReview({ image: null, expectedAspect: 1, characters: [], attachedReferences: [], usedReferences: [], mock: false }).checks[0]!.status, 'fail');
+});
+
+test('clip review separates real animation from mock and never measures motion or lip-sync', () => {
+  const mock = clipReview({ mock: true, hasFile: false, mime: null, expectedSeconds: 8, reportedSeconds: null, firstFrameUsed: true });
+  assert.equal(mock.animated, false);
+  assert.equal(mock.checks.find((c) => c.code === 'animated_file')!.status, 'fail');
+  const real = clipReview({ mock: false, hasFile: true, mime: 'video/mp4', expectedSeconds: 8, reportedSeconds: 8, firstFrameUsed: true });
+  assert.equal(real.animated, true);
+  assert.equal(real.checks.find((c) => c.code === 'motion_and_lip_sync')!.status, 'not_applicable');
+  assert.equal(real.verdict, 'needs_human_review');
+});
+
+test('scenario import: the owner template fills shots; problems are listed, nothing is invented', () => {
+  const ok = parseScenarioJson(JSON.stringify({ title: '[t]', language: 'ar', aspect: '16:9', music: '[m]', scenes: [{ number: 1, durationSeconds: 8, description: '[d]', environment: '[e]', characters: ['limo_man'], actions: { limo_man: '[a]', ghost: 'x' }, expressions: { limo_man: 'happy' }, camera: '[c]', dialogue: [{ speaker: 'limo_man', text: '[l]', emotion: 'happy' }], narration: '[n]', sound: '[s]' }] }));
+  assert.deepEqual(ok.errors, []);
+  assert.equal(ok.scenario!.language, 'ar');
+  assert.deepEqual(ok.scenario!.shots[0]!.actions, { limo_man: '[a]' }, 'actions only for characters in the scene');
+  assert.equal(ok.scenario!.shots[0]!.dialogue[0]!.emotion, 'happy');
+  const bad = parseScenarioJson(JSON.stringify({ scenes: [{ durationSeconds: 5, characters: ['limo_man'], dialogue: [{ speaker: 'nova_girl', text: 'x' }] }, ...Array(4).fill({ durationSeconds: 8 })] }));
+  assert.ok(bad.errors.some((e) => /4, 6 or 8/.test(e)));
+  assert.ok(bad.errors.some((e) => /nova_girl/.test(e)));
+  assert.ok(bad.errors.some((e) => /over the 30 s limit/.test(e)));
+  assert.deepEqual(parseScenarioJson('{oops').errors, ['not valid JSON']);
+});
+
+test('music ducking: speech windows from narration and voice layers, merged and padded; no windows = no ducking', () => {
+  const base = { on_screen_text: '', narration: '', dialogue: '', transition: 'cut' as const, visual: null, fit: 'cover' as const, show_text: false, participants: [] };
+  const media = (id: string, ms: number | null) => ({ asset_id: id, path: id, media_type: 'audio' as const, mime: 'audio/wav', width: null, height: null, duration_ms: ms });
+  const spec = { scenes: [
+    { ...base, scene_number: 1, title: '', duration_ms: 4000, start_ms: 0, audio: media('n', 2000) },
+    { ...base, scene_number: 2, title: '', duration_ms: 4000, start_ms: 4000, audio: null, audio_layers: [{ ...media('a', 1000), offset_ms: 300, volume: 1 }, { ...media('b', 1000), offset_ms: 1350, volume: 1 }] },
+  ] };
+  assert.deepEqual(speechWindows(spec), [[0, 2.15], [4.15, 6.5]], "layer b ends at 4 + 1.35 + 1 = 6.35 s, + 150 ms");
+  assert.equal(duckFilter([[0, 2.15]]), "volume='if(gt(between(t,0,2.15),0),0.35,1)':eval=frame");
+  assert.equal(duckFilter([]), null);
+  const g = assemblyGraph(planRender({ scenes: spec.scenes as never, fps: 24, transition_seconds: 0 }), { volume: 0.3, duck: duckFilter(speechWindows(spec)) });
+  assert.match(g, /volume=0\.3,volume='if\(gt\(between\(t,0,2\.15\)\+between\(t,4\.15,6\.5\),0\),0\.35,1\)':eval=frame,afade/);
+  assert.doesNotMatch(assemblyGraph(planRender({ scenes: spec.scenes as never, fps: 24, transition_seconds: 0 }), { volume: 0.3 }), /eval=frame/);
+});
+
+test('continuity: a character keeps its references across consecutive shots; lighting holds in a continuing shot', () => {
+  const owner = { r1: 'limo_man', r2: 'limo_man' };
+  const issues = continuityIssues([shot(1, { reference_asset_ids: ['r1'], continuity: { lighting: 'warm' } }), shot(2, { reference_asset_ids: ['r2'], continuity: { continues_from_previous: true, lighting: 'cold' } })], owner).map((i) => i.code);
+  assert.ok(issues.includes('character_reference_changed'));
+  assert.ok(issues.includes('lighting_changed'));
+  assert.deepEqual(continuityIssues([shot(1, { reference_asset_ids: ['r1'] }), shot(2, { reference_asset_ids: ['r1'] })], owner).map((i) => i.code).filter((c) => c === 'character_reference_changed'), []);
+});

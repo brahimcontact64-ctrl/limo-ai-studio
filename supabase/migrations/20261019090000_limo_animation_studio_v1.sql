@@ -72,6 +72,10 @@ create table if not exists public.animation_shots (
   unique (project_id, shot_number) deferrable initially deferred
 );
 create index if not exists animation_shots_project_idx on public.animation_shots(project_id, shot_number);
+-- Identity review per stage: automated deterministic checks (never proof of identity) + the human confirmation.
+alter table public.animation_shots add column if not exists identity_review jsonb not null default '{}'::jsonb;
+-- Generation attempts per job kind (all revisions; the per-revision cap is enforced from ai_jobs).
+alter table public.animation_shots add column if not exists attempts jsonb not null default '{}'::jsonb;
 
 create table if not exists public.animation_shot_events (
   id uuid primary key default gen_random_uuid(),
@@ -331,7 +335,12 @@ end;
 $$;
 
 /** Approve or reject the keyframe or the clip of one shot (reject = revise: the shot goes back one step). */
-create or replace function public.decide_animation_shot(p_shot_id uuid, p_stage text, p_decision text, p_note text)
+/**
+ * Approve or reject (revise) the keyframe or the clip of one shot. Approving a shot that shows characters needs the
+ * owner's explicit identity confirmation (deterministic checks cannot prove identity); mock clips are never approvable.
+ */
+drop function if exists public.decide_animation_shot(uuid, text, text, text);
+create or replace function public.decide_animation_shot(p_shot_id uuid, p_stage text, p_decision text, p_note text, p_identity_confirmed boolean default false)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   s public.animation_shots%rowtype;
@@ -341,6 +350,9 @@ begin
   if not public.can_edit_org(s.organization_id) then raise exception 'Not authorized'; end if;
   if p_decision not in ('approve', 'reject') or p_stage not in ('keyframe', 'clip') then raise exception 'Invalid decision'; end if;
   if p_decision = 'reject' and nullif(btrim(coalesce(p_note, '')), '') is null then raise exception 'Say what should change'; end if;
+  if p_decision = 'approve' and cardinality(s.characters) > 0 and not coalesce(p_identity_confirmed, false) then
+    raise exception 'Confirm the character identity against the approved references';
+  end if;
   if p_stage = 'keyframe' then
     if s.status <> 'keyframe_review' then raise exception 'No keyframe waiting for review'; end if;
     update public.animation_shots set status = case when p_decision = 'approve' then 'keyframe_approved' else 'draft' end,
@@ -351,8 +363,16 @@ begin
     if s.status <> 'clip_review' then raise exception 'No clip waiting for review'; end if;
     -- A mock run produces no animation (no file): it can be rejected, never approved as a clip.
     if p_decision = 'approve' and s.clip_asset_id is null then raise exception 'No generated clip to approve'; end if;
+    if p_decision = 'approve' and exists (select 1 from public.media_assets m where m.id = s.clip_asset_id and coalesce((m.provenance ->> 'mock')::boolean, false)) then
+      raise exception 'Mock clips cannot be approved as animation';
+    end if;
     update public.animation_shots set status = case when p_decision = 'approve' then 'approved' else 'keyframe_approved' end,
       clip_asset_id = case when p_decision = 'approve' then clip_asset_id else null end, updated_at = now()
+    where id = s.id returning * into s;
+  end if;
+  if p_decision = 'approve' then
+    update public.animation_shots set identity_review = jsonb_set(identity_review, array[p_stage],
+      coalesce(identity_review -> p_stage, '{}'::jsonb) || jsonb_build_object('confirmed_by', auth.uid(), 'confirmed_at', now(), 'manual', cardinality(characters) > 0))
     where id = s.id returning * into s;
   end if;
   perform public.animation_log(s, case when p_decision = 'approve' then 'approved' else 'rejected' end, p_stage, p_note, case when p_stage = 'keyframe' then s.keyframe_asset_id else s.clip_asset_id end);
@@ -426,6 +446,11 @@ begin
   if p_kind = 'animation_clip' and (s.status <> 'keyframe_approved' or s.first_frame_asset_id is null) then raise exception 'Approve the keyframe first'; end if;
   if p_kind = 'animation_voice' and jsonb_array_length(s.dialogue) = 0 and s.narration = '' then raise exception 'Nothing to speak in this shot'; end if;
   if exists (select 1 from public.ai_jobs where shot_id = s.id and kind = p_kind and status in ('queued', 'processing', 'waiting_provider')) then raise exception 'Already in progress'; end if;
+  -- Cost control: at most 5 attempts per job kind for one revision of a shot (edit the shot to start a new revision).
+  if (select count(*) from public.ai_jobs where shot_id = s.id and kind = p_kind and shot_revision = s.revision and status <> 'cancelled') >= 5 then
+    raise exception 'Attempt limit reached for this shot (5)';
+  end if;
+  update public.animation_shots set attempts = jsonb_set(attempts, array[p_kind], to_jsonb(coalesce((attempts ->> p_kind)::integer, 0) + 1)) where id = s.id returning * into s;
   insert into public.ai_jobs(organization_id, requested_by, kind, shot_id, shot_revision, request_key, input, confirmed_cents)
   values (s.organization_id, auth.uid(), p_kind, s.id, s.revision, p_request_key,
           jsonb_build_object('project_id', p.id, 'language', p.language_code, 'aspect', p.aspect), greatest(0, coalesce(p_confirmed_cents, 0)))
@@ -522,10 +547,14 @@ begin
     -- A result for an older revision of the shot is kept in the library but never attached to the edited shot.
     if s.id is not null and s.revision = j.shot_revision then
       if j.kind = 'animation_keyframe' then
-        update public.animation_shots set keyframe_asset_id = j.output_asset_ids[1], status = 'keyframe_review', updated_at = now() where id = s.id returning * into s;
+        update public.animation_shots set keyframe_asset_id = j.output_asset_ids[1], status = 'keyframe_review', updated_at = now(),
+          identity_review = jsonb_set(identity_review, '{keyframe}', jsonb_build_object('automated', coalesce(j.output -> 'identity_check', 'null'::jsonb)))
+        where id = s.id returning * into s;
         perform public.animation_log(s, 'keyframe_ready', 'keyframe', null, j.output_asset_ids[1]);
       elsif j.kind = 'animation_clip' then
-        update public.animation_shots set clip_asset_id = j.output_asset_ids[1], status = 'clip_review', updated_at = now() where id = s.id returning * into s;
+        update public.animation_shots set clip_asset_id = j.output_asset_ids[1], status = 'clip_review', updated_at = now(),
+          identity_review = jsonb_set(identity_review, '{clip}', jsonb_build_object('automated', coalesce(j.output -> 'clip_check', 'null'::jsonb)))
+        where id = s.id returning * into s;
         perform public.animation_log(s, 'clip_ready', 'clip', null, j.output_asset_ids[1]);
       elsif j.kind = 'animation_voice' then
         update public.animation_shots set voice_tracks = coalesce(j.output -> 'tracks', '[]'::jsonb), updated_at = now() where id = s.id returning * into s;
@@ -588,6 +617,9 @@ declare
   v_layers jsonb;
   v_music jsonb;
   v_total integer;
+  v_spec jsonb;
+  v_fp text;
+  v_dup public.render_jobs%rowtype;
 begin
   select * into p from public.animation_projects where id = p_project_id;
   if not found then raise exception 'Animation project not found'; end if;
@@ -597,6 +629,10 @@ begin
   if p_resolution not in (480, 720, 1080) or p_quality not in ('draft', 'standard', 'high') then raise exception 'Invalid export settings'; end if;
   if not exists (select 1 from public.animation_shots where project_id = p.id) then raise exception 'The storyboard is empty'; end if;
   if exists (select 1 from public.animation_shots where project_id = p.id and (status <> 'approved' or clip_asset_id is null)) then raise exception 'Approve every shot''s clip first'; end if;
+  if exists (select 1 from public.animation_shots sh join public.media_assets m on m.id = sh.clip_asset_id
+             where sh.project_id = p.id and coalesce((m.provenance ->> 'mock')::boolean, false)) then
+    raise exception 'Mock clips cannot be exported as animation';
+  end if;
   for s in select * from public.animation_shots where project_id = p.id order by shot_number loop
     v_visual := public.limo_render_media(p.organization_id, s.clip_asset_id, array['video']);
     if v_visual is null then raise exception 'Clip of shot % is missing', s.shot_number; end if;
@@ -615,16 +651,30 @@ begin
   if v_total > public.limo_video_max_duration_ms(p.organization_id) then raise exception 'Videos are limited to % seconds', public.limo_video_max_duration_ms(p.organization_id) / 1000; end if;
   v_size := public.limo_render_size(p.aspect, p_resolution);
   v_music := case when p.music_asset_id is null then null else public.limo_render_media(p.organization_id, p.music_asset_id, array['audio']) || jsonb_build_object('volume', 0.25) end;
-  insert into public.render_jobs(organization_id, project_id, animation_project_id, requested_by, idempotency_key, script_revision_id, script_revision_number, aspect, width, height, quality, fps, spec, total_duration_ms)
-  values (p.organization_id, null, p.id, auth.uid(), p_idempotency_key, null, null, p.aspect, v_size[1], v_size[2], p_quality, 24,
-          jsonb_build_object('version', 1, 'title', p.title, 'language_code', p.language_code, 'width', v_size[1], 'height', v_size[2], 'fps', 24, 'quality', p_quality,
-                             'transition_seconds', 0, 'subtitles', 'off', 'text_position', 'bottom', 'text_size', 'medium', 'music', v_music, 'logo', null,
-                             'brand', jsonb_build_object('primary', '#6d4aff', 'secondary', '#efecf7'), 'scenes', v_scenes),
-          v_total)
-  returning * into v_job;
+  v_spec := jsonb_build_object('version', 1, 'title', p.title, 'language_code', p.language_code, 'width', v_size[1], 'height', v_size[2], 'fps', 24, 'quality', p_quality,
+                               'transition_seconds', 0, 'subtitles', 'off', 'text_position', 'bottom', 'text_size', 'medium', 'music', v_music, 'logo', null,
+                               'brand', jsonb_build_object('primary', '#6d4aff', 'secondary', '#efecf7'), 'scenes', v_scenes);
+  -- Same approved shots + same output settings = the same video: return it instead of charging again (V1 policy).
+  v_fp := md5(concat_ws('|', 'animation', p.id::text, p.aspect, p_resolution::text, p_quality, v_spec::text));
+  select * into v_dup from public.render_jobs
+  where animation_project_id = p.id and render_fingerprint = v_fp
+    and (status in ('queued', 'processing') or (status = 'completed' and output_media_asset_id is not null))
+  order by created_at desc limit 1;
+  if found then return jsonb_build_object('id', v_dup.id, 'status', v_dup.status, 'reused', true, 'duplicate', true, 'charged', false); end if;
+  if (select count(*) from public.render_jobs where organization_id = p.organization_id and status in ('queued', 'processing')) >= 3 then
+    raise exception 'Too many videos are rendering; wait for one to finish';
+  end if;
+  begin
+    insert into public.render_jobs(organization_id, project_id, animation_project_id, requested_by, idempotency_key, script_revision_id, script_revision_number, aspect, width, height, quality, fps, spec, total_duration_ms, render_fingerprint)
+    values (p.organization_id, null, p.id, auth.uid(), p_idempotency_key, null, null, p.aspect, v_size[1], v_size[2], p_quality, 24, v_spec, v_total, v_fp)
+    returning * into v_job;
+  exception when unique_violation then
+    select * into v_job from public.render_jobs where organization_id = p.organization_id and idempotency_key = p_idempotency_key;
+    return jsonb_build_object('id', v_job.id, 'status', v_job.status, 'reused', true);
+  end;
   perform public.limo_charge_render(v_job.id);
   update public.animation_projects set status = 'ready', updated_at = now() where id = p.id;
-  return jsonb_build_object('id', v_job.id, 'status', 'queued', 'reused', false);
+  return jsonb_build_object('id', v_job.id, 'status', 'queued', 'reused', false, 'charged', true, 'credits', 1);
 end;
 $$;
 
@@ -634,7 +684,7 @@ revoke all on function public.animation_character_gaps(uuid, text) from public, 
 revoke all on function public.animation_log(public.animation_shots, text, text, text, uuid) from public, anon, authenticated;
 revoke all on function public.save_animation_project(uuid, uuid, text, text, text, uuid, text, jsonb) from public, anon;
 revoke all on function public.save_animation_shots(uuid, jsonb, integer) from public, anon;
-revoke all on function public.decide_animation_shot(uuid, text, text, text) from public, anon;
+revoke all on function public.decide_animation_shot(uuid, text, text, text, boolean) from public, anon;
 revoke all on function public.set_animation_shot_frames(uuid, uuid, uuid) from public, anon;
 revoke all on function public.animation_readiness(uuid) from public, anon;
 revoke all on function public.request_animation_job(uuid, text, text, integer) from public, anon;
@@ -643,7 +693,7 @@ revoke all on function public.cancel_ai_job(uuid) from public, anon;
 revoke all on function public.enqueue_animation_render(uuid, text, integer, text) from public, anon;
 grant execute on function public.save_animation_project(uuid, uuid, text, text, text, uuid, text, jsonb) to authenticated;
 grant execute on function public.save_animation_shots(uuid, jsonb, integer) to authenticated;
-grant execute on function public.decide_animation_shot(uuid, text, text, text) to authenticated;
+grant execute on function public.decide_animation_shot(uuid, text, text, text, boolean) to authenticated;
 grant execute on function public.set_animation_shot_frames(uuid, uuid, uuid) to authenticated;
 grant execute on function public.animation_readiness(uuid) to authenticated;
 grant execute on function public.request_animation_job(uuid, text, text, integer) to authenticated;

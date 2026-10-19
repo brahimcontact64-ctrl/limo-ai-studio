@@ -76,7 +76,44 @@ export function fitFilter(width: number, height: number, fit: 'cover' | 'contain
  * filter_complex for the final assembly: inputs 0..n-1 are the encoded segments, input n (optional) is
  * the background music. Produces [vout] and [aout].
  */
-export function assemblyGraph(plan: RenderPlan, music: { volume: number } | null): string {
+/** Default music level while someone speaks (multiplies the music volume): about −9 dB. */
+export const DUCK_FACTOR = 0.35;
+const DUCK_PAD_S = 0.15;
+
+/**
+ * Times (seconds, whole video) where narration or dialogue is heard: each scene's main audio (narration file, from the
+ * scene start for its duration) and every voice layer (offset + duration). Padded by 150 ms and merged.
+ */
+export function speechWindows(spec: Pick<RenderSpec, 'scenes'>): Array<[number, number]> {
+  const raw: Array<[number, number]> = [];
+  for (const s of spec.scenes) {
+    const start = s.start_ms / 1000;
+    const end = (s.start_ms + s.duration_ms) / 1000;
+    if (s.audio) raw.push([start, Math.min(end, start + (s.audio.duration_ms ?? s.duration_ms) / 1000)]);
+    for (const l of s.audio_layers ?? []) {
+      const a = start + l.offset_ms / 1000;
+      raw.push([a, Math.min(end, a + (l.duration_ms ?? s.duration_ms - l.offset_ms) / 1000)]);
+    }
+  }
+  const padded = raw.filter(([a, b]) => b > a).map(([a, b]) => [Math.max(0, a - DUCK_PAD_S), b + DUCK_PAD_S] as [number, number]).sort((x, y) => x[0] - y[0]);
+  const out: Array<[number, number]> = [];
+  for (const w of padded) {
+    const last = out[out.length - 1];
+    if (last && w[0] <= last[1]) last[1] = Math.max(last[1], w[1]);
+    else out.push([w[0], w[1]]);
+  }
+  return out.map(([a, b]) => [Math.round(a * 1000) / 1000, Math.round(b * 1000) / 1000]);
+}
+
+/** FFmpeg volume filter that lowers the music inside the speech windows (evaluated per frame). */
+export function duckFilter(windows: Array<[number, number]>, factor = DUCK_FACTOR): string | null {
+  if (!windows.length || factor >= 1) return null;
+  const inside = windows.map(([a, b]) => `between(t,${a},${b})`).join('+');
+  // Quoted so the filtergraph parser keeps the commas inside the expression.
+  return `volume='if(gt(${inside},0),${factor},1)':eval=frame`;
+}
+
+export function assemblyGraph(plan: RenderPlan, music: { volume: number; duck?: string | null } | null): string {
   const n = plan.segments.length;
   const parts: string[] = [];
   for (let i = 0; i < n; i++) {
@@ -98,7 +135,7 @@ export function assemblyGraph(plan: RenderPlan, music: { volume: number } | null
   if (music) {
     const fadeStart = Math.max(0, plan.total - 1.5);
     parts.push(
-      `[${n}:a]aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:${plan.total},asetpts=PTS-STARTPTS,volume=${music.volume},afade=t=out:st=${fadeStart}:d=1.5[music]`,
+      `[${n}:a]aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:${plan.total},asetpts=PTS-STARTPTS,volume=${music.volume},${music.duck ? `${music.duck},` : ''}afade=t=out:st=${fadeStart}:d=1.5[music]`,
     );
     parts.push(`[${a}][music]amix=inputs=2:duration=first:normalize=0[aout]`);
   } else parts.push(`[${a}]anull[aout]`);

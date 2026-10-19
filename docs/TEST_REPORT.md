@@ -2,6 +2,31 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — Quality gate before the first flagship video, branch `rebuild/v1`
+Environment: local replica (migrations #12–#14 local only; #14 amended), production build on :3200, render worker +
+publisher for the browser suite, generator in mock mode. **No paid or live provider call, no real Facebook call.**
+- Pushed first (owner-authorised): `362b7c0..e07a326` fast-forward (clean tree, remote unchanged, secret scan clean,
+  unit 180/180 + typechecks at `e07a326`, no workflows / 0 deployments; `main` unchanged).
+- Unit **185/185** (new: deterministic identity/clip checks, scenario import, music-ducking windows/filter,
+  continuity rules). Typecheck app + worker clean; `next build` compiles.
+- Worker (real FFmpeg) **12/12** — new: music ducks under a voice line (220 Hz band −30.6 dB → −39 dB, voice −24 dB).
+- SQL **98/98**: animation-studio **45/45** (new: identity confirmation, mock clip refused, attempt cap, export
+  dedupe without a second credit, failed render releases its credit; a real bug found and fixed — an ambiguous
+  table alias in the new export guard), spend guard 23/23 + concurrency PASS, gate 4/4, specs 6/6, video policy
+  20/20. Rollback dry run (14 scripts) clean. Restore drill PASS.
+- E2E scripts: animation **19/19**, generate 24/24, backend 224/224, render 72/72, publish 63/63.
+- Browser (production build, desktop + mobile): full suite **59 passed, 1 skipped** (mobile a11y by design), 39.6 min.
+  New `animation-flow.spec.ts` (scenario JSON import → references → keyframe + automated checks + identity
+  confirmation → voices with measured timeline → mock clip "Not animated" rejected → simulated provider clip
+  (TEST FIXTURE) approved → MP4 export → identical re-export uses no credit → Arabic RTL, no overflow) and
+  `facebook-flow.spec.ts` (Brand Kit → AI image → AI caption → mock markers block approval → AI rewrite accepted
+  → human edit → approval → calendar → scheduled → simulated publishing → history).
+- Fixed from testing: references could only be attached after saving (now every castable approved reference is
+  loaded); pre-existing React hydration error #418 on onboarding (region names from different ICU data on server
+  and browser — now built client-side; probe: 0 hydration errors on 12 pages).
+- Not tested (cannot be without approval): real keyframes/clips/voices, real lip-sync, vision-based identity
+  checks (none exist), real Meta publishing, production migrations.
+
 ## 2026-10-19 — Animation Studio, Facebook AI integration, production procedures (migration #14), branch `rebuild/v1`
 Environment: local replica with migrations #12–#14 applied **locally only**; production build on :3200; render worker
 and publisher running for the browser suite. No provider key exists; generator only in mock mode. **No live or paid

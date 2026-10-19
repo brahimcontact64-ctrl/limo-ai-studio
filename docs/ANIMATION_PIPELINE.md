@@ -125,7 +125,13 @@ plus subscriptions if used (sync.so $5/month; ElevenLabs paid plan for commercia
 | AI jobs queue, status, errors, quarantine, async polling | **implemented**; mock mode end to end |
 | Export through the existing render worker (one credit, ≤ 30 s) | **implemented**, real MP4 in e2e |
 | Real keyframes / clips / voices | **blocked**: flag off, no accounts/keys, prices unverified, no approved artwork |
-| Mock clip | honest: "no animation was generated", cannot be approved |
+| Mock clip | honest: "no animation was generated", cannot be approved; a video file labelled mock is refused at approval and export |
+| Identity checks (2026-10-19) | deterministic only (`lib/animation/identity.ts`): blank image, aspect, locked-colour presence, references sent, mock flag; clip: real file vs mock, format, length, first frame. Verdict always `needs_human_review`; approving a shot with characters requires the owner's identity confirmation (stored with who/when). **They do not prove identity, motion quality or lip-sync.** |
+| Continuity checks | speech overrun, overlapping lines, missing previous last frame, location change, missing references, a character's references changing between consecutive shots, lighting change in a continuing shot |
+| Failed / rejected / regenerated shots | error shown with a retry; attempts counted per kind; max 5 attempts per shot version (editing starts a new version); stale jobs quarantined, never silently re-run |
+| Exports | idempotent key; identical re-export returns the existing video without a second credit (fingerprint, like studio exports); a failed or cancelled render releases its credit; at most 3 renders at once per workspace |
+| Music ducking | automatic under narration and dialogue for every export (−9 dB, ±150 ms), real FFmpeg test |
+| Scenario import | the §9 JSON template fills the storyboard (shape checks + full validation on save) |
 
 ## 9. What the owner provides with the scenario (template)
 Use this JSON shape (`Scenario` in `lib/animation/scenario.ts`); every field is the owner's own text:

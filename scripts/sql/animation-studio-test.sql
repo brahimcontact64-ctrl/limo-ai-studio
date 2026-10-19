@@ -97,6 +97,64 @@ begin
     raise notice 'ANIM export creates an animation render job (8 s, 24 fps, one credit reserved): % (%)', sqlerrm like 'Active subscription required%', sqlerrm;
   end;
 
+  -- Export dedupe and credit release (V1 policy on animation exports).
+  declare
+    v_used0 integer; v_used1 integer; v_used2 integer; v_r2 jsonb; v_id uuid;
+  begin
+    select used_video_slots into v_used0 from public.usage_balances where organization_id = v_org;
+    v_r2 := public.enqueue_animation_render(v_p2, 'sqltest-export-3', 720, 'standard');
+    select used_video_slots into v_used1 from public.usage_balances where organization_id = v_org;
+    raise notice 'CREDIT identical export with a new key reuses the queued video, no second credit: %', (v_r2 ->> 'duplicate')::boolean and v_used1 = v_used0;
+    v_r2 := public.enqueue_animation_render(v_p2, 'sqltest-export-4', 480, 'draft');
+    select used_video_slots into v_used1 from public.usage_balances where organization_id = v_org;
+    raise notice 'CREDIT different output settings = a new video, one credit reserved: %', not coalesce((v_r2 ->> 'duplicate')::boolean, false) and v_used1 = v_used0 + 1;
+    v_id := (v_r2 ->> 'id')::uuid;
+    update public.render_jobs set status = 'queued', available_at = now() - interval '1 second' where status = 'queued' and id <> v_id;
+    perform 1 from public.claim_render_job('sqltest-render', 60) c where c.id = v_id;
+    if not found then update public.render_jobs set status = 'processing', locked_by = 'sqltest-render', locked_at = now() where id = v_id; end if;
+    perform public.fail_render_job(v_id, 'sqltest-render', 'render_failed', 'test', false);
+    select used_video_slots into v_used2 from public.usage_balances where organization_id = v_org;
+    raise notice 'CREDIT a failed export releases its credit: %', v_used2 = v_used0 and (select charge_state from public.render_jobs where id = v_id) = 'released';
+  exception when others then
+    raise notice 'CREDIT export checks: % (%)', sqlerrm like 'Active subscription required%', sqlerrm;
+  end;
+
+  -- Mock clip guard and identity confirmation on a shot with a (test-fixture) workspace character.
+  declare
+    v_char uuid; v_ref uuid; v_sc uuid; v_p3 uuid; v_mockclip uuid; v_j uuid; i integer;
+  begin
+    insert into public.characters(organization_id, name, spec_version) values (v_org, 'sqltest fixture', 1) returning id into v_char;
+    insert into public.character_reference_assets(organization_id, custom_character_id, spec_version, asset_kind, view, object_path, mime_type, size_bytes, provenance, status)
+    select v_org, v_char, 1, 'rendered_reference', v, 'custom/x/' || v || '.png', 'image/png', 10, 'uploaded_artwork', 'approved' from unnest(array['front', 'three_quarter', 'side']) v;
+    select id into v_ref from public.character_reference_assets where custom_character_id = v_char and view = 'front';
+    v_p3 := public.save_animation_project(v_org, null, '[c]', 'fr', '9:16', null, '', '{}');
+    perform public.save_animation_shots(v_p3, jsonb_build_array(jsonb_build_object('duration_seconds', 8, 'characters', jsonb_build_array('custom:' || v_char), 'reference_asset_ids', jsonb_build_array(v_ref))), null);
+    select id into v_sc from public.animation_shots where project_id = v_p3;
+    perform public.request_animation_job(v_sc, 'animation_keyframe', 'sqltest-key-0100', 0);
+    select id into v_j from public.claim_ai_jobs('sqltest-worker', 1);
+    perform public.complete_ai_job(v_j, 'sqltest-worker', 'limo-mock', '{"identity_check":{"verdict":"needs_human_review","checks":[]}}', array[v_img], 0, 0);
+    raise notice 'IDENTITY automated review stored with the keyframe: %', (select identity_review -> 'keyframe' -> 'automated' ->> 'verdict' = 'needs_human_review' from public.animation_shots where id = v_sc);
+    begin perform public.decide_animation_shot(v_sc, 'keyframe', 'approve', null, false); ok := false; exception when others then ok := sqlerrm like 'Confirm the character identity%'; end;
+    raise notice 'IDENTITY approval refused without the owner''s confirmation: %', ok;
+    perform public.decide_animation_shot(v_sc, 'keyframe', 'approve', null, true);
+    raise notice 'IDENTITY confirmation recorded (who, when, manual): %', (select identity_review -> 'keyframe' ->> 'manual' = 'true' and identity_review -> 'keyframe' ? 'confirmed_at' from public.animation_shots where id = v_sc);
+    insert into public.media_assets(organization_id, bucket_id, object_path, media_type, source, kind, mime_type, provenance) values (v_org, 'workspace-assets', v_org || '/generated/sqltest/mock.mp4', 'video', 'generated', 'ai_video', 'video/mp4', '{"mock":true}') returning id into v_mockclip;
+    perform public.request_animation_job(v_sc, 'animation_clip', 'sqltest-key-0101', 0);
+    select id into v_j from public.claim_ai_jobs('sqltest-worker', 1);
+    perform public.complete_ai_job(v_j, 'sqltest-worker', 'limo-mock', '{}', array[v_mockclip], 0, 0);
+    begin perform public.decide_animation_shot(v_sc, 'clip', 'approve', null, true); ok := false; exception when others then ok := sqlerrm like 'Mock clips cannot be approved%'; end;
+    raise notice 'MOCK a mock-labelled clip file can never be approved as animation: %', ok;
+    perform public.decide_animation_shot(v_sc, 'clip', 'reject', 'mock', false);
+    -- Attempt cap: 5 clip attempts per shot revision (failed attempts count).
+    for i in 2..5 loop
+      perform public.request_animation_job(v_sc, 'animation_clip', 'sqltest-key-02' || i, 0);
+      select id into v_j from public.claim_ai_jobs('sqltest-worker', 1);
+      perform public.fail_ai_job(v_j, 'sqltest-worker', 'unavailable', 'test');
+    end loop;
+    begin perform public.request_animation_job(v_sc, 'animation_clip', 'sqltest-key-0299', 0); ok := false; exception when others then ok := sqlerrm like 'Attempt limit reached%'; end;
+    raise notice 'ATTEMPTS sixth clip attempt for the same shot version refused; counter = 5: %', ok and (select (attempts ->> 'animation_clip')::int = 5 from public.animation_shots where id = v_sc);
+  end;
+
   -- Failure and quarantine.
   begin perform public.request_animation_job(sp, 'animation_voice', 'sqltest-key-0006', 0); ok := false; exception when others then ok := sqlerrm like 'Nothing to speak%'; end;
   raise notice 'ANIM voice refused without dialogue: %', ok;

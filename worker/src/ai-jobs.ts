@@ -17,6 +17,26 @@ import { provenanceRecord } from '../../lib/providers/provenance.ts';
 import { imageSizeFor } from '../../lib/providers/adapters/gemini-image.ts';
 import { clipRequest, JOB_FLAG, JOB_STAGE, keyframeRequest, placeVoiceLines, socialRequest, voiceLines, type AiJobKind, type SocialInput } from '../../lib/ai/jobs.ts';
 import { firstFrameFor, type ProjectRow, type ShotRow } from '../../lib/animation/storyboard.ts';
+import { clipReview, keyframeReview } from '../../lib/animation/identity.ts';
+import { canonFor } from '../../lib/characters/canon.ts';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+
+/** Small RGBA sample of an image for the deterministic checks (null if it cannot be decoded). */
+async function sampleImage(bytes: Uint8Array): Promise<{ width: number; height: number; rgba: Uint8ClampedArray } | null> {
+  try {
+    const img = await loadImage(Buffer.from(bytes));
+    const scale = Math.min(1, 160 / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const c = createCanvas(w, h);
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return { width: img.width, height: img.height, rgba: ctx.getImageData(0, 0, w, h).data };
+  } catch {
+    return null;
+  }
+}
+const hexes = (locked: string[]) => locked.map((x) => /#[0-9A-Fa-f]{6}/.exec(x)?.[0]).filter((x): x is string => !!x);
 
 export interface AiJob {
   id: string;
@@ -158,8 +178,14 @@ export function aiJobProcessor(d: JobDeps) {
     const req = keyframeRequest(shot, project, job.organization_id, job.request_key);
     const adapter = (req.kind === 'character_image' ? d.adapters.character_image : d.adapters.image) as CapabilityAdapter;
     const ex = await run(job, adapter, req);
-    const id = await store(job, job.request_key, ex.result.files![0]!, ex.result, `keyframe · shot ${shot.shot_number}`);
-    return complete(job, ex.result.provenance.provider, { mock: ex.result.provenance.mock, provenance: provenanceRecord(ex.result.provenance) }, [id], cents(ex.estimateMicros), cents(ex.actualMicros));
+    const file = ex.result.files![0]!;
+    const id = await store(job, job.request_key, file, ex.result, `keyframe · shot ${shot.shot_number}`);
+    const identity = keyframeReview({
+      image: await sampleImage(file.bytes), expectedAspect: project.aspect === '16:9' ? 16 / 9 : 9 / 16,
+      characters: shot.characters.map((c) => ({ id: c, lockedColours: hexes(canonFor(c)?.consistency.locked_colors ?? []) })),
+      attachedReferences: shot.reference_asset_ids, usedReferences: ex.result.provenance.referenceAssetIds, mock: ex.result.provenance.mock,
+    });
+    return complete(job, ex.result.provenance.provider, { mock: ex.result.provenance.mock, provenance: provenanceRecord(ex.result.provenance), identity_check: identity }, [id], cents(ex.estimateMicros), cents(ex.actualMicros));
   }
 
   async function clip(job: AiJob) {
@@ -204,8 +230,10 @@ export function aiJobProcessor(d: JobDeps) {
     await settleBudget(reservation, 'completed', cents(ex.actualMicros));
     const file = ex.result.files?.[0];
     // Mock video: no file — honestly "not animated"; the shot cannot be approved without a real clip.
-    const assets = file ? [await store(job, job.request_key, file, ex.result, `clip · shot ${shot.shot_number}`, Number((pay.plan as Record<string, number>)?.seconds ?? shot.duration_seconds))] : [];
-    return complete(job, ex.result.provenance.provider, { animated: !!file, mock: ex.result.provenance.mock, provenance: provenanceRecord(ex.result.provenance), ...(file ? {} : { note: 'Mock provider: no animation was generated.' }) }, assets, Number(pay.estimate_cents ?? 0), cents(ex.actualMicros));
+    const seconds = Number((pay.plan as Record<string, number>)?.seconds ?? shot.duration_seconds);
+    const assets = file ? [await store(job, job.request_key, file, ex.result, `clip · shot ${shot.shot_number}`, seconds)] : [];
+    const check = clipReview({ mock: ex.result.provenance.mock, hasFile: !!file, mime: file?.mime ?? null, expectedSeconds: shot.duration_seconds, reportedSeconds: file ? seconds : null, firstFrameUsed: !!first });
+    return complete(job, ex.result.provenance.provider, { animated: check.animated, mock: ex.result.provenance.mock, provenance: provenanceRecord(ex.result.provenance), clip_check: check, ...(file ? {} : { note: 'Mock provider: no animation was generated.' }) }, assets, Number(pay.estimate_cents ?? 0), cents(ex.actualMicros));
   }
 
   async function voice(job: AiJob) {

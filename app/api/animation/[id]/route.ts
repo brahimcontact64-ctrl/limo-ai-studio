@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     characters: { canonical: CANONICAL_CHARACTER_IDS, custom: customs.map((c) => ({ id: `custom:${c.id}`, name: c.name })) },
     planning: {
       issues: validateScenario(scenario),
-      continuity: continuityIssues(data.shots),
+      continuity: continuityIssues(data.shots, Object.fromEntries(data.references.map((r) => [r.id, r.character]))),
       blockers: readinessBlockers(scenario, state, voiceMode),
       timeline: dialogueTimeline(data.shots),
       cost: plan ? { per_take_usd: plan.perTakeUsd, expected_usd: plan.expectedUsd, seconds: plan.seconds, prices: 'researched list prices (unverified), planning only' } : null,

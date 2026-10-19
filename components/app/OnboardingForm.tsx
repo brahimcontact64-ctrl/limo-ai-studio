@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useI18n } from '@/lib/i18n/client';
 import { completeProfileAction } from '@/lib/data/actions';
 
@@ -16,9 +16,12 @@ function maxBirthDate(): string {
 export function OnboardingForm() {
   const { t, intl } = useI18n();
   const router = useRouter();
-  const regions = useMemo(() => {
+  // Built in the browser only: Node and the browser ship different ICU data, so localized region names rendered on
+  // the server did not always match the client (React hydration error #418).
+  const [regions, setRegions] = useState<Array<{ code: string; name: string }>>([]);
+  useEffect(() => {
     const local = new Intl.DisplayNames([intl], { type: 'region' });
-    return ISO_REGIONS.map((code) => ({ code, name: local.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name, intl));
+    setRegions(ISO_REGIONS.map((code) => ({ code, name: local.of(code) ?? code })).sort((a, b) => a.name.localeCompare(b.name, intl)));
   }, [intl]);
   const [form, setForm] = useState({
     firstName: '',

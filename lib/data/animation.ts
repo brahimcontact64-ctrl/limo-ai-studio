@@ -49,13 +49,12 @@ export async function loadAnimation(supabase: ServerSupabase, id: string) {
     list.forEach((a, i) => (assets[a.id] = { url: signed[i]?.signedUrl ?? null, mime: a.mime_type ?? '', label: a.label ?? '', mock: a.provenance?.mock === true, ai: a.provenance?.ai_generated === true }));
   }
 
-  // Approved references of every character used (canonical: global approved files; custom: this workspace's).
-  const chars = [...new Set(shots.flatMap((s) => s.characters))];
-  const canonical = chars.filter((c) => !c.startsWith('custom:'));
-  const custom = chars.filter((c) => c.startsWith('custom:')).map((c) => c.slice(7));
+  // Approved view references of every character the workspace can cast (canonical: global approved files; custom:
+  // this workspace's), so references can be attached right after adding a character or importing a scenario.
   const refRows: Array<{ id: string; catalog_character_id: string | null; custom_character_id: string | null; view: string | null; bucket_id: string; object_path: string }> = [];
-  if (canonical.length) refRows.push(...(((await db.from('character_reference_assets').select('id, catalog_character_id, custom_character_id, view, bucket_id, object_path').eq('status', 'approved').eq('asset_kind', 'rendered_reference').in('catalog_character_id', canonical)).data ?? []) as typeof refRows));
-  if (custom.length) refRows.push(...(((await db.from('character_reference_assets').select('id, catalog_character_id, custom_character_id, view, bucket_id, object_path').eq('status', 'approved').eq('asset_kind', 'rendered_reference').in('custom_character_id', custom)).data ?? []) as typeof refRows));
+  const cols = 'id, catalog_character_id, custom_character_id, view, bucket_id, object_path';
+  refRows.push(...(((await db.from('character_reference_assets').select(cols).eq('status', 'approved').eq('asset_kind', 'rendered_reference').not('view', 'is', null).not('catalog_character_id', 'is', null).limit(200)).data ?? []) as typeof refRows));
+  refRows.push(...(((await db.from('character_reference_assets').select(cols).eq('status', 'approved').eq('asset_kind', 'rendered_reference').not('view', 'is', null).eq('organization_id', p.organization_id).limit(200)).data ?? []) as typeof refRows));
   const refSigned = refRows.length ? ((await supabase.storage.from('character-library').createSignedUrls(refRows.map((r) => r.object_path), 600)).data ?? []) : [];
   const references: ReferenceRow[] = refRows.map((r, i) => ({ id: r.id, character: r.catalog_character_id ?? `custom:${r.custom_character_id}`, view: r.view, url: refSigned[i]?.signedUrl ?? null }));
 

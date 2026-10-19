@@ -37,6 +37,13 @@ requests, service role for the worker; tested in SQL, backend and browser.
 | 12 | Automated publishing via Meta APIs | **mock publisher only** (state machine, retries, history preserved) |
 | 13 | Bulk content planning | **prepared, not built**: the job queue already accepts many independent requests with idempotent keys; a bulk planner would create N caption/image jobs + N draft posts for calendar slots and reuse the same review and approval flow |
 
+## 2a. Verified workflow (browser, 2026-10-19, `tests/e2e/facebook-flow.spec.ts`, desktop + mobile)
+Brand Kit → simulated Page → AI promotional image proposal (mock job) added to the design's photos → business brief +
+facts → AI caption proposal (mock job, uses the Brand Kit name and call to action) → per-field acceptance → the
+"[Mock …]" markers block approval until a person rewrites them → library image attached → review → approval →
+calendar → scheduled → simulated publishing by the publisher ("Nothing was posted on Facebook") → revision history.
+Paid AI (`paid_generation`) stayed off; the two AI flags were switched on only for the test and restored.
+
 ## 3. Turning it on (owner decisions, in order)
 1. Pilot first (AI_PILOT_PLAN.md): accounts, deposits, keys in the generator environment, verified prices.
 2. Enable `paid_generation`, then `ai_social_text` and/or `ai_social_images` (Admin → feature flags), and the

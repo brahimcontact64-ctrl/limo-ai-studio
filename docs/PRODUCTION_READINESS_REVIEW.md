@@ -1,4 +1,4 @@
-# Production readiness review (updated 2026-10-19)
+# Production readiness review (rechecked 2026-10-19, quality gate)
 
 Review and procedures only — nothing in production was changed. Production Supabase `aevqhgksniqahqrntzxv` has 50
 migrations (last `20261016120000`); **14 are pending** (MIGRATION_REVIEW.md). Vercel production is an older deploy that
@@ -41,7 +41,7 @@ monitoring → auth/SMTP → payments → (separately) the AI pilot on the local
 Rehearsal (done 2026-10-19 on the local replica): `scripts/sql/restore-drill.sh <local db container>` — `pg_dump -Fc`
 of `public` (2.0 MB), restore into a new scratch database (dependency schemas + `auth.users` first; platform-managed
 objects restore with warnings), then checks: identical row counts for 19 key tables, 7 key functions present, every
-public table has RLS, pilot spend guard intact; scratch database dropped. Result: **PASS**, 8 s end to end.
+public table has RLS, pilot spend guard intact; scratch database dropped. Result: **PASS**, 8 s end to end; re-run at the quality gate: PASS (19 table counts identical, 7/7 functions, RLS on every public table).
 Production drill (owner, before G1): (1) note the backup tier and PITR window in the dashboard; (2)
 `supabase db dump --linked` (schema) and `--data-only` (data) to an encrypted location outside Git; (3) create a
 **separate scratch Supabase project**, restore schema then data; (4) run the same checks (row counts against

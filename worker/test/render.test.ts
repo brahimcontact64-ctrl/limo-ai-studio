@@ -151,6 +151,29 @@ test('animation export audio: clip sound kept or muted per shot, voice lines mix
   results.push(`animation audio: clip ${clipSound} dB, muted ${mutedGap} dB, voice ${voice} dB`);
 });
 
+/** Loudness of one frequency band (isolates the music tone from the voice tone). */
+function bandVolume(file: string, start: number, dur: number, freq: number): number {
+  const r = spawnSync(FFMPEG, ['-hide_banner', '-ss', String(start), '-t', String(dur), '-i', file, '-af', `bandpass=f=${freq}:width_type=h:w=30,volumedetect`, '-vn', '-f', 'null', '-'], { encoding: 'utf8' });
+  const m = /mean_volume:\s*(-?[\d.]+) dB/.exec(r.stderr);
+  return m ? Number(m[1]) : -999;
+}
+
+test('music ducks automatically under a voice line (about −9 dB); full level before it', async () => {
+  const shot = (n: number, start: number, extra: Partial<RenderSpec['scenes'][number]>) => ({ scene_number: n, title: `Shot ${n}`, duration_ms: 4000, start_ms: start, on_screen_text: '', narration: '', dialogue: '', transition: 'cut' as const, visual: media('b', 'b', 'video', 'video/mp4'), audio: null, fit: 'cover' as const, show_text: false, participants: [], clip_audio: { volume: 0 }, ...extra });
+  // Music 220 Hz (4 s file, looped); voice 440 Hz, 2.5 s, from 5.0 s to 7.5 s.
+  const s = spec('9:16', { logo: null, subtitles: 'off', fps: 24, music: { ...media('m', 'm', 'audio', 'audio/mpeg'), volume: 0.5 }, scenes: [
+    shot(1, 0, {}),
+    shot(2, 4000, { audio_layers: [{ ...media('v', 'v', 'audio', 'audio/wav'), duration_ms: 2500, offset_ms: 1000, volume: 1 }] }),
+  ] });
+  const out = await renderSpec(s, join(work, 'ducking'), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 1e8 });
+  const before = bandVolume(out.file, 1, 2, 220);
+  const during = bandVolume(out.file, 5.5, 1.5, 220);
+  const voice = bandVolume(out.file, 5.5, 1.5, 440);
+  assert.ok(before - during > 6 && before - during < 12, `music ${before} dB before, ${during} dB under the voice`);
+  assert.ok(voice > during, `voice (${voice} dB) is above the ducked music`);
+  results.push(`ducking: music ${before} dB → ${during} dB under the voice (${voice} dB)`);
+});
+
 test.after(() => {
   console.log(results.join('\n'));
   rmSync(work, { recursive: true, force: true });

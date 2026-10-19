@@ -6,7 +6,8 @@ import { fmt } from '@/lib/i18n/config';
 import { Icon } from '@/components/ui/Icon';
 import { useToast } from '@/components/ui/Toast';
 import { EXPRESSION_KEYS, type ExpressionKey } from '@/lib/characters/canon';
-import { nextAction, type ProjectRow, type ShotRow, type TimelineItem } from '@/lib/animation/storyboard';
+import { MAX_ATTEMPTS_PER_REVISION, nextAction, type ProjectRow, type ShotRow, type TimelineItem } from '@/lib/animation/storyboard';
+import { parseScenarioJson } from '@/lib/animation/scenario-import';
 
 interface Issue { level?: 'error' | 'warning'; code: string; scene?: number; shot?: number; detail: string }
 interface Data {
@@ -45,6 +46,9 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
   const [saving, setSaving] = useState(false);
   const [rejecting, setRejecting] = useState<{ shot: string; stage: 'keyframe' | 'clip'; note: string } | null>(null);
   const [renders, setRenders] = useState<Array<{ id: string; status: string; total_duration_ms: number; created_at: string }>>([]);
+  const [importText, setImportText] = useState('');
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const err = (code?: string) => (a.errors as Record<string, string>)[code ?? ''] ?? a.errors.unavailable;
 
   const load = useCallback(async (keepDraft = false) => {
@@ -122,10 +126,21 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
 
   async function exportVideo() {
     const res = await fetch(`/api/animation/${projectId}/export`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idempotency_key: crypto.randomUUID().replace(/-/g, ''), resolution: 720, quality: 'standard' }) }).catch(() => null);
-    const body = (await res?.json().catch(() => ({}))) as { error?: string };
+    const body = (await res?.json().catch(() => ({}))) as { error?: string; duplicate?: boolean; reused?: boolean };
     if (!res?.ok) return toast(err(body.error), 'error');
-    toast(a.exportQueued, 'success');
+    toast(body.duplicate || body.reused ? a.exportReused : a.exportQueued, 'success');
     await load();
+  }
+
+  /** Fills the storyboard from the owner's scenario JSON (replaces the current shots; nothing is saved until Save). */
+  function importScenario() {
+    const { scenario, errors } = parseScenarioJson(importText);
+    setImportErrors(errors);
+    if (!scenario || !scenario.shots.length) return;
+    setProject((p) => (p ? { ...p, title: scenario.title || p.title, language_code: scenario.language ?? p.language_code, aspect: scenario.aspect ?? p.aspect, music_note: scenario.music ?? p.music_note } : p));
+    setShots(scenario.shots.map((s) => ({ ...s, key: newKey(), continuity: {}, reference_asset_ids: [], clip_audio: 'keep' as const })));
+    setDirty(true);
+    toast(a.importDone, 'success');
   }
 
   const issues = [...data.planning.issues.map((i) => ({ ...i, shot: i.scene })), ...data.planning.continuity];
@@ -183,6 +198,18 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
         <label className="field"><span className="field-label xsmall">{a.music}</span>
           <input className="input input-sm" value={project.music_note} maxLength={500} onChange={(e) => setP({ music_note: e.target.value })} disabled={!editable} dir="auto" /></label>
       </section>
+
+      {editable && (
+        <details className="panel panel-pad" data-testid="anim-import">
+          <summary className="small"><b>{a.importTitle}</b></summary>
+          <div className="stack-sm">
+            <p className="xsmall muted">{a.importHint}</p>
+            <textarea className="textarea" rows={6} aria-label={a.importTitle} value={importText} onChange={(e) => setImportText(e.target.value)} dir="ltr" spellCheck={false} data-testid="anim-import-text" />
+            {importErrors.length > 0 && <ul className="xsmall text-danger" role="alert" data-testid="anim-import-errors">{importErrors.map((e) => <li key={e}>{e}</li>)}</ul>}
+            <div><button type="button" className="btn btn-sm" onClick={importScenario} disabled={!importText.trim()} data-testid="anim-import-apply">{a.importApply}</button></div>
+          </div>
+        </details>
+      )}
 
       <section className="panel panel-pad stack-sm" aria-labelledby={`${id}-plan`} data-testid="anim-planning">
         <h2 id={`${id}-plan`} className="section-title">{a.planning}</h2>
@@ -333,7 +360,10 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
 
               {live && (
                 <div className="stack-sm" data-testid="shot-production">
-                  {live.last_error && <p className="callout callout-danger xsmall">{fmt(a.lastError, { code: live.last_error })}</p>}
+                  {live.last_error && <p className="callout callout-danger xsmall" data-testid="shot-error">{fmt(a.lastError, { code: live.last_error })} {a.retryHint}</p>}
+                  {Object.keys(live.attempts ?? {}).length > 0 && (
+                    <p className="xsmall muted" data-testid="shot-attempts">{Object.entries(live.attempts ?? {}).map(([k, n]) => fmt(a.attempts, { kind: (a.jobKinds as Record<string, string>)[k] ?? k, n, max: MAX_ATTEMPTS_PER_REVISION })).join(' · ')}</p>
+                  )}
                   <div className="row">
                     {kf && (
                       <figure className="stack-sm" style={{ margin: 0 }}>
@@ -343,7 +373,7 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                     )}
                     {live.status === 'clip_review' || live.status === 'approved' ? (
                       <figure className="stack-sm" style={{ margin: 0 }}>
-                        <figcaption className="xsmall"><b>{a.clip}</b> {clip && <span className="badge plain">{clip.mock ? a.mock : a.ai}</span>}</figcaption>
+                        <figcaption className="xsmall"><b>{a.clip}</b> <span className="badge plain" data-testid="clip-kind">{!clip ? a.notAnimatedBadge : clip.mock ? a.mock : a.animated}</span></figcaption>
                         {clip?.url ? <video src={clip.url} controls width={160} /> : <span className="xsmall muted" data-testid="clip-not-animated">{clipJob?.output.animated === false ? a.notAnimated : ''}</span>}
                       </figure>
                     ) : null}
@@ -358,12 +388,30 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                     <div className="row">
                       {action === 'request_keyframe' && <button type="button" className="btn btn-sm" disabled={!flagOn} onClick={() => void requestJob(live.id, 'animation_keyframe')} data-testid="req-keyframe">{a.requestKeyframe}</button>}
                       {action === 'request_clip' && <button type="button" className="btn btn-sm" disabled={!flagOn} onClick={() => void requestJob(live.id, 'animation_clip')} data-testid="req-clip">{a.requestClip}</button>}
-                      {(action === 'review_keyframe' || action === 'review_clip') && (
-                        <>
-                          <button type="button" className="btn btn-sm btn-primary" onClick={() => void shotAction(live.id, { action: 'decide', stage: action === 'review_keyframe' ? 'keyframe' : 'clip', decision: 'approve' })} data-testid="approve">{a.approve}</button>
-                          <button type="button" className="btn btn-sm" onClick={() => setRejecting({ shot: live.id, stage: action === 'review_keyframe' ? 'keyframe' : 'clip', note: '' })} data-testid="reject">{a.reject}</button>
-                        </>
-                      )}
+                      {(action === 'review_keyframe' || action === 'review_clip') && (() => {
+                        const stage = action === 'review_keyframe' ? 'keyframe' : 'clip';
+                        const auto = live.identity_review?.[stage]?.automated;
+                        const needsConfirm = live.characters.length > 0;
+                        const ck = `${live.id}:${stage}`;
+                        return (
+                          <div className="stack-sm" style={{ flexBasis: '100%' }} data-testid="review-panel">
+                            <b className="xsmall">{a.autoChecks}</b>
+                            {auto ? (
+                              <ul className="xsmall" data-testid="auto-checks">
+                                {auto.checks.map((c) => <li key={c.code} className={c.status === 'fail' ? 'text-danger' : ''}>{(a.checkStatus as Record<string, string>)[c.status] ?? c.status} · {c.code.replace(/^palette:(.+)$/, (_m, x: string) => `${a.paletteOf} ${nameOf(x)}`)} — {c.detail}</li>)}
+                              </ul>
+                            ) : <span className="xsmall muted">{a.autoUnavailable}</span>}
+                            <p className="xsmall muted">{a.autoDisclaimer}</p>
+                            {needsConfirm && (
+                              <label className="checkbox"><input type="checkbox" checked={confirmed[ck] === true} onChange={(e) => setConfirmed((m) => ({ ...m, [ck]: e.target.checked }))} data-testid="identity-confirm" /><span>{a.identityConfirm}</span></label>
+                            )}
+                            <div className="row">
+                              <button type="button" className="btn btn-sm btn-primary" disabled={needsConfirm && confirmed[ck] !== true} onClick={() => void shotAction(live.id, { action: 'decide', stage, decision: 'approve', identity_confirmed: confirmed[ck] === true })} data-testid="approve">{a.approve}</button>
+                              <button type="button" className="btn btn-sm" onClick={() => setRejecting({ shot: live.id, stage, note: '' })} data-testid="reject">{a.reject}</button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {((live.dialogue.length > 0 || live.narration) && action !== 'wait') && <button type="button" className="btn btn-sm btn-ghost" disabled={!flagOn} onClick={() => void requestJob(live.id, 'animation_voice')} data-testid="req-voice">{a.requestVoice}</button>}
                       {action === 'request_clip' && next?.keyframe_asset_id && (
                         <button type="button" className="btn btn-sm btn-ghost" onClick={() => void shotAction(live.id, { action: 'frames', first_frame_asset_id: live.first_frame_asset_id, last_frame_asset_id: live.last_frame_asset_id ? null : next.keyframe_asset_id })} title={a.lastFrameHint}>

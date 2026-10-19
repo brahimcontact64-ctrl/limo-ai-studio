@@ -19,6 +19,7 @@ drop function if exists public.request_social_ai_job(uuid, text, jsonb, text, in
 drop function if exists public.request_animation_job(uuid, text, text, integer);
 drop function if exists public.animation_readiness(uuid);
 drop function if exists public.set_animation_shot_frames(uuid, uuid, uuid);
+drop function if exists public.decide_animation_shot(uuid, text, text, text, boolean);
 drop function if exists public.decide_animation_shot(uuid, text, text, text);
 drop function if exists public.save_animation_shots(uuid, jsonb, integer);
 drop function if exists public.save_animation_project(uuid, uuid, text, text, text, uuid, text, jsonb);

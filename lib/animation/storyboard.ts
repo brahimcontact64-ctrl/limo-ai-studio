@@ -52,7 +52,14 @@ export interface ShotRow {
   clip_audio: 'keep' | 'mute';
   revision: number;
   last_error: string | null;
+  /** Per stage: deterministic checks (never proof of identity) and the owner's confirmation. */
+  identity_review?: Partial<Record<'keyframe' | 'clip', { automated?: { checks: Array<{ code: string; status: string; detail: string }>; disclaimer: string; animated?: boolean } | null; confirmed_by?: string; confirmed_at?: string; manual?: boolean }>>;
+  /** Generation attempts per job kind (all revisions). */
+  attempts?: Record<string, number>;
 }
+
+/** Attempts allowed per job kind for one revision of a shot (enforced by request_animation_job). */
+export const MAX_ATTEMPTS_PER_REVISION = 5;
 
 export interface ProjectRow {
   id: string;
@@ -127,12 +134,15 @@ export function dialogueTimeline(shots: ShotRow[]): TimelineItem[] {
 
 export interface ContinuityIssue {
   shot: number;
-  code: 'speech_overruns_shot' | 'previous_last_frame_missing' | 'continuity_environment_changed' | 'reference_missing' | 'overlapping_speech';
+  code: 'speech_overruns_shot' | 'previous_last_frame_missing' | 'continuity_environment_changed' | 'reference_missing' | 'overlapping_speech' | 'character_reference_changed' | 'lighting_changed';
   detail: string;
 }
 
-/** Shot-to-shot continuity checks shown in the editor before anything is generated. */
-export function continuityIssues(shots: ShotRow[]): ContinuityIssue[] {
+/**
+ * Shot-to-shot continuity checks shown in the editor before anything is generated. `refOwner` maps an attached
+ * reference id to its character, so a character that appears in consecutive shots must keep the same references.
+ */
+export function continuityIssues(shots: ShotRow[], refOwner: Record<string, string> = {}): ContinuityIssue[] {
   const sorted = [...shots].sort((a, b) => a.shot_number - b.shot_number);
   const tl = dialogueTimeline(sorted);
   const out: ContinuityIssue[] = [];
@@ -151,6 +161,17 @@ export function continuityIssues(shots: ShotRow[]): ContinuityIssue[] {
     }
     const refChars = new Set(s.characters);
     if (refChars.size > 0 && s.reference_asset_ids.length === 0) out.push({ shot: s.shot_number, code: 'reference_missing', detail: 'attach the approved references of the characters in this shot' });
+    if (prev) {
+      const refsOf = (x: ShotRow, c: string) => x.reference_asset_ids.filter((r) => refOwner[r] === c).sort().join(',');
+      for (const c of s.characters.filter((c) => prev.characters.includes(c))) {
+        const a = refsOf(prev, c);
+        const b = refsOf(s, c);
+        if (a && b && a !== b) out.push({ shot: s.shot_number, code: 'character_reference_changed', detail: `${c} uses different references than in the previous shot` });
+      }
+      if (s.continuity.continues_from_previous && s.continuity.lighting && prev.continuity.lighting && s.continuity.lighting.trim().toLowerCase() !== prev.continuity.lighting.trim().toLowerCase()) {
+        out.push({ shot: s.shot_number, code: 'lighting_changed', detail: 'continues the previous shot but the lighting differs' });
+      }
+    }
     start = end;
   });
   return out;

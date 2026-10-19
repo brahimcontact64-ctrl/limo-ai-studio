@@ -1,9 +1,9 @@
 # Next steps
 
 ## Exact next action
-`origin/rebuild/v1` = `362b7c0` (animation preparation, pushed 2026-10-19, owner-authorised). Animation Studio +
-Facebook AI integration + production procedures (migration #14) are committed locally on top — push only with owner
-approval.
+`origin/rebuild/v1` = `e07a326` (Animation Studio + Facebook AI, pushed 2026-10-19, owner-authorised). The quality
+gate (identity confirmation, mock-clip guard, attempt cap, export dedupe, music ducking, scenario import, browser
+workflows) is committed locally on top — push only with owner approval. Owner checklist: FLAGSHIP_VIDEO_CHECKLIST.md.
 
 Owner next: (1) provide the flagship scenario (ANIMATION_PIPELINE.md §9 template) and approve the cast characters'
 specs; (2) decide the artwork route (AI front view via the pilot runner, or commissioned art) — artwork must be

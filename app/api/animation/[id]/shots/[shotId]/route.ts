@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let res: { data: unknown; error: { message: string; code?: string } | null };
   if (b.action === 'decide') {
     if (!['keyframe', 'clip'].includes(b.stage as string) || !['approve', 'reject'].includes(b.decision as string)) return json({ error: 'invalid_request' }, 400);
-    res = await callRpc(supabase, 'decide_animation_shot', { p_shot_id: shotId, p_stage: b.stage, p_decision: b.decision, p_note: typeof b.note === 'string' ? b.note.slice(0, 1000) : null });
+    res = await callRpc(supabase, 'decide_animation_shot', { p_shot_id: shotId, p_stage: b.stage, p_decision: b.decision, p_note: typeof b.note === 'string' ? b.note.slice(0, 1000) : null, p_identity_confirmed: b.identity_confirmed === true });
   } else if (b.action === 'frames') {
     res = await callRpc(supabase, 'set_animation_shot_frames', { p_shot_id: shotId, p_first_frame_asset_id: isUuid(b.first_frame_asset_id) ? b.first_frame_asset_id : null, p_last_frame_asset_id: isUuid(b.last_frame_asset_id) ? b.last_frame_asset_id : null });
   } else if (b.action === 'job') {

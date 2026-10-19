@@ -1,6 +1,10 @@
 /** Database messages of the Animation Studio / AI job functions → stable API error codes (shown translated in the UI). */
 const MAP: Array<[RegExp, string, number]> = [
   [/not authorized/i, 'not_authorized', 403],
+  [/confirm the character identity/i, 'identity_not_confirmed', 400],
+  [/mock clips cannot/i, 'mock_clip', 409],
+  [/attempt limit/i, 'attempt_limit', 409],
+  [/too many videos are rendering/i, 'render_busy', 429],
   [/not found/i, 'not_found', 404],
   [/changed in another window/i, 'conflict', 409],
   [/limited to \d+ seconds/i, 'video_too_long', 400],
