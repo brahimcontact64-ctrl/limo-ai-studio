@@ -258,3 +258,10 @@ no hair/text/logo) + the six review boxes; reject on any drift; the image stays 
 **Approval required before the first call:** (a) your written authorisation of the amount (e.g. "front only, ≤ $0.30",
 or "package ≤ $2.70"); (b) account + deposit done by you; (c) the price verified by you on the day; (d) approval of the
 `adam_boy` spec v1 (can follow the front review; needed before the sheets count for animation).
+
+## 16. Owner-approved `adam_boy` design (2026-10-19)
+The owner approved a 3D potato-boy design sheet as the primary visual reference for `adam_boy` (school blazer, red
+striped tie, backpack, large brown eyes, golden speckled skin). It differs from spec v1 (no sprout, many speckles,
+golden skin, large eyes, school outfit, backpack): a versioned **spec v2 for `adam_boy` only** is required before the
+reference package; the package/preview above are v1 and must be rebuilt from v2. Comparison, import path and exact
+next steps: `docs/flagship/ADAM_BOY_DESIGN_REVIEW.md`. No reference file is generated or approved yet.
