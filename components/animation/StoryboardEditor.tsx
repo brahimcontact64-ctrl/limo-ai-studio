@@ -138,7 +138,7 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
     setImportErrors(errors);
     if (!scenario || !scenario.shots.length) return;
     setProject((p) => (p ? { ...p, title: scenario.title || p.title, language_code: scenario.language ?? p.language_code, aspect: scenario.aspect ?? p.aspect, music_note: scenario.music ?? p.music_note } : p));
-    setShots(scenario.shots.map((s) => ({ ...s, key: newKey(), continuity: {}, reference_asset_ids: [], clip_audio: 'keep' as const })));
+    setShots(scenario.shots.map((s) => ({ ...s, key: newKey(), reference_asset_ids: [] })));
     setDirty(true);
     toast(a.importDone, 'success');
   }

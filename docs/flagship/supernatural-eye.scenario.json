@@ -1,0 +1,159 @@
+{
+  "title": "The Supernatural Eye — LIMO AI Studio",
+  "language": "ar",
+  "aspect": "9:16",
+  "music": "Dramatic orchestral sting with low drums for shots 1–3 (family-drama tension); bright modern pulse from shot 4 (product reveal). Own or licensed track only; ducks automatically under speech.",
+  "scenes": [
+    {
+      "number": 1,
+      "durationSeconds": 4,
+      "description": "Luxurious family mansion. The ADAM father stands angrily before his biological son and points at the adopted son standing proudly at his side. The biological son flinches in shock. [CASTING PROPOSED: adopted son = limo_boy, pending owner approval]",
+      "environment": "Opulent mansion hall, marble floor, gold chandelier, tall dark curtains; dramatic low-key lighting, warm key light from the chandelier, cool rim light from the windows; evening.",
+      "characters": [
+        "adam_man",
+        "adam_boy",
+        "limo_boy"
+      ],
+      "actions": {
+        "adam_man": "points sharply at the biological son, leaning forward, angry gesture with the other hand toward the adopted son",
+        "adam_boy": "steps back in shock, eyes wide, hands half raised",
+        "limo_boy": "stands beside the father, chin up, arms crossed, smug half-smile"
+      },
+      "expressions": {
+        "adam_man": "determined",
+        "adam_boy": "surprised",
+        "limo_boy": "neutral"
+      },
+      "camera": "Medium-wide low angle on the father, slow push-in toward the biological son's face.",
+      "dialogue": [
+        {
+          "speaker": "adam_man",
+          "text": "هذاك ربّيناه، بصح نتا ما تسوا والو!",
+          "emotion": "determined"
+        }
+      ],
+      "narration": "",
+      "sound": "Room tone of a large hall, a single dramatic string hit when the father points.",
+      "continuity": {
+        "environmentKey": "mansion_hall",
+        "lighting": "dramatic low-key: warm chandelier key, cool window rim",
+        "timeOfDay": "evening",
+        "notes": "Establishes the family; father wears his gold watch on the left wrist (needed in shot 2)."
+      }
+    },
+    {
+      "number": 2,
+      "durationSeconds": 4,
+      "description": "The biological son's eye glows gold (supernatural effect only; his canonical iris colour returns afterwards). He stares at the father's supposedly luxurious watch in the foreground. A supernatural price overlay reveals the real price. [ON-SCREEN TEXT (render overlay, never in the generated pixels): السعر الحقيقي: 1,200 دج]",
+      "environment": "Same mansion hall and lighting as shot 1 (continuous moment).",
+      "characters": [
+        "adam_boy"
+      ],
+      "actions": {
+        "adam_boy": "his eye lights up gold, he leans toward the watch on the father's wrist in the foreground, then whispers"
+      },
+      "expressions": {
+        "adam_boy": "surprised"
+      },
+      "camera": "Over-the-shoulder from the son to the father's wrist and watch in the foreground (father's face out of frame), rack focus from the glowing eye to the watch.",
+      "dialogue": [
+        {
+          "speaker": "adam_boy",
+          "text": "واش؟! هذي اللي يقول عليها بمليون؟!",
+          "emotion": "surprised"
+        }
+      ],
+      "narration": "",
+      "sound": "Magical shimmer when the eye glows; soft digital 'scan' tick when the price appears.",
+      "continuity": {
+        "continuesFromPrevious": true,
+        "environmentKey": "mansion_hall",
+        "lighting": "dramatic low-key: warm chandelier key, cool window rim",
+        "timeOfDay": "evening",
+        "notes": "Same moment as shot 1; the gold eye glow is an effect only."
+      }
+    },
+    {
+      "number": 3,
+      "durationSeconds": 4,
+      "description": "Close-up of the biological son. He turns to look straight into the camera with a knowing, determined look. Dramatic impact, freeze frame, transition to the LIMO reveal.",
+      "environment": "Same mansion, background softly blurred; the gold glow fades from his eye.",
+      "characters": [
+        "adam_boy"
+      ],
+      "actions": {
+        "adam_boy": "turns his head to the camera, raises one eyebrow, slight confident smile, freezes on the last syllable"
+      },
+      "expressions": {
+        "adam_boy": "determined"
+      },
+      "camera": "Close-up, slow push-in, ends on a freeze frame.",
+      "dialogue": [
+        {
+          "speaker": "adam_boy",
+          "text": "استنّى… نقدر نشوف حتى واش راه مخبّي!",
+          "emotion": "determined"
+        }
+      ],
+      "narration": "",
+      "sound": "Deep dramatic impact boom on the freeze frame, then a whoosh transition.",
+      "continuity": {
+        "continuesFromPrevious": true,
+        "environmentKey": "mansion_hall",
+        "lighting": "dramatic low-key: warm chandelier key, cool window rim",
+        "timeOfDay": "evening",
+        "notes": "Ends on a freeze frame that becomes the first frame of the shot 4 transition."
+      }
+    },
+    {
+      "number": 4,
+      "durationSeconds": 6,
+      "description": "Reveal LIMO AI Studio: the freeze frame shrinks into the Animation Studio storyboard on a phone screen, then the genuine LIMO logo and wordmark appear. [MEDIA: real LIMO screen capture + approved logo, no AI-generated UI]",
+      "environment": "Clean lavender/white LIMO brand background (approved design colours).",
+      "characters": [],
+      "camera": "Pull back from the freeze frame into the phone screen, gentle tilt.",
+      "dialogue": [],
+      "narration": "عجبتك القصة؟ تقدر تصنع كيفها بـLIMO AI!",
+      "sound": "Bright modern music starts; soft UI click.",
+      "continuity": {
+        "environmentKey": "limo_brand",
+        "lighting": "clean soft studio light, lavender/white brand palette",
+        "notes": "Product part: real LIMO screen captures and the approved logo — not AI-generated."
+      }
+    },
+    {
+      "number": 5,
+      "durationSeconds": 8,
+      "description": "Accurate previews of LIMO's real capabilities, captured from the real app: AI video creation workflow (storyboard, shot approval, MP4 export), Facebook post composer with AI caption proposals and Image Studio, content calendar and scheduling, language switcher AR / FR / EN / DE. [ACCURACY: AI generation is shown as built and awaiting provider activation; Facebook shows scheduling with simulated publishing; live auto-publishing is NOT shown as available — optional on-screen note: النشر التلقائي على فيسبوك: قريبًا]",
+      "environment": "LIMO interface on a phone and a laptop, approved lavender/purple design.",
+      "characters": [],
+      "camera": "Quick, smooth cuts between four real screens, each about 2 seconds.",
+      "dialogue": [],
+      "narration": "فيديوهات، بوستات، وجدولة لصفحتك… بأربع لغات!",
+      "sound": "Music continues; light whoosh on each cut.",
+      "continuity": {
+        "continuesFromPrevious": true,
+        "environmentKey": "limo_brand",
+        "lighting": "clean soft studio light, lavender/white brand palette",
+        "notes": "Each feature preview must match the real app state (see accuracy note)."
+      }
+    },
+    {
+      "number": 6,
+      "durationSeconds": 4,
+      "description": "Premium LIMO logo reveal. [ON-SCREEN TEXT (render overlay): اصنع. برمج. انشر.]",
+      "environment": "LIMO brand background with a soft glow.",
+      "characters": [],
+      "camera": "Static, subtle scale-up of the logo.",
+      "dialogue": [],
+      "narration": "LIMO AI… خيالك، يخدم وحدو!",
+      "sound": "Final musical hit synchronised with the logo; music ends cleanly at 30 s.",
+      "continuity": {
+        "continuesFromPrevious": true,
+        "environmentKey": "limo_brand",
+        "lighting": "clean soft studio light with a gentle glow on the logo",
+        "notes": "Music ends exactly at 30 s."
+      }
+    }
+  ]
+}

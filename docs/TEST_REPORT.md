@@ -2,6 +2,15 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — Flagship #1 pre-production ("The Supernatural Eye"), branch `rebuild/v1`
+- Owner scenario saved as a draft storyboard through the real database functions (local replica, workspace A,
+  project `b8b9ddd3-…`): 6 shots, 30 s, all `draft`, continuity metadata on every shot, no AI job, nothing approved.
+  Validator: no errors; warnings = multi-character shot 1 and Darija native-audio caveat; readiness blockers = no
+  approved spec/references/voices for the cast.
+- Code: optional continuity + clip sound in the scenario import; `scripts/import-animation-scenario.ts` (local only).
+  Unit **186/186**; typecheck app + worker clean; `next build` compiles; browser (desktop) `animation-flow` and
+  `animation-studio` specs **2/2** passed after the change. Nothing generated, no provider call, no spending.
+
 ## 2026-10-19 — Quality gate before the first flagship video, branch `rebuild/v1`
 Environment: local replica (migrations #12–#14 local only; #14 amended), production build on :3200, render worker +
 publisher for the browser suite, generator in mock mode. **No paid or live provider call, no real Facebook call.**

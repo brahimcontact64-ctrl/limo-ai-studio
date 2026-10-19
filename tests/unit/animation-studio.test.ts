@@ -201,3 +201,13 @@ test('continuity: a character keeps its references across consecutive shots; lig
   assert.ok(issues.includes('lighting_changed'));
   assert.deepEqual(continuityIssues([shot(1, { reference_asset_ids: ['r1'] }), shot(2, { reference_asset_ids: ['r1'] })], owner).map((i) => i.code).filter((c) => c === 'character_reference_changed'), []);
 });
+
+test('scenario import carries optional continuity metadata and clip sound (never on the first shot\'s "previous")', () => {
+  const r = parseScenarioJson(JSON.stringify({ scenes: [
+    { durationSeconds: 4, continuity: { continuesFromPrevious: true, environmentKey: 'hall', lighting: 'warm' } },
+    { durationSeconds: 4, clipAudio: 'mute', continuity: { continuesFromPrevious: true, usePreviousLastFrame: true, environmentKey: 'hall', notes: 'same moment' } },
+  ] }));
+  assert.deepEqual(r.scenario!.shots[0]!.continuity, { environment_key: 'hall', lighting: 'warm' }, 'shot 1 has no previous shot');
+  assert.deepEqual(r.scenario!.shots[1]!.continuity, { continues_from_previous: true, use_previous_last_frame: true, environment_key: 'hall', notes: 'same moment' });
+  assert.equal(r.scenario!.shots[1]!.clip_audio, 'mute');
+});

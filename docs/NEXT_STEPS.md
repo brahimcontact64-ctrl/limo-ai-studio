@@ -5,6 +5,8 @@
 gate (identity confirmation, mock-clip guard, attempt cap, export dedupe, music ducking, scenario import, browser
 workflows) is committed locally on top — push only with owner approval. Owner checklist: FLAGSHIP_VIDEO_CHECKLIST.md.
 
+**Flagship #1 "The Supernatural Eye" is in pre-production** (docs/flagship/SUPERNATURAL_EYE.md): draft storyboard saved in Animation Studio (local), artwork prompts ready, timing/casting/accuracy decisions and the artwork + 4 s test budget waiting for owner approval (§11). Nothing generated or spent.
+
 Owner next: (1) provide the flagship scenario (ANIMATION_PIPELINE.md §9 template) and approve the cast characters'
 specs; (2) decide the artwork route (AI front view via the pilot runner, or commissioned art) — artwork must be
 approved before animation; (3) choose voices per speaking character; (4) approve the controlled real-generation test

@@ -5,6 +5,7 @@
  */
 import { EXPRESSION_KEYS, type ExpressionKey } from '../characters/canon.ts';
 import type { DialogueLine } from './scenario.ts';
+import type { Continuity } from './storyboard.ts';
 
 export interface ImportedShot {
   duration_seconds: 4 | 6 | 8;
@@ -17,6 +18,9 @@ export interface ImportedShot {
   dialogue: DialogueLine[];
   narration: string;
   sound: string;
+  /** Optional continuity metadata (same keys as the editor). */
+  continuity: Continuity;
+  clip_audio: 'keep' | 'mute';
 }
 export interface ImportedScenario {
   title?: string;
@@ -28,6 +32,18 @@ export interface ImportedScenario {
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 const isExpr = (v: unknown): v is ExpressionKey => typeof v === 'string' && (EXPRESSION_KEYS as readonly string[]).includes(v);
+
+function continuityOf(v: unknown, hasPrevious: boolean): Continuity {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const c = v as Record<string, unknown>;
+  const out: Continuity = {};
+  if (hasPrevious && c.continuesFromPrevious === true) out.continues_from_previous = true;
+  if (hasPrevious && c.usePreviousLastFrame === true) out.use_previous_last_frame = true;
+  for (const [k, key] of [['environmentKey', 'environment_key'], ['lighting', 'lighting'], ['timeOfDay', 'time_of_day'], ['notes', 'notes']] as const) {
+    if (typeof c[k] === 'string' && (c[k] as string).trim()) out[key] = (c[k] as string).slice(0, k === 'notes' ? 300 : 120);
+  }
+  return out;
+}
 
 export function parseScenarioJson(text: string): { scenario: ImportedScenario | null; errors: string[] } {
   let raw: unknown;
@@ -62,6 +78,8 @@ export function parseScenarioJson(text: string): { scenario: ImportedScenario | 
       duration_seconds: ([4, 6, 8].includes(d) ? d : 8) as 4 | 6 | 8,
       description: str(x.description, 2000), environment: str(x.environment, 1000), camera: str(x.camera, 500),
       characters, actions, expressions, dialogue, narration: str(x.narration, 1000), sound: str(x.sound, 500),
+      continuity: continuityOf(x.continuity, n > 1),
+      clip_audio: x.clipAudio === 'mute' || x.clip_audio === 'mute' ? 'mute' : 'keep',
     });
   });
   const total = shots.reduce((a, s) => a + s.duration_seconds, 0);
