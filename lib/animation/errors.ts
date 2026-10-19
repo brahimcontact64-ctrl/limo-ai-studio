@@ -1,6 +1,11 @@
 /** Database messages of the Animation Studio / AI job functions → stable API error codes (shown translated in the UI). */
 const MAP: Array<[RegExp, string, number]> = [
   [/not authorized/i, 'not_authorized', 403],
+  [/media must be|larger than 100 MB|mock files cannot/i, 'media_invalid', 400],
+  [/does not use your own media/i, 'media_invalid', 400],
+  [/overlay|at most 5 text overlays/i, 'overlay_invalid', 400],
+  [/freeze frame/i, 'freeze_invalid', 400],
+  [/invalid transition/i, 'invalid_request', 400],
   [/confirm the character identity/i, 'identity_not_confirmed', 400],
   [/mock clips cannot/i, 'mock_clip', 409],
   [/attempt limit/i, 'attempt_limit', 409],

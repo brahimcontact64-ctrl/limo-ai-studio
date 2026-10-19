@@ -21,6 +21,7 @@ const ff = (...args: string[]) => execFileSync(FFMPEG, ['-hide_banner', '-loglev
 const RED = join(work, 'red.png');
 const BLUE = join(work, 'blue.jpg');
 const CLIP = join(work, 'clip.mp4');
+const MOVING = join(work, 'moving.mp4');
 const VOICE = join(work, 'voice.wav');
 const MUSIC = join(work, 'music.mp3');
 const LOGO = join(work, 'logo.png');
@@ -28,11 +29,12 @@ ff('-f', 'lavfi', '-i', 'color=c=0xd02020:s=800x600', '-frames:v', '1', RED);
 ff('-f', 'lavfi', '-i', 'color=c=0x2040d0:s=1200x900', '-frames:v', '1', BLUE);
 ff('-f', 'lavfi', '-i', 'color=c=0x20b040:s=640x360:r=25', '-f', 'lavfi', '-i', 'sine=f=330:d=2', '-t', '2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', CLIP);
 ff('-f', 'lavfi', '-i', 'sine=f=440:d=2.5', '-ar', '48000', VOICE);
+ff('-f', 'lavfi', '-i', 'testsrc2=s=640x360:r=24:d=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', MOVING);
 ff('-f', 'lavfi', '-i', 'sine=f=220:d=4', '-c:a', 'libmp3lame', MUSIC);
 ff('-f', 'lavfi', '-i', 'color=c=white:s=200x200', '-frames:v', '1', LOGO);
 
 const media = (id: string, path: string, type: SpecMedia['media_type'], mime: string): SpecMedia => ({ asset_id: id, path, media_type: type, mime, width: null, height: null, duration_ms: null });
-const files: Record<string, string> = { a: RED, b: CLIP, c: BLUE, v: VOICE, m: MUSIC, l: LOGO };
+const files: Record<string, string> = { a: RED, b: CLIP, c: BLUE, v: VOICE, m: MUSIC, l: LOGO, mv: MOVING };
 const fetchMedia = async (m: SpecMedia, dest: string) => {
   copyFileSync(files[m.asset_id]!, dest);
   return dest;
@@ -172,6 +174,41 @@ test('music ducks automatically under a voice line (about −9 dB); full level b
   assert.ok(before - during > 6 && before - during < 12, `music ${before} dB before, ${during} dB under the voice`);
   assert.ok(voice > during, `voice (${voice} dB) is above the ducked music`);
   results.push(`ducking: music ${before} dB → ${during} dB under the voice (${voice} dB)`);
+});
+
+/** Small raw RGB sample of the whole frame at time t (for "is this frame the same as that one"). */
+function frameBytes(file: string, t: number): Buffer {
+  return execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', file, '-frames:v', '1', '-vf', 'scale=32:56', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
+}
+const diff = (a: Buffer, b: Buffer) => a.reduce((s, v, i) => s + Math.abs(v - b[i]!), 0) / a.length;
+function centre(file: string, t: number, w: number, h: number): [number, number, number] {
+  const raw = execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', file, '-frames:v', '1', '-vf', `crop=${Math.round(w * 0.06)}:${Math.round(h * 0.02)}:${Math.round(w * 0.1)}:${Math.round(h * 0.49)},scale=1:1`, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
+  return [raw[0]!, raw[1]!, raw[2]!];
+}
+
+test('animation post-production: freeze frame holds the last frame, a timed Arabic price overlay shows only in its window, fade transition', async () => {
+  const base = { on_screen_text: '', narration: '', dialogue: '', audio: null, fit: 'cover' as const, show_text: false, participants: [] };
+  const s = spec('9:16', { music: null, logo: null, subtitles: 'off', fps: 24, transition_seconds: 0.5, scenes: [
+    { ...base, scene_number: 1, title: 'Moving', duration_ms: 4000, start_ms: 0, transition: 'fade' as const, visual: media('mv', 'mv', 'video', 'video/mp4'), freeze_ms: 1000 },
+    { ...base, scene_number: 2, title: 'Price', duration_ms: 4000, start_ms: 4000, transition: 'cut' as const, visual: media('c', 'c', 'image', 'image/jpeg'),
+      overlays: [{ text: 'السعر الحقيقي: 1,200 دج', start_ms: 1000, end_ms: 3000, position: 'center' as const, size: 'large' as const, style: 'price' as const }] },
+  ] });
+  const out = await renderSpec(s, join(work, 'post'), fetchMedia, () => {}, new AbortController().signal, { stepTimeoutMs: 120_000, maxInputBytes: 1e8 });
+  assert.ok(Math.abs(out.probe.duration - 8) < 0.25, `duration ${out.probe.duration}`);
+  const moving = diff(frameBytes(out.file, 0.5), frameBytes(out.file, 1.5));
+  const frozen = diff(frameBytes(out.file, 3.1), frameBytes(out.file, 3.6));
+  assert.ok(moving > 2, `the clip moves before the freeze (${moving.toFixed(2)})`);
+  assert.ok(frozen < 0.5, `the last frame is held during the freeze (${frozen.toFixed(2)})`);
+  const [r, g, b] = centre(out.file, 6.0, s.width, s.height);
+  assert.ok(r > 180 && g > 130 && b < 110, `gold price tag inside its window (${r},${g},${b})`);
+  assert.equal(dominant(centre(out.file, 7.6, s.width, s.height)), 'blue', 'no overlay after its window');
+  assert.equal(dominant(centre(out.file, 4.6, s.width, s.height)), 'blue', 'no overlay before its window');
+  if (keep) {
+    mkdirSync(keep, { recursive: true });
+    copyFileSync(out.file, join(keep, 'post-production.mp4'));
+    execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-y', '-ss', '6', '-i', out.file, '-frames:v', '1', join(keep, 'price-overlay.png')]);
+  }
+  results.push(`post-production: moving ${moving.toFixed(1)}, frozen ${frozen.toFixed(2)}, price tag (${r},${g},${b})`);
 });
 
 test.after(() => {

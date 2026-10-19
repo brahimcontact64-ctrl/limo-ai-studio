@@ -7,6 +7,7 @@ DB="${1:?local database container name}"
 DIR="$(cd "$(dirname "$0")/../../supabase/rollback" && pwd)"
 {
   echo "begin;"
+  cat "$DIR/20261019150000_down.sql"
   cat "$DIR/20261019090000_down.sql"
   cat "$DIR/20261018150000_down.sql"
   cat "$DIR/20261018120000_down.sql"

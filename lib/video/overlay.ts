@@ -1,6 +1,6 @@
 import { fontString, isRtl, wrapText, type Ctx2D } from '../images/render.ts';
 import type { ImageDoc, Layer, TextLayer } from '../images/types.ts';
-import type { RenderSpec, SpecScene } from './types.ts';
+import type { RenderSpec, SpecScene, TimedOverlay } from './types.ts';
 
 /**
  * Per-scene overlay drawn with the Image Studio renderer and composited over the scene by FFmpeg:
@@ -73,4 +73,23 @@ export function sceneOverlay(spec: RenderSpec, scene: SpecScene, ctx: Pick<Ctx2D
     layers.push({ id: 'logo', name: 'logo', type: 'image', x: W - m - lw, y: m, w: lw, h: lw, rotation: 0, opacity: 1, visible: true, locked: false, asset_id: spec.logo.asset_id, fit: 'contain', crop: null, radius: 0, role: 'logo' });
   }
   return { version: 1, width: W, height: H, background, layers, meta: { generator: 'video-overlay-v1' } };
+}
+
+/** Styles of timed overlays: plain caption, a gold "price tag", a large centred tagline. */
+const OVERLAY_STYLE: Record<TimedOverlay['style'], Partial<TextLayer>> = {
+  plain: { background: 'rgba(24,20,33,0.72)', color: '#ffffff' },
+  price: { background: 'rgba(240,182,34,0.95)', color: '#1a1424', weight: 900 },
+  tagline: { background: null, color: '#ffffff', weight: 900 },
+};
+
+/** One timed overlay as a transparent full-frame layer (composited by FFmpeg only inside its time window). */
+export function timedOverlay(spec: Pick<RenderSpec, 'width' | 'height'>, o: TimedOverlay, ctx: Pick<Ctx2D, 'measureText' | 'font'>, fonts: OverlayFonts = DEFAULT_FONTS): ImageDoc {
+  const W = spec.width;
+  const H = spec.height;
+  const unit = Math.min(W, H);
+  const m = Math.round(unit * 0.06);
+  const size = Math.round(unit * (o.style === 'tagline' ? TEXT_SIZE.large * 1.15 : TEXT_SIZE[o.size]));
+  const l = fitHeight(ctx, textLayer(fonts, 'overlay', o.text, m, 0, W - m * 2, size, OVERLAY_STYLE[o.style]));
+  l.y = o.position === 'top' ? m + Math.round(unit * 0.08) : o.position === 'center' ? Math.round((H - l.h) / 2) : H - m - l.h - Math.round(unit * 0.08);
+  return { version: 1, width: W, height: H, background: { kind: 'color', color: CLEAR }, layers: [l], meta: { generator: 'video-timed-overlay-v1' } };
 }

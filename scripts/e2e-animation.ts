@@ -203,6 +203,47 @@ async function body(A: Session, B: Session, fixture: { character?: string; refs:
   check('exporting the identical video again returns the finished MP4 without a second credit', again.data?.duplicate === true && again.data?.id === exp.data?.id && afterAgain === after, [again.error?.message, again.data, after, afterAgain]);
   check('export: the render worker produces a real 8 s MP4 from the approved clip with its sound and the voice layers; one credit', job?.status === 'completed' && job?.charge_state === 'consumed' && Math.abs(duration - 8) <= 0.25 && (job?.spec?.scenes?.[0]?.audio_layers ?? []).length === 2 && vol.clip > -50 && vol.voice > -50 && after === before + 1, [exp.error?.message, job?.status, job?.error_code, job?.charge_state, duration, vol, before, after]);
 
+  // ---- owner media + post-production (screen recording, logo, timed Arabic text, freeze) ---------------------------
+  const ownVideo = join(work, 'own.mp4');
+  ff('-f', 'lavfi', '-i', 'testsrc2=s=720x1280:r=24:d=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', ownVideo);
+  const ownLogo = join(work, 'own.png');
+  ff('-f', 'lavfi', '-i', 'color=c=0x7157ef:s=1080x1920', '-frames:v', '1', ownLogo);
+  const upload = async (file: string, mime: string, kind: string) => {
+    const path = `${A.orgId}/${crypto.randomUUID()}.${file.endsWith('.png') ? 'png' : 'mp4'}`;
+    await A.client.storage.from('workspace-assets').upload(path, readFileSync(file), { contentType: mime });
+    const reg = await A.rpc('register_media_asset', { p_organization_id: A.orgId, p_object_path: path, p_kind: kind, p_mime_type: mime, p_size_bytes: readFileSync(file).length, p_file_name: file.split(/[\/]/).pop(), p_width: null, p_height: null, p_duration_ms: kind === 'video' ? 4000 : null, p_label: 'e2e own media' });
+    return reg.data as string;
+  };
+  const vidId = await upload(ownVideo, 'video/mp4', 'video');
+  const logoId = await upload(ownLogo, 'image/png', 'logo');
+  const mp = (await A.rpc('save_animation_project', { p_organization_id: A.orgId, p_project_id: null, p_title: 'E2E own media', p_language: 'ar', p_aspect: '9:16', p_music_asset_id: null, p_music_note: '', p_settings: {} })).data as string;
+  fixture.projects.push(mp);
+  await A.rpc('save_animation_shots', { p_project_id: mp, p_expected_revision: null, p_shots: [
+    { duration_seconds: 4, description: '[capture]', environment: '[brand]', characters: [], freeze_ms: 1000, transition_out: 'cut' },
+    { duration_seconds: 4, description: '[logo]', environment: '[brand]', characters: [], overlays: [{ text: 'اصنع. برمج. انشر.', start_ms: 1000, end_ms: 4000, position: 'bottom', size: 'large', style: 'tagline' }] },
+  ] });
+  const ownShots = ((await A.db('animation_shots').select('id, shot_number').eq('project_id', mp).order('shot_number')).data ?? []) as Array<{ id: string }>;
+  const bMedia = await B.rpc('set_animation_shot_media', { p_shot_id: ownShots[0]!.id, p_asset_id: vidId });
+  const m1 = await A.rpc('set_animation_shot_media', { p_shot_id: ownShots[0]!.id, p_asset_id: vidId });
+  const m2 = await A.rpc('set_animation_shot_media', { p_shot_id: ownShots[1]!.id, p_asset_id: logoId });
+  check('owner media: a screen recording and a logo become shot media (review, not approved); other workspaces are refused', !!bMedia.error && m1.data?.status === 'clip_review' && m2.data?.status === 'clip_review', [bMedia.error?.message, m1.error?.message, m2.error?.message]);
+  for (const sh of ownShots) await A.rpc('decide_animation_shot', { p_shot_id: sh.id, p_stage: 'clip', p_decision: 'approve', p_note: null, p_identity_confirmed: false });
+  const exp2 = await A.rpc('enqueue_animation_render', { p_project_id: mp, p_idempotency_key: key('own-export'), p_resolution: 480, p_quality: 'draft' });
+  await renderWorker();
+  const job2 = exp2.data?.id ? (await A.db('render_jobs').select('status, output_object_path, error_code').eq('id', exp2.data.id).single()).data : null;
+  let own = { duration: 0, frozen: 999, moving: 0, textNow: 0, textBefore: 0 };
+  if (job2?.status === 'completed') {
+    const s = await A.client.storage.from('workspace-assets').createSignedUrl(job2.output_object_path, 60);
+    const f = join(work, 'own-out.mp4');
+    writeFileSync(f, Buffer.from(await (await fetch(s.data!.signedUrl)).arrayBuffer()));
+    const frame = (t: number, vf = 'scale=32:56') => execFileSync(FFMPEG, ['-hide_banner', '-loglevel', 'error', '-ss', String(t), '-i', f, '-frames:v', '1', '-vf', vf, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-']);
+    const diff = (a: Buffer, b: Buffer) => a.reduce((x, v, i) => x + Math.abs(v - b[i]!), 0) / a.length;
+    // Share of near-white pixels (the tagline text) in the lower band; the purple logo background has none.
+    const band = (t: number) => { const px = frame(t, 'crop=iw:ih*0.25:0:ih*0.7,scale=64:32'); let w = 0; for (let i = 0; i < px.length; i += 3) if (px[i]! > 220 && px[i + 1]! > 220 && px[i + 2]! > 220) w++; return w / (px.length / 3); };
+    own = { duration: Number(JSON.parse(execFileSync(FFPROBE, ['-v', 'error', '-print_format', 'json', '-show_format', f]).toString()).format.duration), moving: diff(frame(0.5), frame(1.8)), frozen: diff(frame(3.2), frame(3.8)), textNow: band(6.5), textBefore: band(4.5) };
+  }
+  check('owner-media export: real 8 s MP4, the recording moves then freezes, the Arabic tagline appears only in its window', job2?.status === 'completed' && Math.abs(own.duration - 8) <= 0.25 && own.moving > 2 && own.frozen < 0.5 && own.textNow > 0.01 && own.textBefore === 0, [job2?.status, job2?.error_code, own]);
+
   // ---- Facebook Content Studio AI jobs ---------------------------------------------------------------------------
   const cap = await A.rpc('request_social_ai_job', { p_organization_id: A.orgId, p_kind: 'social_caption', p_input: { language: 'fr', prompt: 'Nouveau menu du midi', business_type: 'restaurant', facts: { business_name: 'Chez E2E', price: '1200 DA' } }, p_request_key: key('cap'), p_confirmed_cents: 0 });
   const rw = await A.rpc('request_social_ai_job', { p_organization_id: A.orgId, p_kind: 'social_rewrite', p_input: { language: 'fr', text: 'Venez goûter notre couscous.', mode: 'translate', target_language: 'ar' }, p_request_key: key('rw'), p_confirmed_cents: 0 });

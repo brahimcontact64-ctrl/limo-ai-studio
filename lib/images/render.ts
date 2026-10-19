@@ -46,6 +46,25 @@ export function fontString(l: Pick<TextLayer, 'italic' | 'weight' | 'size' | 'fo
   return `${l.italic ? 'italic ' : ''}${l.weight} ${l.size}px "${l.font}", Arial, sans-serif`;
 }
 
+const LETTER_LTR = /[A-Za-z0-9À-ɏ]/;
+
+/**
+ * Visual runs (left to right) of one right-to-left line, for canvases without paragraph bidi (the server canvas picks
+ * the direction from the first strong character and ignores ctx.direction). Words with Arabic/Hebrew letters and
+ * neutral words form RTL runs; words with Latin letters or digits form LTR runs; runs are laid out right to left.
+ * Each RTL run is still shaped and ordered by the canvas itself (it starts with a strong RTL letter).
+ */
+export function rtlVisualRuns(line: string): Array<{ text: string; rtl: boolean }> {
+  const runs: Array<{ text: string; rtl: boolean }> = [];
+  for (const word of line.split(' ').filter((w) => w.length)) {
+    const rtl = isRtl(word) || !LETTER_LTR.test(word);
+    const last = runs[runs.length - 1];
+    if (last && last.rtl === rtl) last.text += ` ${word}`;
+    else runs.push({ text: word, rtl });
+  }
+  return runs.reverse();
+}
+
 /** Splits text into lines that fit maxWidth (explicit newlines kept; very long words broken by character). */
 export function wrapText(ctx: Pick<Ctx2D, 'measureText'>, text: string, maxWidth: number): string[] {
   const out: string[] = [];
@@ -89,7 +108,27 @@ function roundRectPath(ctx: Ctx2D, x: number, y: number, w: number, h: number, r
   ctx.closePath();
 }
 
-function drawLayer(ctx: Ctx2D, l: Layer, images: ReadonlyMap<string, LoadedImage>) {
+/** Draws one RTL line run by run (visual order) so mixed Arabic/Latin/number lines read correctly everywhere. */
+function drawRtlLine(ctx: Ctx2D, line: string, x: number, y: number, align: string) {
+  const runs = rtlVisualRuns(line);
+  const space = ctx.measureText(' ').width;
+  const widths = runs.map((r) => ctx.measureText(r.text).width);
+  const total = widths.reduce((a, w) => a + w, 0) + space * Math.max(0, runs.length - 1);
+  let left = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  ctx.textAlign = 'left';
+  runs.forEach((r, i) => {
+    ctx.direction = r.rtl ? 'rtl' : 'ltr';
+    ctx.fillText(r.text, left, y);
+    left += widths[i]! + space;
+  });
+}
+
+export interface RenderOptions {
+  /** Lay out right-to-left lines run by run (server canvas without paragraph bidi). Browsers do not need it. */
+  manualBidi?: boolean;
+}
+
+function drawLayer(ctx: Ctx2D, l: Layer, images: ReadonlyMap<string, LoadedImage>, opts: RenderOptions = {}) {
   ctx.save();
   ctx.globalAlpha = l.opacity;
   if (l.rotation) {
@@ -139,7 +178,8 @@ function drawLayer(ctx: Ctx2D, l: Layer, images: ReadonlyMap<string, LoadedImage
     ctx.textAlign = align;
     const x = align === 'center' ? l.x + l.w / 2 : align === 'left' ? l.x + l.padding : l.x + l.w - l.padding;
     for (const line of lines) {
-      ctx.fillText(line, x, y + (lh - l.size) / 2);
+      if (rtl && opts.manualBidi) drawRtlLine(ctx, line, x, y + (lh - l.size) / 2, align);
+      else ctx.fillText(line, x, y + (lh - l.size) / 2);
       y += lh;
     }
   }
@@ -147,7 +187,7 @@ function drawLayer(ctx: Ctx2D, l: Layer, images: ReadonlyMap<string, LoadedImage
 }
 
 /** Draws the whole document at `scale` (1 = document pixels). */
-export function renderDoc(ctx: Ctx2D, doc: ImageDoc, images: ReadonlyMap<string, LoadedImage>, scale = 1) {
+export function renderDoc(ctx: Ctx2D, doc: ImageDoc, images: ReadonlyMap<string, LoadedImage>, scale = 1, opts: RenderOptions = {}) {
   ctx.save();
   ctx.scale(scale, scale);
   if (doc.background.kind === 'gradient') {
@@ -161,6 +201,6 @@ export function renderDoc(ctx: Ctx2D, doc: ImageDoc, images: ReadonlyMap<string,
     ctx.fillStyle = g;
   } else ctx.fillStyle = doc.background.color;
   ctx.fillRect(0, 0, doc.width, doc.height);
-  for (const l of doc.layers) if (l.visible) drawLayer(ctx, l, images);
+  for (const l of doc.layers) if (l.visible) drawLayer(ctx, l, images, opts);
   ctx.restore();
 }

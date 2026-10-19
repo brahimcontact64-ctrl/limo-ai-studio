@@ -211,3 +211,26 @@ test('scenario import carries optional continuity metadata and clip sound (never
   assert.deepEqual(r.scenario!.shots[1]!.continuity, { continues_from_previous: true, use_previous_last_frame: true, environment_key: 'hall', notes: 'same moment' });
   assert.equal(r.scenario!.shots[1]!.clip_audio, 'mute');
 });
+
+import { rtlVisualRuns } from '../../lib/images/render.ts';
+test('server-canvas bidi: RTL lines are laid out run by run (numbers and Latin keep their place in Arabic text)', () => {
+  assert.deepEqual(rtlVisualRuns('1,200 دج'), [{ text: 'دج', rtl: true }, { text: '1,200', rtl: false }]);
+  assert.deepEqual(rtlVisualRuns('LIMO AI… خيالك، يخدم وحدو!'), [{ text: 'خيالك، يخدم وحدو!', rtl: true }, { text: 'LIMO AI…', rtl: false }]);
+  assert.deepEqual(rtlVisualRuns('السعر الحقيقي: 1,200 دج'), [{ text: 'دج', rtl: true }, { text: '1,200', rtl: false }, { text: 'السعر الحقيقي:', rtl: true }]);
+  assert.deepEqual(rtlVisualRuns('اصنع. برمج. انشر.'), [{ text: 'اصنع. برمج. انشر.', rtl: true }]);
+});
+
+import { ADAM_MAN_FORMAL_ANGRY, variantPrompt } from '../../lib/characters/variants.ts';
+import { canonFor, EXPRESSION_KEYS } from '../../lib/characters/canon.ts';
+test('father variant is proposed only and never changes the canonical spec', () => {
+  assert.equal(ADAM_MAN_FORMAL_ANGRY.status, 'proposed');
+  const spec = canonFor('adam_man')!;
+  assert.deepEqual(spec.outfits.map((o) => o.key), ['everyday', 'special'], 'canonical outfits unchanged');
+  assert.ok(!(EXPRESSION_KEYS as readonly string[]).includes('angry'), 'canonical expressions unchanged');
+  const front = variantPrompt(ADAM_MAN_FORMAL_ANGRY, { view: 'front' });
+  assert.match(front, /ADAM adult man/);
+  assert.match(front, /charcoal three-piece suit/);
+  assert.match(front, /scene variant "angry"/);
+  assert.match(front, /#C99A62/);
+  assert.match(variantPrompt(ADAM_MAN_FORMAL_ANGRY, { view: 'side' }), /Neutral expression/);
+});

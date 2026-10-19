@@ -151,18 +151,27 @@ test('Animation Studio end to end (mock): import → references → keyframe →
     await shot.getByTestId('approve').click();
     await expect(shot.getByTestId('shot-status')).toHaveText('Approved');
 
-    // Shot 2 (no character): no identity confirmation needed.
+    // Shot 2 (no character): the owner's own media from the library (e.g. a screen recording) + a timed Arabic text.
+    const ownPath = `${orgId}/${crypto.randomUUID()}.mp4`;
+    await admin.storage.from('workspace-assets').upload(ownPath, readFileSync(mp4), { contentType: 'video/mp4' });
+    await A_('media_assets').insert({ organization_id: orgId, bucket_id: 'workspace-assets', object_path: ownPath, media_type: 'video', source: 'uploaded', kind: 'video', mime_type: 'video/mp4', size_bytes: readFileSync(mp4).length, duration_ms: 8000, file_name: 'limo-screen-capture.mp4', label: 'limo-screen-capture.mp4' });
     let s2 = page.getByTestId('shot-2');
-    await s2.getByTestId('req-keyframe').click();
-    await runGenerator();
+    await s2.getByTestId('shot-post').locator('summary').click();
+    await s2.getByTestId('add-overlay').click();
+    await s2.getByTestId('shot-overlay').getByRole('textbox', { name: 'Text', exact: true }).fill('اصنع. برمج. انشر.');
+    await expect(s2.getByTestId('shot-transition')).toBeDisabled(); // last shot: no transition after it
+    await page.getByTestId('anim-save').click();
+    await expect(page.getByText('Storyboard saved.')).toBeVisible();
     s2 = await reloadShot(page, 2);
+    await s2.getByTestId('use-own-media').click();
+    const picker = page.getByRole('dialog', { name: 'Add from library' });
+    await picker.getByRole('button', { name: /limo-screen-capture/ }).click();
+    await picker.getByRole('button', { name: 'Done' }).click();
+    await expect(page.getByText('Media added. Review it, then approve.')).toBeVisible();
+    s2 = await reloadShot(page, 2);
+    await expect(s2.getByTestId('owner-media')).toContainText('Your media');
+    await expect(s2.getByTestId('clip-kind')).toHaveText('Your media');
     await expect(s2.getByTestId('identity-confirm')).toHaveCount(0);
-    await s2.getByTestId('approve').click();
-    await expect(s2.getByTestId('shot-status')).toHaveText('Keyframe approved');
-    await s2.getByTestId('req-clip').click();
-    await expect(page.getByText('Request sent.')).toBeVisible();
-    await fixtureClip(6);
-    s2 = await reloadShot(page, 2);
     await s2.getByTestId('approve').click();
     await expect(s2.getByTestId('shot-status')).toHaveText('Approved');
 

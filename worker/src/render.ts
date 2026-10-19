@@ -2,8 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createCanvas, GlobalFonts, loadImage } from '@napi-rs/canvas';
 import { renderDoc, type Ctx2D, type LoadedImage } from '../../lib/images/render.ts';
-import { assemblyGraph, duckFilter, fitFilter, musicLoops, planRender, QUALITY_PRESET, segmentAudioGraph, speechWindows } from '../../lib/video/plan.ts';
-import { sceneOverlay, type OverlayFonts } from '../../lib/video/overlay.ts';
+import { assemblyGraph, duckFilter, fitFilter, musicLoops, planRender, QUALITY_PRESET, segmentAudioGraph, segmentVideoGraph, speechWindows } from '../../lib/video/plan.ts';
+import { sceneOverlay, timedOverlay, type OverlayFonts } from '../../lib/video/overlay.ts';
 import type { RenderSpec, SpecMedia } from '../../lib/video/types.ts';
 import { checkSpecDuration } from '../../lib/video/policy.ts';
 import { probe, RenderError, runFfmpeg, type ProbeResult } from './ffmpeg.ts';
@@ -69,10 +69,24 @@ export async function renderSpec(spec: RenderSpec, dir: string, fetchMedia: Fetc
   for (const scene of spec.scenes) {
     ctx.clearRect(0, 0, W, H);
     const doc = sceneOverlay(spec, scene, ctx as unknown as Ctx2D, fonts);
-    renderDoc(ctx as unknown as Ctx2D, doc, images, 1);
+    // The server canvas has no paragraph bidi: Arabic lines are laid out run by run (correct order with numbers/Latin).
+    renderDoc(ctx as unknown as Ctx2D, doc, images, 1, { manualBidi: true });
     const file = join(dir, `overlay-${scene.scene_number}.png`);
     await writeFile(file, canvas.toBuffer('image/png'));
     overlays.push(file);
+  }
+  // Timed overlays (animation exports): one transparent PNG each, shown only inside its window.
+  const timedFiles = new Map<number, string[]>();
+  for (const scene of spec.scenes) {
+    const files: string[] = [];
+    for (const [i, o] of (scene.overlays ?? []).entries()) {
+      ctx.clearRect(0, 0, W, H);
+      renderDoc(ctx as unknown as Ctx2D, timedOverlay(spec, o, ctx as unknown as Ctx2D, fonts), images, 1, { manualBidi: true });
+      const file = join(dir, `timed-${scene.scene_number}-${i}.png`);
+      await writeFile(file, canvas.toBuffer('image/png'));
+      files.push(file);
+    }
+    timedFiles.set(scene.scene_number, files);
   }
 
   // 3. One segment per scene (scene length + transition into the next).
@@ -94,10 +108,15 @@ export async function renderSpec(spec: RenderSpec, dir: string, fetchMedia: Fetc
       args.push('-i', local.get(l.asset_id)!);
       return { input: 3 + i, offset_ms: l.offset_ms, volume: l.volume };
     });
+    const timed = (scene.overlays ?? []).map((o, i) => {
+      args.push('-loop', '1', '-framerate', String(fps), '-t', String(L), '-i', timedFiles.get(scene.scene_number)![i]!);
+      return { input: 3 + layers.length + i, startS: o.start_ms / 1000, endS: o.end_ms / 1000 };
+    });
+    // Freeze frame: the clip plays, then its last frame is held for the final freeze_ms (videos only).
+    const freezeS = scene.visual?.media_type === 'video' && (scene.freeze_ms ?? 0) > 0 ? (scene.freeze_ms ?? 0) / 1000 : 0;
+    const playS = Math.max(0.1, scene.duration_ms / 1000 - freezeS);
     const graph = [
-      `[0:v]${fitFilter(W, H, scene.fit, spec.brand.primary, fps)}[base]`,
-      `[1:v]format=rgba[ov]`,
-      `[base][ov]overlay=0:0:format=auto,format=yuv420p[vout]`,
+      segmentVideoGraph({ fit: fitFilter(W, H, scene.fit, spec.brand.primary, fps), freeze: freezeS ? { playS, holdS: Math.max(0.1, L - playS) } : null, timed }),
       segmentAudioGraph(L, { clipAudioVolume: clipVol, layers }),
     ].join(';');
     const out = join(dir, `seg-${String(seg.index).padStart(3, '0')}.mp4`);

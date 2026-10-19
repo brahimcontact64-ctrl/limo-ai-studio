@@ -155,6 +155,50 @@ begin
     raise notice 'ATTEMPTS sixth clip attempt for the same shot version refused; counter = 5: %', ok and (select (attempts ->> 'animation_clip')::int = 5 from public.animation_shots where id = v_sc);
   end;
 
+  -- Owner media + post-production (migration 20261019150000).
+  declare
+    v_pm uuid; v_sm uuid; v_logo uuid; v_audio uuid; v_other uuid; v_mockv uuid; v_r jsonb; v_job2 public.render_jobs%rowtype;
+  begin
+    v_pm := public.save_animation_project(v_org, null, '[media]', 'ar', '9:16', null, '', '{}');
+    perform public.save_animation_shots(v_pm, jsonb_build_array(product || '{"duration_seconds":4,"transition_out":"fade","freeze_ms":500}', product || '{"duration_seconds":4,"overlays":[{"text":"اصنع. برمج. انشر.","start_ms":500,"end_ms":4000,"position":"bottom","size":"large","style":"tagline"}]}'), null);
+    select id into v_sm from public.animation_shots where project_id = v_pm and shot_number = 1;
+    insert into public.media_assets(organization_id, bucket_id, object_path, media_type, source, kind, mime_type, size_bytes) values (v_org, 'workspace-assets', v_org || '/sqltest-logo.png', 'image', 'uploaded', 'logo', 'image/png', 100) returning id into v_logo;
+    insert into public.media_assets(organization_id, bucket_id, object_path, media_type, source, kind, mime_type, size_bytes) values (v_org, 'workspace-assets', v_org || '/sqltest-a.mp3', 'audio', 'uploaded', 'audio', 'audio/mpeg', 100) returning id into v_audio;
+    insert into public.media_assets(organization_id, bucket_id, object_path, media_type, source, kind, mime_type, provenance) values (v_org, 'workspace-assets', v_org || '/sqltest-mock.mp4', 'video', 'generated', 'ai_video', 'video/mp4', '{"mock":true}') returning id into v_mockv;
+    select id into v_other from public.media_assets where organization_id <> v_org and media_type = 'video' limit 1;
+    begin perform public.set_animation_shot_media(v_sm, v_audio); ok := false; exception when others then ok := sqlerrm = 'Media must be an image or a video'; end;
+    raise notice 'MEDIA audio refused as shot media: %', ok;
+    begin perform public.set_animation_shot_media(v_sm, v_mockv); ok := false; exception when others then ok := sqlerrm like 'Mock files cannot%'; end;
+    raise notice 'MEDIA mock file refused as shot media: %', ok;
+    if v_other is not null then
+      begin perform public.set_animation_shot_media(v_sm, v_other); ok := false; exception when others then ok := sqlerrm like 'Media must be a file of this workspace%'; end;
+      raise notice 'MEDIA another workspace''s file refused: %', ok;
+    end if;
+    v_r := public.set_animation_shot_media(v_sm, v_vid);
+    raise notice 'MEDIA own video goes to review (not approved), source = owner: %', v_r ->> 'status' = 'clip_review' and (select media_source = 'owner' and clip_asset_id = v_vid from public.animation_shots where id = v_sm);
+    perform public.decide_animation_shot(v_sm, 'clip', 'approve', null, false);
+    perform public.set_animation_shot_media((select id from public.animation_shots where project_id = v_pm and shot_number = 2), v_logo);
+    perform public.decide_animation_shot((select id from public.animation_shots where project_id = v_pm and shot_number = 2), 'clip', 'approve', null, false);
+    -- Post-production edits never reset an approved clip; content edits do.
+    perform public.save_animation_shots(v_pm, (select jsonb_agg(jsonb_build_object('id', id, 'duration_seconds', duration_seconds, 'description', description, 'environment', environment, 'characters', '[]'::jsonb,
+      'transition_out', 'crossfade', 'freeze_ms', 1000, 'overlays', overlays) order by shot_number) from public.animation_shots where project_id = v_pm), null);
+    raise notice 'POST transition/freeze change keeps the approved clip: %', (select status = 'approved' and clip_asset_id = v_vid and freeze_ms = 1000 and transition_out = 'crossfade' from public.animation_shots where id = v_sm);
+    begin perform public.save_animation_shots(v_pm, jsonb_build_array(product || '{"duration_seconds":4,"freeze_ms":2500}'), null); ok := false; exception when others then ok := sqlerrm like 'A freeze frame lasts at most half%'; end;
+    raise notice 'POST freeze longer than half the shot refused: %', ok;
+    begin perform public.save_animation_shots(v_pm, jsonb_build_array(product || '{"duration_seconds":4,"overlays":[{"text":"x","start_ms":3000,"end_ms":5000}]}'), null); ok := false; exception when others then ok := sqlerrm like 'Overlay times must be inside%'; end;
+    raise notice 'POST overlay outside the shot refused: %', ok;
+    begin perform public.save_animation_shots(v_pm, jsonb_build_array(product || '{"duration_seconds":4,"transition_out":"spin"}'), null); ok := false; exception when others then ok := sqlerrm = 'Invalid transition'; end;
+    raise notice 'POST unknown transition refused: %', ok;
+    begin
+      v_r := public.enqueue_animation_render(v_pm, 'sqltest-export-media', 720, 'standard');
+      select * into v_job2 from public.render_jobs where id = (v_r ->> 'id')::uuid;
+      raise notice 'EXPORT spec: video + image media, freeze, transition, Arabic overlay, transition seconds: %',
+        v_job2.spec -> 'scenes' -> 0 -> 'visual' ->> 'media_type' = 'video' and v_job2.spec -> 'scenes' -> 1 -> 'visual' ->> 'media_type' = 'image'
+        and (v_job2.spec -> 'scenes' -> 0 ->> 'freeze_ms')::int = 1000 and v_job2.spec -> 'scenes' -> 0 ->> 'transition' = 'crossfade'
+        and v_job2.spec -> 'scenes' -> 1 -> 'overlays' -> 0 ->> 'text' = 'اصنع. برمج. انشر.' and (v_job2.spec ->> 'transition_seconds')::numeric = 0.5 and v_job2.total_duration_ms = 8000;
+    exception when others then raise notice 'EXPORT spec: % (%)', sqlerrm like 'Active subscription required%', sqlerrm; end;
+  end;
+
   -- Failure and quarantine.
   begin perform public.request_animation_job(sp, 'animation_voice', 'sqltest-key-0006', 0); ok := false; exception when others then ok := sqlerrm like 'Nothing to speak%'; end;
   raise notice 'ANIM voice refused without dialogue: %', ok;

@@ -76,6 +76,27 @@ export function fitFilter(width: number, height: number, fit: 'cover' | 'contain
  * filter_complex for the final assembly: inputs 0..n-1 are the encoded segments, input n (optional) is
  * the background music. Produces [vout] and [aout].
  */
+/**
+ * Video of one segment: the visual (input 0) fitted to the frame — optionally playing for `playS` then holding its last
+ * frame (freeze) — the scene overlay (input 1) and timed overlays (their own inputs) shown only inside their windows
+ * (seconds from the start of the segment). Produces [vout]; identical to the previous graph without freeze/timed overlays.
+ */
+export function segmentVideoGraph(o: { fit: string; freeze: { playS: number; holdS: number } | null; timed: Array<{ input: number; startS: number; endS: number }> }): string {
+  const freeze = o.freeze ? `trim=duration=${o.freeze.playS},setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=${o.freeze.holdS},` : '';
+  const parts = [`[0:v]${freeze}${o.fit}[base]`, `[1:v]format=rgba[ov]`];
+  if (!o.timed.length) {
+    parts.push(`[base][ov]overlay=0:0:format=auto,format=yuv420p[vout]`);
+    return parts.join(';');
+  }
+  parts.push(`[base][ov]overlay=0:0:format=auto[b0]`);
+  o.timed.forEach((t, i) => {
+    parts.push(`[${t.input}:v]format=rgba[t${i}]`);
+    parts.push(`[b${i}][t${i}]overlay=0:0:format=auto:enable='between(t,${t.startS},${t.endS})'[b${i + 1}]`);
+  });
+  parts.push(`[b${o.timed.length}]format=yuv420p[vout]`);
+  return parts.join(';');
+}
+
 /** Default music level while someone speaks (multiplies the music volume): about −9 dB. */
 export const DUCK_FACTOR = 0.35;
 const DUCK_PAD_S = 0.15;

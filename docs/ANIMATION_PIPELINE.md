@@ -131,7 +131,10 @@ plus subscriptions if used (sync.so $5/month; ElevenLabs paid plan for commercia
 | Failed / rejected / regenerated shots | error shown with a retry; attempts counted per kind; max 5 attempts per shot version (editing starts a new version); stale jobs quarantined, never silently re-run |
 | Exports | idempotent key; identical re-export returns the existing video without a second credit (fingerprint, like studio exports); a failed or cancelled render releases its credit; at most 3 renders at once per workspace |
 | Music ducking | automatic under narration and dialogue for every export (−9 dB, ±150 ms), real FFmpeg test |
-| Scenario import | the §9 JSON template fills the storyboard (shape checks + full validation on save) |
+| Scenario import | the §9 JSON template fills the storyboard (shape checks + full validation on save); optional continuity, overlays, freezeMs, transitionOut, clipAudio |
+| Owner media as a shot (2026-10-19, migration #15) | screen recordings, product captures, logos, photos from the private library; images/videos only, same workspace, never mock, ≤ 100 MB; goes to review |
+| Post-production (migration #15) | ≤ 5 timed text overlays (caption/price/tagline, Arabic + Latin), freeze frame at the end, per-shot transitions; real FFmpeg tests; Arabic RTL lines now laid out run by run on the server renderer (also fixes studio exports) |
+| Character variants | scene-specific costume/expression on an unchanged canonical spec (`lib/characters/variants.ts`), status proposed until the owner approves |
 
 ## 9. What the owner provides with the scenario (template)
 Use this JSON shape (`Scenario` in `lib/animation/scenario.ts`); every field is the owner's own text:

@@ -4,6 +4,7 @@
  */
 import type { ExpressionKey } from '../characters/canon.ts';
 import type { Locale } from '../providers/contracts.ts';
+import type { TimedOverlay, Transition } from '../video/types.ts';
 import { MAX_WORDS_PER_SECOND, type DialogueLine, type Scenario, type ScenarioScene } from './scenario.ts';
 
 export const SHOT_STATUSES = ['draft', 'keyframe_queued', 'keyframe_review', 'keyframe_approved', 'clip_queued', 'clip_review', 'approved'] as const;
@@ -56,6 +57,12 @@ export interface ShotRow {
   identity_review?: Partial<Record<'keyframe' | 'clip', { automated?: { checks: Array<{ code: string; status: string; detail: string }>; disclaimer: string; animated?: boolean } | null; confirmed_by?: string; confirmed_at?: string; manual?: boolean }>>;
   /** Generation attempts per job kind (all revisions). */
   attempts?: Record<string, number>;
+  /** Post-production (migration 20261019150000): timed text, freeze at the end, transition into the next shot. */
+  overlays?: TimedOverlay[];
+  freeze_ms?: number;
+  transition_out?: Transition;
+  /** 'owner' = the clip is the owner's own image/video from the library (screen capture, logo…), not AI. */
+  media_source?: 'ai' | 'owner';
 }
 
 /** Attempts allowed per job kind for one revision of a shot (enforced by request_animation_job). */
@@ -90,6 +97,7 @@ export function toSavePayload(shots: Array<Partial<ShotRow> & Pick<ShotRow, 'dur
     id: s.id ?? null, duration_seconds: s.duration_seconds, description: s.description ?? '', environment: s.environment ?? '', camera: s.camera ?? '',
     characters: s.characters ?? [], actions: s.actions ?? {}, expressions: s.expressions ?? {}, dialogue: s.dialogue ?? [], narration: s.narration ?? '',
     sound: s.sound ?? '', continuity: s.continuity ?? {}, reference_asset_ids: s.reference_asset_ids ?? [], clip_audio: s.clip_audio ?? 'keep',
+    overlays: s.overlays ?? [], freeze_ms: s.freeze_ms ?? 0, transition_out: s.transition_out ?? 'cut',
   }));
 }
 

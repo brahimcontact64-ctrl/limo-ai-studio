@@ -8,6 +8,8 @@ import { useToast } from '@/components/ui/Toast';
 import { EXPRESSION_KEYS, type ExpressionKey } from '@/lib/characters/canon';
 import { MAX_ATTEMPTS_PER_REVISION, nextAction, type ProjectRow, type ShotRow, type TimelineItem } from '@/lib/animation/storyboard';
 import { parseScenarioJson } from '@/lib/animation/scenario-import';
+import { AssetPicker } from '@/components/assets/AssetPicker';
+import type { TimedOverlay, Transition } from '@/lib/video/types';
 
 interface Issue { level?: 'error' | 'warning'; code: string; scene?: number; shot?: number; detail: string }
 interface Data {
@@ -49,6 +51,7 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
   const [importText, setImportText] = useState('');
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
+  const [mediaFor, setMediaFor] = useState<string | null>(null);
   const err = (code?: string) => (a.errors as Record<string, string>)[code ?? ''] ?? a.errors.unavailable;
 
   const load = useCallback(async (keepDraft = false) => {
@@ -144,6 +147,13 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
   }
 
   const issues = [...data.planning.issues.map((i) => ({ ...i, shot: i.scene })), ...data.planning.continuity];
+  /** "<character>: <problem>" from the planner → the viewer's language (character name from the catalog). */
+  const blockerText = (b: string) => {
+    const m = /^([^:]+): (design spec not approved|no approved (front|three_quarter|side) reference|no voice identity for (\w+))$/.exec(b);
+    if (!m) return b;
+    const what = m[2]!.startsWith('design') ? a.blockerText.spec : m[3] ? fmt(a.blockerText.view, { view: a.blockerText.views[m[3] as 'front'] }) : fmt(a.blockerText.voice, { lang: (m[4] ?? '').toUpperCase() });
+    return `${nameOf(m[1]!)}: ${what}`;
+  };
   const saved = (s: Draft) => data.shots.find((x) => x.id === s.id);
   const asset = (assetId: string | null | undefined) => (assetId ? data.assets[assetId] : undefined);
 
@@ -217,13 +227,13 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
         <b className="small">{a.issues}</b>
         {issues.length === 0 ? <p className="xsmall muted">{a.noIssues}</p> : (
           <ul className="xsmall" data-testid="anim-issues">
-            {issues.map((i, n) => <li key={n} className={i.level === 'error' ? 'text-danger' : ''}>{i.shot ? `${fmt(a.shot, { n: i.shot })} · ` : ''}{i.detail}</li>)}
+            {issues.map((i, n) => <li key={n} className={i.level === 'error' ? 'text-danger' : ''}>{i.shot ? `${fmt(a.shot, { n: i.shot })} · ` : ''}{(a.checks as Record<string, string>)[i.code] ?? i.detail}</li>)}
           </ul>
         )}
         {data.planning.blockers.length > 0 && (
           <>
             <b className="small">{a.blockers}</b>
-            <ul className="xsmall" data-testid="anim-blockers">{data.planning.blockers.map((b) => <li key={b}>{b.replace(/^([^:]+):/, (_m, c: string) => `${nameOf(c)}:`)}</li>)}</ul>
+            <ul className="xsmall" data-testid="anim-blockers">{data.planning.blockers.map((b) => <li key={b}>{blockerText(b)}</li>)}</ul>
           </>
         )}
         {data.planning.timeline.length > 0 && (
@@ -338,6 +348,50 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                 </div>
               </details>
 
+              <details data-testid="shot-post">
+                <summary className="small">{a.post.title}</summary>
+                <div className="stack-sm">
+                  <p className="xsmall muted">{a.post.hint}</p>
+                  <div className="form-grid cols-2">
+                    <label className="field"><span className="field-label xsmall">{a.post.transition}</span>
+                      <select className="select select-sm" value={s.transition_out ?? 'cut'} onChange={(e) => edit(s.key, { transition_out: e.target.value as Transition })} disabled={!editable || i === shots.length - 1} data-testid="shot-transition">
+                        {(['cut', 'fade', 'crossfade', 'slide', 'wipe'] as const).map((t) => <option key={t} value={t}>{a.post.transitions[t]}</option>)}
+                      </select></label>
+                    <label className="field"><span className="field-label xsmall">{a.post.freeze}</span>
+                      <select className="select select-sm" value={s.freeze_ms ?? 0} onChange={(e) => edit(s.key, { freeze_ms: Number(e.target.value) })} disabled={!editable} data-testid="shot-freeze">
+                        {[0, 250, 500, 1000, 1500, 2000].filter((ms) => ms <= (s.duration_seconds * 1000) / 2).map((ms) => <option key={ms} value={ms}>{ms ? fmt(a.post.freezeMs, { s: (ms / 1000).toString() }) : a.post.noFreeze}</option>)}
+                      </select></label>
+                  </div>
+                  <b className="xsmall">{a.post.overlays}</b>
+                  {(s.overlays ?? []).map((o, n) => {
+                    const set = (patch: Partial<TimedOverlay>) => edit(s.key, { overlays: (s.overlays ?? []).map((x, k) => (k === n ? { ...x, ...patch } : x)) });
+                    return (
+                      <div key={n} className="stack-sm" data-testid="shot-overlay">
+                        <input className="input input-sm" aria-label={a.post.text} maxLength={120} value={o.text} onChange={(e) => set({ text: e.target.value })} disabled={!editable} dir="auto" />
+                        <div className="row">
+                          <label className="field"><span className="field-label xsmall">{a.post.from}</span>
+                            <input className="input input-sm" type="number" step={0.1} min={0} max={s.duration_seconds} value={o.start_ms / 1000} onChange={(e) => set({ start_ms: Math.round(Number(e.target.value) * 1000) })} disabled={!editable} style={{ width: 80 }} /></label>
+                          <label className="field"><span className="field-label xsmall">{a.post.to}</span>
+                            <input className="input input-sm" type="number" step={0.1} min={0} max={s.duration_seconds} value={o.end_ms / 1000} onChange={(e) => set({ end_ms: Math.round(Number(e.target.value) * 1000) })} disabled={!editable} style={{ width: 80 }} /></label>
+                          <label className="field"><span className="field-label xsmall">{a.post.position}</span>
+                            <select className="select select-sm" value={o.position} onChange={(e) => set({ position: e.target.value as TimedOverlay['position'] })} disabled={!editable}>
+                              {(['top', 'center', 'bottom'] as const).map((p) => <option key={p} value={p}>{a.post.positions[p]}</option>)}
+                            </select></label>
+                          <label className="field"><span className="field-label xsmall">{a.post.style}</span>
+                            <select className="select select-sm" value={o.style} onChange={(e) => set({ style: e.target.value as TimedOverlay['style'] })} disabled={!editable}>
+                              {(['plain', 'price', 'tagline'] as const).map((p) => <option key={p} value={p}>{a.post.styles[p]}</option>)}
+                            </select></label>
+                          {editable && <button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={a.post.remove} onClick={() => edit(s.key, { overlays: (s.overlays ?? []).filter((_x, k) => k !== n) })}><Icon name="x" size={12} /></button>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {editable && (s.overlays ?? []).length < 5 && (
+                    <div><button type="button" className="btn btn-ghost btn-sm" onClick={() => edit(s.key, { overlays: [...(s.overlays ?? []), { text: '', start_ms: 0, end_ms: Math.min(2000, s.duration_seconds * 1000), position: 'bottom', size: 'medium', style: 'plain' }] })} data-testid="add-overlay"><Icon name="plus" /> {a.post.add}</button></div>
+                  )}
+                </div>
+              </details>
+
               {chars.length > 0 && (
                 <div className="stack-sm" data-testid="shot-references">
                   <b className="small">{a.references}</b>
@@ -373,8 +427,8 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                     )}
                     {live.status === 'clip_review' || live.status === 'approved' ? (
                       <figure className="stack-sm" style={{ margin: 0 }}>
-                        <figcaption className="xsmall"><b>{a.clip}</b> <span className="badge plain" data-testid="clip-kind">{!clip ? a.notAnimatedBadge : clip.mock ? a.mock : a.animated}</span></figcaption>
-                        {clip?.url ? <video src={clip.url} controls width={160} /> : <span className="xsmall muted" data-testid="clip-not-animated">{clipJob?.output.animated === false ? a.notAnimated : ''}</span>}
+                        <figcaption className="xsmall"><b>{a.clip}</b> <span className="badge plain" data-testid="clip-kind">{!clip ? a.notAnimatedBadge : live.media_source === 'owner' ? a.post.ownMediaBadge : clip.mock ? a.mock : a.animated}</span></figcaption>
+                        {clip?.url && clip.mime.startsWith('image/') ? <img src={clip.url} alt={a.clip} width={120} style={{ borderRadius: 6 }} /> : clip?.url ? <video src={clip.url} controls width={160} /> : <span className="xsmall muted" data-testid="clip-not-animated">{clipJob?.output.animated === false ? a.notAnimated : ''}</span>}
                       </figure>
                     ) : null}
                     {live.voice_tracks.length > 0 && (
@@ -384,8 +438,13 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
                       </div>
                     )}
                   </div>
+                  {live.media_source === 'owner' && <p className="xsmall" data-testid="owner-media"><span className="badge plain">{a.post.ownMediaBadge}</span> {a.post.ownMediaNote}</p>}
                   {editable && (
                     <div className="row">
+                      {(action === 'request_keyframe' || action === 'request_clip' || live.media_source === 'owner') && action !== 'wait' && (
+                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => setMediaFor(live.id)} data-testid="use-own-media">{a.post.useOwnMedia}</button>
+                      )}
+                      {live.media_source === 'owner' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => void shotAction(live.id, { action: 'media', asset_id: null })} data-testid="remove-own-media">{a.post.removeOwnMedia}</button>}
                       {action === 'request_keyframe' && <button type="button" className="btn btn-sm" disabled={!flagOn} onClick={() => void requestJob(live.id, 'animation_keyframe')} data-testid="req-keyframe">{a.requestKeyframe}</button>}
                       {action === 'request_clip' && <button type="button" className="btn btn-sm" disabled={!flagOn} onClick={() => void requestJob(live.id, 'animation_clip')} data-testid="req-clip">{a.requestClip}</button>}
                       {(action === 'review_keyframe' || action === 'review_clip') && (() => {
@@ -439,6 +498,17 @@ export function StoryboardEditor({ projectId, names }: { projectId: string; name
           );
         })}
       </ol>
+      <AssetPicker
+        open={mediaFor !== null}
+        selected={[]}
+        max={1}
+        filter={(x) => x.media_type === 'image' || x.media_type === 'video'}
+        onClose={(ids) => {
+          const shot = mediaFor;
+          setMediaFor(null);
+          if (shot && ids?.[0]) void shotAction(shot, { action: 'media', asset_id: ids[0] }, a.post.ownMediaSet);
+        }}
+      />
       {editable && <div><button type="button" className="btn" onClick={() => (setShots((l) => [...l, emptyShot()]), setDirty(true))} disabled={shots.length >= 15} data-testid="add-shot"><Icon name="plus" /> {a.addShot}</button></div>}
 
       <section className="panel panel-pad stack-sm" aria-labelledby={`${id}-exp`}>

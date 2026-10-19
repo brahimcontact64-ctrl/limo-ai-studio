@@ -2,6 +2,32 @@
 
 Actual results only. Newest first.
 
+## 2026-10-19 — Flagship decisions + owner media + post-production (migration #15), branch `rebuild/v1`
+- Pushed first (owner-authorised): `6ac1108..4e96567` fast-forward (clean tree, secret scan clean, unit 186/186 +
+  typechecks, no workflows / 0 deployments; `main` unchanged). Note: the pre-push `git fetch` hit a transient DNS
+  error; the push itself is fast-forward-only and `ls-remote` confirmed `4e96567` afterwards.
+- Unit **188/188** (new: server-canvas bidi runs, father variant proposed-only with canon unchanged, scenario import of
+  continuity/overlays/freeze/transitions). Typecheck app + worker clean; `next build` compiles.
+- Worker (real FFmpeg) **13/13** — new: freeze frame holds the last frame (diff 0.10 vs 10.5 while moving), timed Arabic
+  price overlay only inside its window, fade transition, 8.0 s. A frame was inspected visually.
+- **Bug found and fixed:** the server canvas ignores `ctx.direction` and orders right-to-left lines that start with a
+  number or a Latin word left-to-right (e.g. «1,200 دج», «LIMO AI… خيالك»); measured by pixel matching before/after.
+  RTL lines are now laid out run by run in the worker (also fixes Arabic on-screen text and subtitles of studio exports;
+  browser rendering unchanged).
+- SQL **107/107**: animation-studio 54/54 (new: own media — audio/mock/other-workspace refused, video and image accepted
+  into review; post-production edits keep an approved clip; freeze/overlay/transition validation; export spec with video
+  + image media, freeze, transition, Arabic overlay), spend guard 23/23 + concurrency PASS, gate 4/4, specs 6/6, video
+  policy 20/20. Rollback dry run (16 scripts) clean. Restore drill PASS.
+- E2E scripts: animation **21/21** (new: owner screen recording + logo → export → real 8 s MP4, recording moves then
+  freezes, Arabic tagline only in its window), generate 24/24, backend 224/224, render 72/72, publish 63/63.
+- Browser (production build, desktop + mobile): full suite **59 passed, 1 skipped** (mobile a11y by design), 37.5 min;
+  `animation-flow` now covers the post-production panel and "Use my own media" through the library picker.
+- Flagship: storyboard updated in place (approved lines, overlays, freeze, transitions); shots 4–6 real Arabic captures
+  recorded from the running app + approved logo card, attached as owner media **in review** (not approved). Planning
+  messages are now localized (were English in the Arabic UI).
+- Not tested / not done: real AI artwork, voices or clips (not authorised); upload of the "angry" variant sheet (needs
+  approved-variant support in the upload); localized character names (catalog has English names only).
+
 ## 2026-10-19 — Flagship #1 pre-production ("The Supernatural Eye"), branch `rebuild/v1`
 - Owner scenario saved as a draft storyboard through the real database functions (local replica, workspace A,
   project `b8b9ddd3-…`): 6 shots, 30 s, all `draft`, continuity metadata on every shot, no AI job, nothing approved.

@@ -6,6 +6,7 @@
 import { EXPRESSION_KEYS, type ExpressionKey } from '../characters/canon.ts';
 import type { DialogueLine } from './scenario.ts';
 import type { Continuity } from './storyboard.ts';
+import type { TimedOverlay, Transition } from '../video/types.ts';
 
 export interface ImportedShot {
   duration_seconds: 4 | 6 | 8;
@@ -21,6 +22,9 @@ export interface ImportedShot {
   /** Optional continuity metadata (same keys as the editor). */
   continuity: Continuity;
   clip_audio: 'keep' | 'mute';
+  overlays: TimedOverlay[];
+  freeze_ms: number;
+  transition_out: Transition;
 }
 export interface ImportedScenario {
   title?: string;
@@ -32,6 +36,29 @@ export interface ImportedScenario {
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 const isExpr = (v: unknown): v is ExpressionKey => typeof v === 'string' && (EXPRESSION_KEYS as readonly string[]).includes(v);
+
+function overlaysOf(v: unknown, seconds: number, n: number, errors: string[]): TimedOverlay[] {
+  if (!Array.isArray(v)) return [];
+  const out: TimedOverlay[] = [];
+  for (const o of v.slice(0, 5)) {
+    if (!o || typeof o !== 'object') continue;
+    const x = o as Record<string, unknown>;
+    const start = Number(x.startMs ?? x.start_ms);
+    const end = Number(x.endMs ?? x.end_ms);
+    const text = str(x.text, 120).trim();
+    if (!text || !(start >= 0) || !(end > start) || end > seconds * 1000) {
+      errors.push(`scene ${n}: overlay "${text.slice(0, 20)}" needs text and times inside the scene`);
+      continue;
+    }
+    out.push({
+      text, start_ms: Math.round(start), end_ms: Math.round(end),
+      position: (['top', 'center', 'bottom'] as const).includes(x.position as 'top') ? (x.position as TimedOverlay['position']) : 'bottom',
+      size: (['small', 'medium', 'large'] as const).includes(x.size as 'small') ? (x.size as TimedOverlay['size']) : 'medium',
+      style: (['plain', 'price', 'tagline'] as const).includes(x.style as 'plain') ? (x.style as TimedOverlay['style']) : 'plain',
+    });
+  }
+  return out;
+}
 
 function continuityOf(v: unknown, hasPrevious: boolean): Continuity {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
@@ -80,6 +107,9 @@ export function parseScenarioJson(text: string): { scenario: ImportedScenario | 
       characters, actions, expressions, dialogue, narration: str(x.narration, 1000), sound: str(x.sound, 500),
       continuity: continuityOf(x.continuity, n > 1),
       clip_audio: x.clipAudio === 'mute' || x.clip_audio === 'mute' ? 'mute' : 'keep',
+      overlays: overlaysOf(x.overlays, d, n, errors),
+      freeze_ms: Math.max(0, Math.min(Number(x.freezeMs ?? x.freeze_ms ?? 0) || 0, (([4, 6, 8].includes(d) ? d : 8) * 1000) / 2)),
+      transition_out: (['cut', 'fade', 'crossfade', 'slide', 'wipe'] as const).includes((x.transitionOut ?? x.transition_out) as Transition) ? ((x.transitionOut ?? x.transition_out) as Transition) : 'cut',
     });
   });
   const total = shots.reduce((a, s) => a + s.duration_seconds, 0);

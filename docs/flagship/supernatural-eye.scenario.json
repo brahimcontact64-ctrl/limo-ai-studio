@@ -7,7 +7,7 @@
     {
       "number": 1,
       "durationSeconds": 4,
-      "description": "Luxurious family mansion. The ADAM father stands angrily before his biological son and points at the adopted son standing proudly at his side. The biological son flinches in shock. [CASTING PROPOSED: adopted son = limo_boy, pending owner approval]",
+      "description": "Luxurious family mansion. The ADAM father stands angrily before his biological son and points at the adopted son standing proudly at his side. The biological son flinches in shock. [CASTING APPROVED 2026-10-19: father adam_man, biological son adam_boy, adopted son limo_boy] [VARIANT PROPOSED: adam_man formal suit + angry expression (adam_man.formal_angry.v1), pending owner review — until approved the canonical \"determined\" expression is used]",
       "environment": "Opulent mansion hall, marble floor, gold chandelier, tall dark curtains; dramatic low-key lighting, warm key light from the chandelier, cool rim light from the windows; evening.",
       "characters": [
         "adam_man",
@@ -44,7 +44,7 @@
     {
       "number": 2,
       "durationSeconds": 4,
-      "description": "The biological son's eye glows gold (supernatural effect only; his canonical iris colour returns afterwards). He stares at the father's supposedly luxurious watch in the foreground. A supernatural price overlay reveals the real price. [ON-SCREEN TEXT (render overlay, never in the generated pixels): السعر الحقيقي: 1,200 دج]",
+      "description": "The biological son's eye glows gold (supernatural effect only; his canonical iris colour returns afterwards). He stares at the father's supposedly luxurious watch in the foreground. A supernatural price overlay reveals the real price. The price overlay is a render text layer, never part of the generated pixels.",
       "environment": "Same mansion hall and lighting as shot 1 (continuous moment).",
       "characters": [
         "adam_boy"
@@ -59,7 +59,7 @@
       "dialogue": [
         {
           "speaker": "adam_boy",
-          "text": "واش؟! هذي اللي يقول عليها بمليون؟!",
+          "text": "واش؟! هذي بمليون؟!",
           "emotion": "surprised"
         }
       ],
@@ -71,7 +71,17 @@
         "lighting": "dramatic low-key: warm chandelier key, cool window rim",
         "timeOfDay": "evening",
         "notes": "Same moment as shot 1; the gold eye glow is an effect only."
-      }
+      },
+      "overlays": [
+        {
+          "text": "السعر الحقيقي: 1,200 دج",
+          "startMs": 1600,
+          "endMs": 4000,
+          "position": "center",
+          "size": "large",
+          "style": "price"
+        }
+      ]
     },
     {
       "number": 3,
@@ -91,7 +101,7 @@
       "dialogue": [
         {
           "speaker": "adam_boy",
-          "text": "استنّى… نقدر نشوف حتى واش راه مخبّي!",
+          "text": "استنّى… نقدر نشوف واش مخبّي!",
           "emotion": "determined"
         }
       ],
@@ -103,7 +113,9 @@
         "lighting": "dramatic low-key: warm chandelier key, cool window rim",
         "timeOfDay": "evening",
         "notes": "Ends on a freeze frame that becomes the first frame of the shot 4 transition."
-      }
+      },
+      "freezeMs": 500,
+      "transitionOut": "fade"
     },
     {
       "number": 4,
@@ -119,29 +131,31 @@
         "environmentKey": "limo_brand",
         "lighting": "clean soft studio light, lavender/white brand palette",
         "notes": "Product part: real LIMO screen captures and the approved logo — not AI-generated."
-      }
+      },
+      "transitionOut": "crossfade"
     },
     {
       "number": 5,
       "durationSeconds": 8,
-      "description": "Accurate previews of LIMO's real capabilities, captured from the real app: AI video creation workflow (storyboard, shot approval, MP4 export), Facebook post composer with AI caption proposals and Image Studio, content calendar and scheduling, language switcher AR / FR / EN / DE. [ACCURACY: AI generation is shown as built and awaiting provider activation; Facebook shows scheduling with simulated publishing; live auto-publishing is NOT shown as available — optional on-screen note: النشر التلقائي على فيسبوك: قريبًا]",
+      "description": "Accurate previews of LIMO's real capabilities, captured from the real app: AI video creation workflow (storyboard, shot approval, MP4 export), Facebook post composer with AI caption proposals and Image Studio, content calendar and scheduling, language switcher AR / FR / EN / DE. [ACCURACY: AI generation is shown as built and awaiting provider activation; Facebook is shown as preparing and scheduling posts; real auto-publishing is NOT shown — if it ever is, it must carry «قريبًا» (coming soon)]",
       "environment": "LIMO interface on a phone and a laptop, approved lavender/purple design.",
       "characters": [],
       "camera": "Quick, smooth cuts between four real screens, each about 2 seconds.",
       "dialogue": [],
-      "narration": "فيديوهات، بوستات، وجدولة لصفحتك… بأربع لغات!",
+      "narration": "فيديوهات وبوستات… حضّر وجدول بوستاتك، بأربع لغات!",
       "sound": "Music continues; light whoosh on each cut.",
       "continuity": {
         "continuesFromPrevious": true,
         "environmentKey": "limo_brand",
         "lighting": "clean soft studio light, lavender/white brand palette",
         "notes": "Each feature preview must match the real app state (see accuracy note)."
-      }
+      },
+      "transitionOut": "crossfade"
     },
     {
       "number": 6,
       "durationSeconds": 4,
-      "description": "Premium LIMO logo reveal. [ON-SCREEN TEXT (render overlay): اصنع. برمج. انشر.]",
+      "description": "Premium LIMO logo reveal (approved lemon mark + LIMO AI wordmark).",
       "environment": "LIMO brand background with a soft glow.",
       "characters": [],
       "camera": "Static, subtle scale-up of the logo.",
@@ -153,7 +167,17 @@
         "environmentKey": "limo_brand",
         "lighting": "clean soft studio light with a gentle glow on the logo",
         "notes": "Music ends exactly at 30 s."
-      }
+      },
+      "overlays": [
+        {
+          "text": "اصنع. برمج. انشر.",
+          "startMs": 800,
+          "endMs": 4000,
+          "position": "bottom",
+          "size": "large",
+          "style": "tagline"
+        }
+      ]
     }
   ]
 }

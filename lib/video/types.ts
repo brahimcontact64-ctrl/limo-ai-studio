@@ -57,6 +57,19 @@ export interface SpecScene {
   clip_audio?: { volume: number } | null;
   /** Animation exports: voice lines mixed into the shot at their offsets (ms from the start of the shot). */
   audio_layers?: Array<SpecMedia & { offset_ms: number; volume: number }>;
+  /** Animation exports: text shown only between start_ms and end_ms of the scene (Arabic and Latin). */
+  overlays?: TimedOverlay[];
+  /** Animation exports: hold the clip's last frame for the final freeze_ms of the scene. */
+  freeze_ms?: number;
+}
+
+export interface TimedOverlay {
+  text: string;
+  start_ms: number;
+  end_ms: number;
+  position: 'top' | 'center' | 'bottom';
+  size: 'small' | 'medium' | 'large';
+  style: 'plain' | 'price' | 'tagline';
 }
 
 export interface RenderSpec {
