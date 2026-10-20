@@ -389,3 +389,19 @@ test('storyboard spec pins: scenario import, validation, prompts and keyframe re
   assert.ok(validateFlagship(sc).some((i) => i.code === 'spec_version_unknown'));
   assert.deepEqual(toFlagshipPayload([{ ...base, character_spec_versions: { adam_boy: 2 } }])[0]!.character_spec_versions, { adam_boy: 2 });
 });
+
+test('adam_boy v2 sheets: school outfit in every prompt, emblem-aware text rule, approved spec JSON unchanged, v1 untouched', () => {
+  const v2 = artworkPackage('adam_boy', ADAM_BOY_SHEETS, '', 2);
+  assert.equal(v2.primaryOutfit.key, 'school');
+  assert.match(v2.textRule!, /only permitted mark is the small decorative potato emblem/);
+  assert.match(v2.textRule!, /brand logos or watermarks/);
+  for (const s of v2.sheets) {
+    assert.match(s.request.prompt, /Navy school blazer.*white shirt.*red tie.*brown trousers.*brown leather shoes.*backpack.*potato emblem/s, s.slot);
+    assert.equal((s.request as { textRule?: string }).textRule, v2.textRule);
+    assert.equal(s.upload.outfit_key, null, 'views/expressions in the primary outfit carry no outfit key (readiness counts them)');
+  }
+  assert.ok(!('imageTextRule' in specFor('adam_boy', 2)!), 'the rule lives next to the spec, not inside the approved spec JSON');
+  const v1 = artworkPackage('adam_boy', ADAM_BOY_SHEETS, '', 1);
+  assert.equal(v1.textRule, null);
+  assert.ok(v1.sheets.every((s) => !('textRule' in s.request)));
+});

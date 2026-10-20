@@ -138,7 +138,7 @@ test('Gemini image: Interactions request (model, key header, input parts, respon
   assert.match(body.input[0].text, /Do not render any words/);
   assert.equal(body.input[1].type, 'image');
   assert.equal(body.input[1].mime_type, 'image/png');
-  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '4:5', image_size: '2K' });
+  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '4:5', image_size: '2K', delivery: 'inline' });
   assert.equal(r.files?.length, 1);
   assert.deepEqual([...r.files![0]!.bytes], [...PNG]);
   assert.equal(r.provenance.contentCredentials, 'SynthID');
@@ -286,7 +286,7 @@ test('Gemini 3 Pro Image character sheet: 3:4 4K, JPEG, references attached, thi
   assert.deepEqual(a.estimateUsage(req), { images: 1, inputTokens: 1_000, outputTokens: THINKING_ALLOWANCE_TOKENS });
   const r = await a.run(req, signal);
   const body = calls[0]!.body as Record<string, any>;
-  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '3:4', image_size: '4K' });
+  assert.deepEqual(body.response_format, { type: 'image', mime_type: 'image/jpeg', aspect_ratio: '3:4', image_size: '4K', delivery: 'inline' });
   assert.equal(body.input.filter((p: { type: string }) => p.type === 'image').length, 1, 'the approved front is the only reference');
   assert.deepEqual(r.usage, { images: 1, inputTokens: 1_700, outputTokens: 850 });
   assert.deepEqual((r.json as { providerUsage: unknown[] }).providerUsage, [usage]);
@@ -294,4 +294,31 @@ test('Gemini 3 Pro Image character sheet: 3:4 4K, JPEG, references attached, thi
   assert.deepEqual(billableTokens({ total_output_tokens: 2_100, total_thought_tokens: 10, output_tokens_by_modality: [{ modality: 'image', tokens: 2_000 }, { modality: 'text', tokens: 100 }] }), { inputTokens: 0, outputTokens: 110 });
   assert.deepEqual(billableTokens({ total_input_tokens: 5, total_output_tokens: 2_000 }), { inputTokens: 5, outputTokens: 0 });
   await assert.rejects(a.run({ ...req, references: [] }, signal), (e: unknown) => e instanceof ProviderError && e.code === 'invalid_request');
+});
+
+import { GEMINI_PRO_IMAGE_MAX_OUTPUT_TOKENS } from '../../lib/providers/adapters/gemini-image.ts';
+import { dbSpendGuard } from '../../lib/providers/spend-db.ts';
+test('Gemini image: a request text rule replaces the default no-logo rule (both adapters); the default is unchanged', async () => {
+  const rule = 'The only permitted mark is the small decorative potato emblem on the backpack flap.';
+  const one = fakeFetch(() => json(interaction(Buffer.from(PNG).toString('base64'))));
+  await geminiImageAdapter({ apiKey: 'k', fetch: one.fetch, loadAsset }).run({ ...base, kind: 'image', task: 'generate', prompt: 'p', inputAssetIds: ['design'], size: { width: 2048, height: 2731 }, count: 1, textRule: rule }, signal);
+  const t1 = (one.calls[0]!.body as any).input[0].text as string;
+  assert.ok(t1.endsWith(rule));
+  assert.doesNotMatch(t1, /prices, logos or watermarks in the image; text is added later/);
+  const two = fakeFetch(() => json(interaction(Buffer.from(PNG).toString('base64'))));
+  await geminiCharacterAdapter({ apiKey: 'k', fetch: two.fetch, loadAsset }).run({ ...base, kind: 'character_image', prompt: 'p', references: [{ character: 'adam_boy', specVersion: 2, assetIds: ['front', 'design'] }], size: { width: 2048, height: 2731 }, count: 1, textRule: rule }, signal);
+  const t2 = (two.calls[0]!.body as any).input[0].text as string;
+  assert.ok(t2.endsWith(rule));
+  assert.match(t2, /top of the head \(crown, or none/);
+  const three = fakeFetch(() => json(interaction(Buffer.from(PNG).toString('base64'))));
+  await geminiImageAdapter({ apiKey: 'k', fetch: three.fetch, loadAsset }).run({ ...base, kind: 'image', task: 'generate', prompt: 'p', inputAssetIds: [], size: { width: 1080, height: 1080 }, count: 1 }, signal);
+  assert.match((three.calls[0]!.body as any).input[0].text, /Do not render any words, letters, prices, logos or watermarks/);
+  assert.equal(GEMINI_PRO_IMAGE_MAX_OUTPUT_TOKENS, 32_768);
+});
+
+test('spend ledger: canonical artwork (no workspace) is recorded without an organization', async () => {
+  const calls: Array<{ fn: string; a: Record<string, unknown> }> = [];
+  const g = dbSpendGuard('pilot', async (fn, a) => (calls.push({ fn, a }), { data: { ok: true, reserved_cents: 64 }, error: null }), () => undefined);
+  await g.reserve({ opKey: 'k', capability: 'image', provider: 'google', model: 'gemini-3-pro-image', cents: 64, organizationId: '' });
+  assert.equal(calls[0]!.a.p_organization_id, null);
 });

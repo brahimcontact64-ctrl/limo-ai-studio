@@ -338,6 +338,8 @@ export interface ImageRequest extends Base {
   kind: 'image';
   task: 'generate' | 'edit' | 'background_remove' | 'upscale';
   prompt: string;
+  /** Replaces the adapter's default no-text/no-logo rule (e.g. a character design that includes an approved emblem). */
+  textRule?: string;
   inputAssetIds: string[];
   size: { width: number; height: number };
   count: number;
@@ -346,6 +348,8 @@ export interface ImageRequest extends Base {
 export interface CharacterImageRequest extends Base {
   kind: 'character_image';
   prompt: string;
+  /** Replaces the adapter's default no-text/no-logo rule (see ImageRequest.textRule). */
+  textRule?: string;
   /** Canonical approved references per character (front/three-quarter/side, expressions). Must be non-empty. */
   references: Array<{ character: string; specVersion: number; assetIds: string[] }>;
   size: { width: number; height: number };

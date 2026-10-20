@@ -109,3 +109,31 @@ Nothing above has been executed; no image generated, no paid API, no spend, no p
    `node scripts/flagship/artwork-sheet.ts --character adam_boy --version 2 --sheet view:front --live --confirm-cents 27 --org <demo workspace id> --design-asset <id from step 3>`
    → review → approve the front (two-factor, checklist) → the four other sheets with `--front-asset <approved front id>`.
 6. **Shot-3 test** after the three v2 views are approved (the demo storyboard's shots 1–3 are already pinned to v2).
+
+## 6. Preflight for the first paid v2 front (2026-10-20; nothing generated, authorisation $0)
+- **State (local replica):** spec v2 **approved** by the owner (2026-10-20 01:32 UTC, audited); design sheet uploaded as
+  `58b04306-b363-47de-97fd-682b365f2ea7` — pending review, v2, no view/expression, outfit "school", stored SHA-256
+  `6ffe3206…fd20a` = the approved file. "Not ready for generation" in the UI = animation readiness (approved front,
+  three-quarter and side images of v2 are still missing) — it does not block generating the first view.
+- **Emblem vs. logos:** sheets of v2 send their own text rule instead of the default "no logos": no words, numbers,
+  labels, brand logos or watermarks; the only permitted mark is the small decorative potato emblem on the backpack.
+- **Outfit:** every v2 prompt carries the school outfit (navy blazer, white shirt, red striped tie, brown trousers and
+  shoes, backpack with emblem). Views/expressions are registered without an outfit key on purpose: no key = the
+  version's primary outfit (school), which is what readiness counts; an outfit key would hide the view from readiness.
+- **Charge risk (official docs re-read 2026-10-20):** expected ≈ **$0.27**. Interim "thought images" are documented as
+  *not charged*; thinking cannot be disabled or limited for Gemini 3 Pro Image and is billed at $12 / 1M tokens; the
+  model's output limit is 32,768 tokens. The runner now reserves and requires confirmation of the documented worst
+  case **≈ $0.64 (64 ¢)** before sending. The spend guard is preventive only for *starting* calls (scope limit, per-call
+  cap, image bucket, confirmed amount); it cannot stop Google from billing more for a call already sent — settlement
+  records the measured cost and flags an overrun, and the scope switches itself off at its limit. No external Google
+  billing cap is verified (the $5 prepaid balance with auto-reload off is the practical ceiling — from research, not
+  verified). Whether thinking always stays inside the output limit is not documented.
+- **Tenancy:** canonical artwork is platform-level — the runner records the spend without any workspace and refuses
+  `--org`. The private `character-library` bucket allows writes under `canonical/` only to a two-factor admin; pending
+  files (the design sheet) are readable only by admins; approved canonical files are readable by signed-in members
+  (shared character library); workspace files stay inside their workspace.
+- **Request format (official Interactions reference):** `response_format` = image, `image/jpeg` (the only listed MIME
+  type), aspect 3:4, size 4K, and now an explicit `delivery: "inline"` (the adapter reads inline bytes).
+- **Command after the owner's gates:**
+  `node scripts/flagship/artwork-sheet.ts --character adam_boy --version 2 --sheet view:front --live --confirm-cents 64 --design-asset 58b04306-b363-47de-97fd-682b365f2ea7`
+

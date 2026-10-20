@@ -15,7 +15,7 @@ export function dbSpendGuard(scope: string, rpc: Rpc, log: (...a: unknown[]) => 
   return {
     scope,
     async reserve(r) {
-      const d = await call('ai_spend_reserve', { p_scope: scope, p_op_key: r.opKey, p_capability: r.capability, p_provider: r.provider, p_model: r.model, p_organization_id: r.organizationId ?? null, p_cents: r.cents, p_retry_approved: r.retryApproved === true });
+      const d = await call('ai_spend_reserve', { p_scope: scope, p_op_key: r.opKey, p_capability: r.capability, p_provider: r.provider, p_model: r.model, p_organization_id: r.organizationId || null, p_cents: r.cents, p_retry_approved: r.retryApproved === true });
       if (!d?.ok) throw new SpendBlockedError(d?.reason ?? 'refused');
       log('spend reserved', scope, r.opKey.slice(0, 16), `${r.cents}¢`);
     },

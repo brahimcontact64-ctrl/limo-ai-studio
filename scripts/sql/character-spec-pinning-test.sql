@@ -16,6 +16,8 @@ begin
 
   -- Admin: a v1 fixture reference, then propose adam_boy v2 (two-factor).
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated', 'aal', 'aal2')::text, true);
+  -- Start from the same state every time (inside this rolled-back transaction only): v2, if it exists, as proposed.
+  update public.character_design_specs set status = 'proposed', approved_at = null, approved_by = null where character_id = 'adam_boy' and version = 2;
   -- v1 fixture reference (inserted directly: uploads always go to the latest version), then v2 proposed if absent.
   insert into public.character_reference_assets(catalog_character_id, spec_version, asset_kind, view, object_path, mime_type, size_bytes, provenance, status)
   values ('adam_boy', 1, 'rendered_reference', 'front', 'canonical/adam_boy/v1/sqltest-front.png', 'image/png', 10, 'uploaded_artwork', 'approved') returning id into v_ref1;

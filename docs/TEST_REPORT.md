@@ -2,6 +2,17 @@
 
 Actual results only. Newest first.
 
+## 2026-10-20 — adam_boy v2 preflight (no spending)
+- Pushed earlier today (owner-authorised): `614a100..6ca1bcf`. This entry is local only.
+- Fixes: emblem-aware text rule for v2 sheets (default rule unchanged for everything else); explicit
+  `delivery: "inline"`; worst-case reservation (full 32,768-token output limit billed as thinking) required as the
+  confirmed amount; canonical artwork recorded without a workspace (`--org` refused).
+- Unit **199/199** (new: text-rule override in both adapters, default unchanged; school outfit in every v2 prompt;
+  approved spec JSON unchanged; ledger without organization). Typecheck app + worker clean; worker 13/13; e2e
+  generate 24/24; SQL spend guard 22, generation gate 4, spec pinning 16/16 (now state-independent).
+- Local DB verified read-only: spec v2 approved; design sheet `58b04306…` pending, SHA-256 matches; v1 manifest
+  prompts/keys unchanged; approved v2 spec JSON = code.
+
 ## 2026-10-20 — adam_boy v2 review (owner approved the visual direction), no push
 - Push of `bdac329` + `d5d3110` NOT done: a fast-forward would also publish `63ee54b` (not yet approved). Fresh
   `ls-remote`: rebuild/v1 = `614a100`, main = `2a3f426`; tree clean; no secrets, images or env files in the range.

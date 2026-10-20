@@ -5,7 +5,10 @@
  * Default is a DRY RUN: prints the exact prompt, request key, size, planning estimate (researched, UNVERIFIED price)
  * and the gates that would block — no network, no database. `--manifest <file>` writes the whole package as JSON.
  * A live call needs ALL of the gates of scripts/ai-pilot.ts:
- *   --live --confirm-cents <N ≤ 500> --org <workspace id>
+ *   --live --confirm-cents <N ≥ the WORST-CASE reservation, ≤ 500>
+ *   Canonical artwork belongs to no workspace: the spend entry is recorded without an organization (--org is refused).
+ *   The spend guard reserves the DOCUMENTED WORST CASE before the call (one final 4K image + the model's full output
+ *   token limit as billed thinking/text + input), not the planning estimate; settlement records the measured cost.
  *   LIMO_GENERATION_MODE=live, LIMO_ENABLE_PAID_GENERATION=true, GEMINI_API_KEY, LIMO_AI_SPEND_SCOPE,
  *   SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, feature flag paid_generation on, registry row google_character_image_v1
  *   enabled with an owner-verified price, the spend scope enabled with room, and N >= the verified estimate.
@@ -26,7 +29,7 @@ import { killSwitchOn, paidCallBlockers, type CapabilityAdapter } from '../../li
 import { executeOperation, OperationBlockedError } from '../../lib/providers/execute.ts';
 import { generationMode } from '../../lib/providers/registry.ts';
 import { blockedFetch } from '../../lib/providers/http.ts';
-import { geminiCharacterAdapter, geminiImageAdapter, GEMINI_CHARACTER_MODEL } from '../../lib/providers/adapters/gemini-image.ts';
+import { geminiCharacterAdapter, geminiImageAdapter, GEMINI_CHARACTER_MODEL, GEMINI_PRO_IMAGE_MAX_OUTPUT_TOKENS, THINKING_ALLOWANCE_TOKENS } from '../../lib/providers/adapters/gemini-image.ts';
 import { sheetFromRegistry, type RegistryRow } from '../../lib/providers/registry-prices.ts';
 import { dbSpendGuard } from '../../lib/providers/spend-db.ts';
 import { RESEARCHED_PRICES } from '../../lib/providers/prices.ts';
@@ -50,7 +53,7 @@ const out = arg('out') ?? join(tmpdir(), 'limo-artwork');
 const version = Number(arg('version') ?? 1);
 const pkg = (() => {
   try {
-    return artworkPackage(character, PACKAGES[character]!, arg('org') ?? '00000000-0000-0000-0000-000000000000', version);
+    return artworkPackage(character, PACKAGES[character]!, '', version);
   } catch {
     console.error(`no design spec v${arg('version')} for ${character}`);
     process.exit(2);
@@ -59,12 +62,14 @@ const pkg = (() => {
 
 function adapterFor(characterSheet: boolean, fetch: Parameters<typeof geminiImageAdapter>[0]['fetch'], apiKey: string, loadAsset: (id: string) => Promise<{ bytes: Uint8Array; mime: string }>): CapabilityAdapter {
   const cfg = { apiKey, fetch, model: GEMINI_CHARACTER_MODEL, loadAsset };
-  return (characterSheet ? geminiCharacterAdapter(cfg) : geminiImageAdapter(cfg)) as CapabilityAdapter;
+  const a = (characterSheet ? geminiCharacterAdapter(cfg) : geminiImageAdapter(cfg)) as CapabilityAdapter;
+  // Reserve / confirm the worst case: the full output-token limit billed as thinking/text (cannot be capped for this model).
+  return { ...a, estimateUsage: (r: never) => ({ ...a.estimateUsage(r), outputTokens: GEMINI_PRO_IMAGE_MAX_OUTPUT_TOKENS }) } as CapabilityAdapter;
 }
 
 async function main() {
   if (arg('manifest')) {
-    writeFileSync(arg('manifest')!, `${JSON.stringify({ ...pkg, sheets: pkg.sheets.map((s) => ({ ...s, request: { ...s.request, organizationId: '<workspace id>' } })) }, null, 2)}\n`);
+    writeFileSync(arg('manifest')!, `${JSON.stringify({ ...pkg, sheets: pkg.sheets.map((s) => ({ ...s, request: { ...s.request, organizationId: '(none: platform-level canonical artwork)' } })) }, null, 2)}\n`);
     console.log('manifest written', arg('manifest'), `${pkg.sheets.length} sheets`);
     return;
   }
@@ -79,9 +84,12 @@ async function main() {
 
   if (!live) {
     const a = adapterFor(sheet.needsApprovedFront, blockedFetch(), 'dry-run', noAssets);
-    const usage = a.estimateUsage(sheet.request as never);
+    const worstUsage = a.estimateUsage(sheet.request as never);
+    const usage = { ...worstUsage, outputTokens: THINKING_ALLOWANCE_TOKENS };
     const researched = RESEARCHED_PRICES[pkg.priceKey];
-    const cost = researched ? operationCost({ ...researched, verifiedAt: new Date().toISOString(), verifiedBy: 'planning-estimate' }, usage) : null;
+    const planning = researched ? { ...researched, verifiedAt: new Date().toISOString(), verifiedBy: 'planning-estimate' } : null;
+    const cost = planning ? operationCost(planning, usage) : null;
+    const worst = planning ? operationCost(planning, worstUsage) : null;
     // Exact HTTP request the adapter would send, captured by a fetch that never touches the network (no key read).
     let httpRequest: { method?: string; url: string; headers: Record<string, string>; body: unknown } | null = null;
     const capture = adapterFor(sheet.needsApprovedFront, async (url, init) => {
@@ -97,7 +105,14 @@ async function main() {
       package: pkg.id, sheet: sheet.slot, mode: 'dry-run (nothing sent, no key read)', model: pkg.model, registry: pkg.registryCode, size: sheet.request.size, requestKey: sheet.request.requestKey,
       specVersion: pkg.specVersion, designSource: pkg.designSource, needsApprovedFront: sheet.needsApprovedFront, usage,
       planningEstimateUsd: cost ? cost.micros / 1e6 : null, planningEstimateLines: cost?.lines.map((l) => ({ unit: l.unit, quantity: l.quantity, usd: l.micros / 1e6 })) ?? null,
-      estimateNotes: ['thinking output is an allowance (always on for Gemini 3 image models, billed as text output; real count unknown until the first call)', 'billing of interim thinking images is not documented (unverified)'],
+      worstCaseReservationUsd: worst ? worst.micros / 1e6 : null, worstCaseReservationCents: worst?.cents ?? null, worstCaseLines: worst?.lines.map((l) => ({ unit: l.unit, quantity: l.quantity, usd: l.micros / 1e6 })) ?? null,
+      estimateNotes: [
+        'expected: thinking output is a 2,000-token allowance (always on for Gemini 3 image models, billed as text output at the text rate; the real count is only known after the call)',
+        `worst case reserved before the call: the model's full output-token limit (${GEMINI_PRO_IMAGE_MAX_OUTPUT_TOKENS}) billed as thinking/text + one final image + input; interim thought images are documented as not charged; whether thinking always stays inside the output limit is not documented`,
+        'LIMO can refuse to START a call above the reservation/budget; it cannot stop a provider from billing more for a call already sent — settlement records the measured cost and flags any overrun',
+      ],
+      organization: 'none (platform-level canonical artwork; not attributed to any workspace)',
+      primaryOutfit: pkg.primaryOutfit, textRule: pkg.textRule,
       priceSource: researched?.source ?? null, priceVerified: false, killSwitch: killSwitchOn(env),
       wouldBlock: paidCallBlockers({ env, capability: a.capability as never, capabilityApproved: false, providerEnabledInRegistry: false, priceVerified: false, estimateCents: null, remainingBudgetCents: 0, confirmAboveCents: 0, userConfirmedCents: null, missingReferences: [...(sheet.needsApprovedFront ? ['approved front'] : []), ...(pkg.designSource ? ['design sheet upload (--design-asset)'] : [])], sourceApproved: true }),
       upload: sheet.upload, identityChecklist: pkg.identityChecklist, reviewChecklist: pkg.reviewChecklist, prompt: sheet.request.prompt, httpRequest,
@@ -112,8 +127,11 @@ async function main() {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY');
   if (!env.GEMINI_API_KEY) missing.push('GEMINI_API_KEY');
   const confirm = Number(arg('confirm-cents'));
-  if (!Number.isInteger(confirm) || confirm <= 0 || confirm > 500) missing.push('--confirm-cents <estimate in cents, at most 500 = the $5 cap>');
-  if (!arg('org')) missing.push('--org <workspace id>');
+  if (!Number.isInteger(confirm) || confirm <= 0 || confirm > 500) missing.push('--confirm-cents <worst-case reservation in cents (see the dry run), at most 500 = the $5 cap>');
+  if (arg('org')) {
+    console.error('refused (nothing sent): canonical artwork is platform-level — do not attribute it to a workspace (remove --org)');
+    process.exit(2);
+  }
   if (sheet.needsApprovedFront && !/^[0-9a-f-]{36}$/.test(arg('front-asset') ?? '')) missing.push('--front-asset <id of the owner-approved front>');
   if (pkg.designSource && !/^[0-9a-f-]{36}$/.test(arg('design-asset') ?? '')) missing.push('--design-asset <id of the private design-sheet upload>');
   if (missing.length) {

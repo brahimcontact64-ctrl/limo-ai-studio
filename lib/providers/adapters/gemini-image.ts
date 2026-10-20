@@ -54,6 +54,12 @@ export const imageSizeFor = (width: number, height: number): ImageSize => (Math.
 interface InteractionImage { type: string; data?: string; mime_type?: string }
 /** Thinking is always on for Gemini 3 image models and billed as text output; budgeting allowance (assumption, not a documented figure). */
 export const THINKING_ALLOWANCE_TOKENS = 2_000;
+/**
+ * Output token limit of gemini-3-pro-image (official model page, re-read 2026-10-20: 32,768). Used for the WORST-CASE
+ * reservation of canonical artwork calls (thinking cannot be disabled or limited for this model; interim "thought
+ * images" are documented as not charged). Whether thinking always stays inside this limit is not documented.
+ */
+export const GEMINI_PRO_IMAGE_MAX_OUTPUT_TOKENS = 32_768;
 /** Output format: the API reference lists `image/jpeg` as the only image MIME type. */
 export const GEMINI_IMAGE_MIME = 'image/jpeg';
 
@@ -95,7 +101,8 @@ export function billableTokens(u: ProviderUsage | undefined): { inputTokens: num
 const refine = (status: number, body: string) => (status === 400 && /safety|blocked|prohibited|policy/i.test(body) ? 'content_refused' : null);
 
 async function interact(cfg: GeminiImageConfig, model: string, parts: unknown[], aspect: string, size: ImageSize, signal: AbortSignal): Promise<Interaction> {
-  const body = { model, input: parts, response_format: { type: 'image', mime_type: GEMINI_IMAGE_MIME, aspect_ratio: aspect, image_size: size } };
+  // delivery 'inline' (documented enum inline | uri): the image bytes come back in the response, which imagesOf reads.
+  const body = { model, input: parts, response_format: { type: 'image', mime_type: GEMINI_IMAGE_MIME, aspect_ratio: aspect, image_size: size, delivery: 'inline' } };
   const res = await requestJson<Interaction>(cfg.fetch, `${GEMINI_BASE}/interactions`, {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': cfg.apiKey }, body: JSON.stringify(body), timeoutMs: cfg.timeoutMs ?? 120_000, signal,
   }, refine);
@@ -128,7 +135,7 @@ export function geminiImageAdapter(cfg: GeminiImageConfig): CapabilityAdapter<Im
       if (r.inputAssetIds.length > limit) throw new ProviderError('invalid_request', `at most ${limit} input images for ${model}`);
       const inputs = await Promise.all(r.inputAssetIds.map((id) => cfg.loadAsset(id)));
       const keep = r.task === 'edit' ? 'Keep the product in the input photo exactly as it is (shape, colours, label, proportions); change only what is asked.' : '';
-      const prompt = [r.prompt, keep, NO_TEXT_RULE].filter(Boolean).join('\n');
+      const prompt = [r.prompt, keep, r.textRule ?? NO_TEXT_RULE].filter(Boolean).join('\n');
       const files: NonNullable<CapabilityResult['files']> = [];
       let inTok = 0;
       let outTok = 0;
@@ -162,7 +169,7 @@ export function geminiCharacterAdapter(cfg: GeminiImageConfig): CapabilityAdapte
       if (refIds.length > limit) throw new ProviderError('invalid_request', `at most ${limit} character reference images for ${model}`);
       const refs = await Promise.all(refIds.map((id) => cfg.loadAsset(id)));
       const who = r.references.map((x) => `${x.character} (design spec v${x.specVersion})`).join(', ');
-      const prompt = `${r.prompt}\nThe reference images show the approved canonical characters ${who}. Keep their identity exactly: head shape, crown, colours, face layout, proportions and outfit details. ${NO_TEXT_RULE}`;
+      const prompt = `${r.prompt}\nThe reference images show the approved canonical characters ${who}. Keep their identity exactly: head shape, top of the head (crown, or none — as in the references), colours, face layout, proportions and outfit details. ${r.textRule ?? NO_TEXT_RULE}`;
       const files: NonNullable<CapabilityResult['files']> = [];
       let inTok = 0;
       let outTok = 0;

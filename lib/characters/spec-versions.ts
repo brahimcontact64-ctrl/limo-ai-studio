@@ -26,6 +26,8 @@ export interface SpecRevision {
   designSource?: DesignSource;
   /** Continuity notes to review later (e.g. differences from family members still on an older version). */
   continuityFlags: string[];
+  /** Text/mark rule for generated sheets of this version (replaces the default "no logos" rule); absent = default. */
+  imageTextRule?: string;
 }
 
 const ADAM_BOY_V1 = canonFor('adam_boy')!;
@@ -128,6 +130,7 @@ export const SPEC_REVISIONS: Readonly<Record<string, readonly SpecRevision[]>> =
       version: 2,
       spec: adamBoyV2(),
       designSource: ADAM_BOY_V2_SOURCE,
+      imageTextRule: 'Do not render any words, letters, numbers, prices, labels, brand logos or watermarks in the image. The only permitted mark is the small decorative potato emblem on the backpack flap, which is part of the approved character design (a character illustration, not a commercial logo).',
       changes: [
         'Crown: two-leaf green sprout (left leaf larger) → none (no sprout, leaves, stem or hair).',
         'Head: lumpy oval with a soft bump on the upper left → smooth egg shape, clearly taller than wide.',

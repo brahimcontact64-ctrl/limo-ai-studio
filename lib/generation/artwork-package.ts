@@ -42,6 +42,14 @@ export interface ArtworkPackage {
   specVersion: number;
   /** Owner-approved design source sent with every request (metadata; the file stays private). */
   designSource: { sha256: string; provenance: string; limits: string } | null;
+  /**
+   * Outfit every sheet is drawn in: the version's PRIMARY outfit (adam_boy v2: school). Canonical view/expression
+   * references are registered without an outfit key — "no outfit key" means the primary outfit of their spec version,
+   * which is what readiness counts; an outfit key is only for alternative outfits.
+   */
+  primaryOutfit: { key: string; description: string };
+  /** Mark rule sent instead of the adapter default (null = default: no text, no logos). */
+  textRule: string | null;
   model: string;
   registryCode: string;
   priceKey: string;
@@ -65,6 +73,7 @@ export function artworkPackage(character: string, sheets: SheetKind[], organizat
   const spec = specFor(character, version);
   if (!spec) throw new Error(`unknown spec ${character} v${version}`);
   const source = specRevision(character, version)?.designSource ?? null;
+  const textRule = specRevision(character, version)?.imageTextRule ?? null;
   const size = { ...SHEET_SIZE };
   const key = priceKey('google', GEMINI_CHARACTER_MODEL, imageSizeFor(size.width, size.height));
   const out: PackageSheet[] = sheets.map((sheet) => {
@@ -77,8 +86,8 @@ export function artworkPackage(character: string, sheets: SheetKind[], organizat
       ? 'The attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, sprout, potato-eye spots, colours, face layout, proportions, outfit).'
       : 'The first attached image is the APPROVED canonical front view of this exact character: keep the identity identical (head shape, face layout, skin colour and speckles, eyes, cheeks, proportions, outfit and backpack).';
     const prompt = [sheetPrompt(spec, sheet), isFront ? '' : frontNote, sourceNote].filter(Boolean).join('\n');
-    const requestKey = `artwork-${character}-v${version}-${slot.replace(':', '-')}-${sha256(JSON.stringify(source ? [GEMINI_CHARACTER_MODEL, prompt, size, source.sha256] : [GEMINI_CHARACTER_MODEL, prompt, size])).slice(0, 16)}`;
-    const base = { organizationId, requestKey, locale: 'en' as const, prompt, size, count: 1 };
+    const requestKey = `artwork-${character}-v${version}-${slot.replace(':', '-')}-${sha256(JSON.stringify(source ? [GEMINI_CHARACTER_MODEL, prompt, size, source.sha256, ...(textRule ? [textRule] : [])] : [GEMINI_CHARACTER_MODEL, prompt, size])).slice(0, 16)}`;
+    const base = { organizationId, requestKey, locale: 'en' as const, prompt, size, count: 1, ...(textRule ? { textRule } : {}) };
     const request: ImageRequest | CharacterImageRequest = isFront
       ? { ...base, kind: 'image', task: 'generate', inputAssetIds: source ? [DESIGN_SOURCE] : [] }
       : { ...base, kind: 'character_image', references: [{ character, specVersion: version, assetIds: source ? [APPROVED_FRONT, DESIGN_SOURCE] : [APPROVED_FRONT] }] };
@@ -89,7 +98,8 @@ export function artworkPackage(character: string, sheets: SheetKind[], organizat
   });
   const sheetPrice = RESEARCHED_PRICES[key];
   return {
-    id: `${character}.artwork.v${version}`, character, specVersion: version, designSource: source ? { sha256: source.sha256, provenance: source.provenance, limits: source.limits } : null, model: GEMINI_CHARACTER_MODEL, registryCode: ARTWORK_REGISTRY_CODE, priceKey: key,
+    id: `${character}.artwork.v${version}`, character, specVersion: version, designSource: source ? { sha256: source.sha256, provenance: source.provenance, limits: source.limits } : null,
+    primaryOutfit: { key: spec.outfits[0]!.key, description: spec.outfits[0]!.description }, textRule, model: GEMINI_CHARACTER_MODEL, registryCode: ARTWORK_REGISTRY_CODE, priceKey: key,
     researchedUsdPerImage: sheetPrice?.prices.image != null ? sheetPrice.prices.image / 1_000_000 : null,
     identityChecklist: identityChecks(spec), reviewChecklist: REVIEW_CHECKLIST, sheets: out,
   };
